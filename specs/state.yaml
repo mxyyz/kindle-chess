@@ -8,29 +8,25 @@ session:
 vcs:
   kind: git
   branch: puzzle-implementation
-  # head stale after next commit — re-read with git rev-parse, don't trust.
-  head: 016d6aeb5db6a69822415203a9ff6865e9e9fbcb
+  head: d98d6d5c3a82d97b2db8e7bd49e639debaa2c8d8
+  # Remote requires PRs — no direct push to main.
+  # USER ACTION: push branch + open PR puzzle-implementation -> main.
 
 handoff:
   next_skill: survey-context
-  # Phase 1 landed in 3 scoped commits (ac9b365, 3471285, 016d6ae).
-  # Phase 2 plan: specs/WORKFLOW-e01-phases.md. Start a new session with
-  # survey-context, then assess-impact -> plan-refactor for t05.
-  # LANDMINE: puzzle-feature WIP (ui/renderer/widgets/board/game/oauth,
-  # build.rs) is still uncommitted and unrelated to e01 — resolve before
-  # release-branch or it rides into main.
+  # Phase 1 READY TO LAND via PR. 71 tests green, build clean, fmt clean.
+  # Phase 2 ready after merge: assess-impact -> plan-refactor for t05.
+  # Plan: specs/WORKFLOW-e01-phases.md Part 2.
+  # Landmine RESOLVED: puzzle-feature WIP was already committed
+  # (004190f..65b3f02), not uncommitted. No stray work in tree.
 
 notes:
-  # Phase 1 complete (t01-t04): 39 bitboard + 22 puzzle + 4 integration
-  # tests. tasks.yaml was stale (all pending), corrected.
-  phase1: complete
-  # t02 finished correctly: body-fetcher PuzzleFetcher seam in
-  # src/api/traits.rs, real + mock impls, api.rs puzzle fetches refactored,
-  # [lib] target added, 4 real integration tests. oauth/board -> t09/t10.
-  t02_divergence: resolved
-  # rust.yml already runs cargo test + build (predates epic); t14/t15
-  # clippy/fmt/coverage still pending.
+  phase1: ready_to_land
+  phase1_commits: [004190f, 916dd0f, 101b567, a354370, 65b3f02, ac9b365, 3471285, 016d6ae, d98d6d5]
+  # 61 lib + 7 api_puzzle + 3 lib integration = 71 tests, all green.
+  # clippy: 6 warnings (large_enum_variant, non-blocking).
+  # fmt: clean. build: clean.
   ci: partial
 
 metrics:
-  story_start: 2026-10-18T17:37:25Z
+  phase1_ready: 2026-10-18T22:50:00Z
