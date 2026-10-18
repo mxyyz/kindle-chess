@@ -137,10 +137,7 @@ impl PuzzleSession {
         // solution move is what actually gets applied, so an under-promotion
         // the user enters as a queen (the board widget's default) is still
         // accepted as correct.
-        if uci.len() < 4
-            || expected.len() < 4
-            || uci.as_bytes()[..4] != expected.as_bytes()[..4]
-        {
+        if uci.len() < 4 || expected.len() < 4 || uci.as_bytes()[..4] != expected.as_bytes()[..4] {
             self.status = PuzzleStatus::Wrong;
             return self.status.clone();
         }
@@ -392,7 +389,7 @@ impl Default for PuzzleParams {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::models::bitboard::{square, Color, Piece};
+    use crate::models::bitboard::{Color, Piece, square};
 
     fn puzzle(fen: &str, solution: &[&str], last_move: Option<&str>) -> Puzzle {
         Puzzle {
@@ -435,7 +432,10 @@ mod tests {
         assert!(!s.accepts_input());
         // Playing the reply (e4d4) advances the position and hands control back.
         assert_eq!(s.apply_opponent_reply(), PuzzleStatus::Solving);
-        assert_eq!(s.position.piece_at(square(3, 3)), Some((Color::White, Piece::Queen)));
+        assert_eq!(
+            s.position.piece_at(square(3, 3)),
+            Some((Color::White, Piece::Queen))
+        );
         assert!(s.accepts_input());
         // Final move finishes the puzzle.
         assert_eq!(s.try_move("e5d4"), PuzzleStatus::Solved);
@@ -453,7 +453,10 @@ mod tests {
         let before = s.position.clone();
         assert_eq!(s.try_move("g4h2"), PuzzleStatus::Wrong);
         // Position untouched after a wrong move.
-        assert_eq!(s.position.piece_at(square(7, 1)), before.piece_at(square(7, 1)));
+        assert_eq!(
+            s.position.piece_at(square(7, 1)),
+            before.piece_at(square(7, 1))
+        );
         assert_eq!(s.progress, 0);
         // Retrying with the right move still works.
         assert_eq!(s.try_move("g4f2"), PuzzleStatus::Correct);
@@ -464,16 +467,238 @@ mod tests {
         // Solution is an under-promotion to a knight; the board widget always
         // submits a queen suffix, so try_move must match on from/to and apply
         // the canonical solution move.
-        let mut s = PuzzleSession::new(puzzle(
-            "4k3/P7/8/8/8/8/8/4K3 w - - 0 1",
-            &["a7a8n"],
-            None,
-        ))
-        .unwrap();
+        let mut s =
+            PuzzleSession::new(puzzle("4k3/P7/8/8/8/8/8/4K3 w - - 0 1", &["a7a8n"], None)).unwrap();
         assert_eq!(s.try_move("a7a8q"), PuzzleStatus::Solved);
         assert_eq!(
             s.position.piece_at(square(0, 7)),
             Some((Color::White, Piece::Knight))
         );
+    }
+
+    // ========================================================================
+    // PuzzleSession Construction Tests
+    // ========================================================================
+
+    #[test]
+    fn puzzle_session_from_valid_puzzle() {
+        let s = PuzzleSession::new(puzzle(
+            "4k2r/4bppp/1qpB4/1p2p3/4Q1n1/5N2/PPP2PPP/R2R2K1 b k - 0 1",
+            &["g4f2", "e4d4", "e5d4"],
+            Some("d3e4"),
+        ))
+        .unwrap();
+        assert!(!s.solver_white);
+        assert_eq!(s.status, PuzzleStatus::Solving);
+        assert_eq!(s.progress, 0);
+    }
+
+    #[test]
+    fn puzzle_session_from_puzzle_without_fen() {
+        let p = Puzzle {
+            id: "test".to_string(),
+            rating: 1500,
+            plays: 0,
+            solution: vec!["e2e4".to_string()],
+            themes: vec![],
+            initial_ply: 0,
+            fen: None,
+            last_move: None,
+        };
+        let result = PuzzleSession::new(p);
+        assert!(result.is_err(), "Should fail without FEN");
+    }
+
+    #[test]
+    fn puzzle_session_from_invalid_fen() {
+        let p = Puzzle {
+            id: "test".to_string(),
+            rating: 1500,
+            plays: 0,
+            solution: vec!["e2e4".to_string()],
+            themes: vec![],
+            initial_ply: 0,
+            fen: Some("invalid fen".to_string()),
+            last_move: None,
+        };
+        let result = PuzzleSession::new(p);
+        assert!(result.is_err(), "Should fail with invalid FEN");
+    }
+
+    // ========================================================================
+    // State Transition Tests
+    // ========================================================================
+
+    #[test]
+    fn state_transition_solving_to_correct() {
+        let mut s = PuzzleSession::new(puzzle(
+            "4k2r/4bppp/1qpB4/1p2p3/4Q1n1/5N2/PPP2PPP/R2R2K1 b k - 0 1",
+            &["g4f2", "e4d4", "e5d4"],
+            Some("d3e4"),
+        ))
+        .unwrap();
+        assert_eq!(s.status, PuzzleStatus::Solving);
+        assert_eq!(s.try_move("g4f2"), PuzzleStatus::Correct);
+        assert_eq!(s.status, PuzzleStatus::Correct);
+    }
+
+    #[test]
+    fn state_transition_correct_to_solving() {
+        let mut s = PuzzleSession::new(puzzle(
+            "4k2r/4bppp/1qpB4/1p2p3/4Q1n1/5N2/PPP2PPP/R2R2K1 b k - 0 1",
+            &["g4f2", "e4d4", "e5d4"],
+            Some("d3e4"),
+        ))
+        .unwrap();
+        s.try_move("g4f2");
+        assert_eq!(s.status, PuzzleStatus::Correct);
+        assert_eq!(s.apply_opponent_reply(), PuzzleStatus::Solving);
+        assert_eq!(s.status, PuzzleStatus::Solving);
+    }
+
+    #[test]
+    fn state_transition_solving_to_wrong() {
+        let mut s = PuzzleSession::new(puzzle(
+            "4k2r/4bppp/1qpB4/1p2p3/4Q1n1/5N2/PPP2PPP/R2R2K1 b k - 0 1",
+            &["g4f2", "e4d4", "e5d4"],
+            Some("d3e4"),
+        ))
+        .unwrap();
+        assert_eq!(s.try_move("g4h2"), PuzzleStatus::Wrong);
+        assert_eq!(s.status, PuzzleStatus::Wrong);
+    }
+
+    #[test]
+    fn state_transition_solving_to_solved() {
+        let mut s =
+            PuzzleSession::new(puzzle("4k3/P7/8/8/8/8/8/4K3 w - - 0 1", &["a7a8q"], None)).unwrap();
+        assert_eq!(s.try_move("a7a8q"), PuzzleStatus::Solved);
+        assert_eq!(s.status, PuzzleStatus::Solved);
+    }
+
+    // ========================================================================
+    // Move Validation Tests
+    // ========================================================================
+
+    #[test]
+    fn move_validation_correct_move_accepted() {
+        let mut s = PuzzleSession::new(puzzle(
+            "4k2r/4bppp/1qpB4/1p2p3/4Q1n1/5N2/PPP2PPP/R2R2K1 b k - 0 1",
+            &["g4f2", "e4d4"],
+            Some("d3e4"),
+        ))
+        .unwrap();
+        assert_eq!(s.try_move("g4f2"), PuzzleStatus::Correct);
+    }
+
+    #[test]
+    fn move_validation_wrong_move_rejected() {
+        let mut s = PuzzleSession::new(puzzle(
+            "4k2r/4bppp/1qpB4/1p2p3/4Q1n1/5N2/PPP2PPP/R2R2K1 b k - 0 1",
+            &["g4f2"],
+            Some("d3e4"),
+        ))
+        .unwrap();
+        assert_eq!(s.try_move("g4h2"), PuzzleStatus::Wrong);
+    }
+
+    #[test]
+    fn move_validation_no_input_when_not_accepting() {
+        let mut s = PuzzleSession::new(puzzle(
+            "4k2r/4bppp/1qpB4/1p2p3/4Q1n1/5N2/PPP2PPP/R2R2K1 b k - 0 1",
+            &["g4f2", "e4d4"],
+            Some("d3e4"),
+        ))
+        .unwrap();
+        s.try_move("g4f2");
+        assert!(!s.accepts_input());
+        let before_status = s.status.clone();
+        let _ = s.try_move("e4d4");
+        assert_eq!(s.status, before_status);
+    }
+
+    #[test]
+    fn move_validation_partial_uci_match() {
+        let mut s =
+            PuzzleSession::new(puzzle("4k3/P7/8/8/8/8/8/4K3 w - - 0 1", &["a7a8q"], None)).unwrap();
+        assert_eq!(s.try_move("a7a8n"), PuzzleStatus::Solved);
+    }
+
+    // ========================================================================
+    // Opponent Reply Tests
+    // ========================================================================
+
+    #[test]
+    fn opponent_reply_applied_after_correct_move() {
+        let mut s = PuzzleSession::new(puzzle(
+            "4k2r/4bppp/1qpB4/1p2p3/4Q1n1/5N2/PPP2PPP/R2R2K1 b k - 0 1",
+            &["g4f2", "e4d4", "e5d4"],
+            Some("d3e4"),
+        ))
+        .unwrap();
+        s.try_move("g4f2");
+        assert!(s.opponent_reply_pending());
+        assert_eq!(s.apply_opponent_reply(), PuzzleStatus::Solving);
+    }
+
+    #[test]
+    fn opponent_reply_not_applied_when_not_pending() {
+        let mut s = PuzzleSession::new(puzzle(
+            "4k2r/4bppp/1qpB4/1p2p3/4Q1n1/5N2/PPP2PPP/R2R2K1 b k - 0 1",
+            &["g4f2"],
+            Some("d3e4"),
+        ))
+        .unwrap();
+        let before_status = s.status.clone();
+        assert_eq!(s.apply_opponent_reply(), before_status);
+    }
+
+    #[test]
+    fn opponent_reply_final_transitions_to_solved() {
+        let mut s = PuzzleSession::new(puzzle(
+            "4k2r/4bppp/1qpB4/1p2p3/4Q1n1/5N2/PPP2PPP/R2R2K1 b k - 0 1",
+            &["g4f2", "e4d4"],
+            Some("d3e4"),
+        ))
+        .unwrap();
+        s.try_move("g4f2");
+        assert_eq!(s.apply_opponent_reply(), PuzzleStatus::Solved);
+        assert_eq!(s.status, PuzzleStatus::Solved);
+    }
+
+    // ========================================================================
+    // PuzzleParams Tests
+    // ========================================================================
+
+    #[test]
+    fn puzzle_params_default() {
+        let params = PuzzleParams::default();
+        assert_eq!(params.difficulty, Difficulty::Normal);
+        assert_eq!(params.phase, PuzzlePhase::Any);
+        assert_eq!(params.color, PuzzleColor::Random);
+    }
+
+    #[test]
+    fn difficulty_cycling() {
+        assert_eq!(Difficulty::Easiest.next(), Difficulty::Easier);
+        assert_eq!(Difficulty::Easier.next(), Difficulty::Normal);
+        assert_eq!(Difficulty::Normal.next(), Difficulty::Harder);
+        assert_eq!(Difficulty::Harder.next(), Difficulty::Hardest);
+        assert_eq!(Difficulty::Hardest.next(), Difficulty::Easiest);
+    }
+
+    #[test]
+    fn puzzle_phase_cycling() {
+        assert_eq!(PuzzlePhase::Any.next(), PuzzlePhase::Opening);
+        assert_eq!(PuzzlePhase::Opening.next(), PuzzlePhase::Middlegame);
+        assert_eq!(PuzzlePhase::Middlegame.next(), PuzzlePhase::Endgame);
+        assert_eq!(PuzzlePhase::Endgame.next(), PuzzlePhase::RookEndgame);
+    }
+
+    #[test]
+    fn puzzle_color_cycling() {
+        assert_eq!(PuzzleColor::Random.next(), PuzzleColor::White);
+        assert_eq!(PuzzleColor::White.next(), PuzzleColor::Black);
+        assert_eq!(PuzzleColor::Black.next(), PuzzleColor::Random);
     }
 }
