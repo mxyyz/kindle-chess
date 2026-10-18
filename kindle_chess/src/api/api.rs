@@ -1,3 +1,4 @@
+use crate::api::traits::{PuzzleFetcher, ReqwestFetcher};
 use crate::models::oauth::TokenInfo;
 use crate::models::puzzle::{Puzzle, PuzzleParams, PuzzleResponse};
 
@@ -10,16 +11,33 @@ use serde::Deserialize;
 /// GET /api/puzzle/daily — the daily puzzle. No authentication required. This
 /// endpoint includes the puzzle `fen` directly.
 pub async fn get_daily_puzzle() -> Result<Puzzle, Box<dyn std::error::Error>> {
-    let url = Url::parse(&format!("{}/puzzle/daily", env!("LICHESS_API_BASE")))?;
-    let response: PuzzleResponse = reqwest::get(url).await?.json().await?;
+    get_daily_puzzle_with(&ReqwestFetcher::new()).await
+}
+
+/// `get_daily_puzzle` with an injected fetcher (for testing the parse).
+pub async fn get_daily_puzzle_with(
+    fetcher: &impl PuzzleFetcher,
+) -> Result<Puzzle, Box<dyn std::error::Error>> {
+    let url = format!("{}/puzzle/daily", env!("LICHESS_API_BASE"));
+    let body = fetcher.get(&url).await.map_err(|e| e.to_string())?;
+    let response: PuzzleResponse = serde_json::from_str(&body)?;
     Ok(response.puzzle)
 }
 
 /// GET /api/puzzle/{id} — a puzzle by id. No authentication required. Unlike
 /// `/puzzle/next`, this endpoint includes the `fen` and `lastMove` fields.
 pub async fn get_puzzle_by_id(id: &str) -> Result<Puzzle, Box<dyn std::error::Error>> {
-    let url = Url::parse(&format!("{}/puzzle/{}", env!("LICHESS_API_BASE"), id))?;
-    let response: PuzzleResponse = reqwest::get(url).await?.json().await?;
+    get_puzzle_by_id_with(&ReqwestFetcher::new(), id).await
+}
+
+/// `get_puzzle_by_id` with an injected fetcher (for testing the parse).
+pub async fn get_puzzle_by_id_with(
+    fetcher: &impl PuzzleFetcher,
+    id: &str,
+) -> Result<Puzzle, Box<dyn std::error::Error>> {
+    let url = format!("{}/puzzle/{}", env!("LICHESS_API_BASE"), id);
+    let body = fetcher.get(&url).await.map_err(|e| e.to_string())?;
+    let response: PuzzleResponse = serde_json::from_str(&body)?;
     Ok(response.puzzle)
 }
 
