@@ -248,7 +248,7 @@ impl BoardWidget {
                     let display_file = if self.flipped { 7 - file } else { file };
                     let display_rank = if self.flipped { 7 - rank } else { rank };
                     let x = self.area.x + (display_file as i16) * SQUARE_SIZE as i16;
-                    let y = self.area.y + ((7 - display_rank as i16)) * SQUARE_SIZE as i16;
+                    let y = self.area.y + (7 - display_rank as i16) * SQUARE_SIZE as i16;
                     renderer.draw_rectangle(
                         Rectangle::new(x, y, SQUARE_SIZE, SQUARE_SIZE),
                         bg,
@@ -265,7 +265,7 @@ impl BoardWidget {
                 }
             }
 
-            renderer.draw_rectangle(self.area.clone(), DrawColor::Black, false)?;
+            renderer.draw_rectangle(self.area, DrawColor::Black, false)?;
             // After a full paint there is nothing on screen, so any prior
             // highlight is gone too.
             self.last_drawn_selection = None;
@@ -296,19 +296,16 @@ impl BoardWidget {
         // before drawing the highlight.
         let prev_sel = self.last_drawn_selection;
         let curr_sel = self.selected_square;
-        if prev_sel != curr_sel {
-            if let Some(old) = prev_sel {
-                let old_idx = square_to_index(old);
-                if repainted & (1u64 << old_idx) == 0 {
-                    let new_piece = self
-                        .position
-                        .as_ref()
-                        .and_then(|b| b.piece_at(old_idx));
-                    // Selection clear repaints with scrub — diagonal cuts
-                    // ghost the same way a thick border does.
-                    self.repaint_square(renderer, old_idx, new_piece, true)?;
-                    repainted |= 1u64 << old_idx;
-                }
+        if prev_sel != curr_sel
+            && let Some(old) = prev_sel
+        {
+            let old_idx = square_to_index(old);
+            if repainted & (1u64 << old_idx) == 0 {
+                let new_piece = self.position.as_ref().and_then(|b| b.piece_at(old_idx));
+                // Selection clear repaints with scrub — diagonal cuts
+                // ghost the same way a thick border does.
+                self.repaint_square(renderer, old_idx, new_piece, true)?;
+                repainted |= 1u64 << old_idx;
             }
         }
 
@@ -357,7 +354,7 @@ impl BoardWidget {
     ) -> Result<(), Box<dyn std::error::Error>> {
         let file = sq % 8;
         let rank = sq / 8;
-        let is_dark = (file + rank) % 2 == 0;
+        let is_dark = (file + rank).is_multiple_of(2);
         let bg = if is_dark {
             DrawColor::DarkGray
         } else {
@@ -367,7 +364,7 @@ impl BoardWidget {
         let display_file = if self.flipped { 7 - file } else { file };
         let display_rank = if self.flipped { 7 - rank } else { rank };
         let x = self.area.x + (display_file as i16) * SQUARE_SIZE as i16;
-        let y = self.area.y + ((7 - display_rank as i16)) * SQUARE_SIZE as i16;
+        let y = self.area.y + (7 - display_rank as i16) * SQUARE_SIZE as i16;
         let rect = Rectangle::new(x, y, SQUARE_SIZE, SQUARE_SIZE);
 
         if scrub {
@@ -398,7 +395,7 @@ impl BoardWidget {
         };
         let file = sq % 8;
         let rank = sq / 8;
-        let bg = if (file + rank) % 2 == 0 {
+        let bg = if (file + rank).is_multiple_of(2) {
             DrawColor::DarkGray
         } else {
             DrawColor::LightGray
@@ -409,7 +406,7 @@ impl BoardWidget {
             + (display_file as i16) * SQUARE_SIZE as i16
             + ((SQUARE_SIZE - PIECE_DRAW_SIZE) / 2) as i16;
         let y = self.area.y
-            + ((7 - display_rank as i16)) * SQUARE_SIZE as i16
+            + (7 - display_rank as i16) * SQUARE_SIZE as i16
             + ((SQUARE_SIZE - PIECE_DRAW_SIZE) / 2) as i16;
         renderer.draw_image_alpha(x, y, PIECE_DRAW_SIZE, PIECE_DRAW_SIZE, sprite, bg)?;
         Ok(())
@@ -447,7 +444,7 @@ impl BoardWidget {
         let file = if self.flipped { 7 - sq.file } else { sq.file };
         let rank = if self.flipped { 7 - sq.rank } else { sq.rank };
         let x = self.area.x + (file as i16) * SQUARE_SIZE as i16;
-        let y = self.area.y + ((7 - rank as i16)) * SQUARE_SIZE as i16;
+        let y = self.area.y + (7 - rank as i16) * SQUARE_SIZE as i16;
         let s = SQUARE_SIZE as i16;
         let l = SEGMENT_LEN;
         let color = highlight_color(sq.file, sq.rank);
@@ -485,7 +482,7 @@ impl BoardWidget {
         let display_file = if self.flipped { 7 - file } else { file };
         let display_rank = if self.flipped { 7 - rank } else { rank };
         let x = self.area.x + (display_file as i16) * SQUARE_SIZE as i16;
-        let y = self.area.y + ((7 - display_rank as i16)) * SQUARE_SIZE as i16;
+        let y = self.area.y + (7 - display_rank as i16) * SQUARE_SIZE as i16;
         let s = SQUARE_SIZE as i16;
         let l = SEGMENT_LEN;
         let t = LAST_MOVE_STROKE;
@@ -520,7 +517,7 @@ impl BoardWidget {
 // squares get the light-square colour so the corner decorations read against
 // the background, light squares stay black.
 fn highlight_color(file: u8, rank: u8) -> DrawColor {
-    if (file + rank) % 2 == 0 {
+    if (file + rank).is_multiple_of(2) {
         DrawColor::LightGray
     } else {
         DrawColor::Black

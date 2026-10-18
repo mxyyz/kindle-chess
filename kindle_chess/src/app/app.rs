@@ -35,11 +35,11 @@ impl App {
         self.spawn_x11_listener();
 
         // Initial render of whatever is on top of the stack
-        if let Some(screen) = self.screen_stack.last_mut() {
-            if let Err(e) = screen.render(&mut self.display) {
-                error!("Initial render failed: {}", e);
-                return;
-            }
+        if let Some(screen) = self.screen_stack.last_mut()
+            && let Err(e) = screen.render(&mut self.display)
+        {
+            error!("Initial render failed: {}", e);
+            return;
         }
         info!("Initial render is done");
 
@@ -65,10 +65,10 @@ impl App {
                         && Instant::now() < bootstrap_deadline
                         && last_redraw.elapsed() >= redraw_period
                     {
-                        if let Some(screen) = self.screen_stack.last_mut() {
-                            if let Err(e) = screen.render(&mut self.display) {
-                                error!("Periodic render error: {}", e);
-                            }
+                        if let Some(screen) = self.screen_stack.last_mut()
+                            && let Err(e) = screen.render(&mut self.display)
+                        {
+                            error!("Periodic render error: {}", e);
                         }
                         last_redraw = Instant::now();
                     }
@@ -90,11 +90,11 @@ impl App {
             }
 
             // Check global triple-tap before handing to the active screen
-            if let AppEvent::Touch(ref touch) = event {
-                if self.check_triple_tap(touch) {
-                    info!("Triple-tap detected — emergency exit");
-                    break;
-                }
+            if let AppEvent::Touch(ref touch) = event
+                && self.check_triple_tap(touch)
+            {
+                info!("Triple-tap detected — emergency exit");
+                break;
             }
 
             // Delegate to the screen on top of the stack
@@ -116,19 +116,19 @@ impl App {
                 Transition::Stay => {}
 
                 Transition::Redraw => {
-                    if let Some(screen) = self.screen_stack.last_mut() {
-                        if let Err(e) = screen.render(&mut self.display) {
-                            error!("Render error: {}", e);
-                        }
+                    if let Some(screen) = self.screen_stack.last_mut()
+                        && let Err(e) = screen.render(&mut self.display)
+                    {
+                        error!("Render error: {}", e);
                     }
                 }
 
                 Transition::Push(new_screen) => {
                     self.screen_stack.push(new_screen);
-                    if let Some(screen) = self.screen_stack.last_mut() {
-                        if let Err(e) = screen.render(&mut self.display) {
-                            error!("Render error after push: {}", e);
-                        }
+                    if let Some(screen) = self.screen_stack.last_mut()
+                        && let Err(e) = screen.render(&mut self.display)
+                    {
+                        error!("Render error after push: {}", e);
                     }
                 }
 
@@ -229,10 +229,10 @@ impl App {
                             _ => None,
                         };
 
-                        if let Some(ev) = app_event {
-                            if tx.send(ev).is_err() {
-                                break; // Main thread dropped the receiver
-                            }
+                        if let Some(ev) = app_event
+                            && tx.send(ev).is_err()
+                        {
+                            break; // Main thread dropped the receiver
                         }
                     }
                     Err(e) => {

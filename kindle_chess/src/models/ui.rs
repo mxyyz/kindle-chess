@@ -137,6 +137,12 @@ impl HomeScreen {
     }
 }
 
+impl Default for HomeScreen {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 /// Decode `logo.png` and pre-scale it to its on-screen size — fit within the
 /// upper half, aspect preserved. Done once at construction so the home screen
 /// doesn't re-downscale a ~1800 px image on every redraw.
@@ -213,7 +219,7 @@ impl OngoingChessGamesScreen {
         const CENTER_X: i16 = 1072 / 2; // 336
         const CENTER_Y: i16 = 1448 / 2; // 304
         Self {
-            app: app,
+            app,
             prev_page_button: IconButton::new(
                 CENTER_X - (ICON_BUTTON_SIZE as i16 + 8),
                 CENTER_Y * 2 - (ICON_BUTTON_SIZE as i16 - 20) - 32,
@@ -297,6 +303,12 @@ impl ChessAuthScreen {
     }
 }
 
+impl Default for ChessAuthScreen {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 // ─── SettingsScreen ───────────────────────────────────────────────────────────
 // App-level settings landing page. Currently hosts only the "Check for updates"
 // entry point, but is a natural home for future toggles (telemetry, board
@@ -333,6 +345,12 @@ impl SettingsScreen {
                 true,
             ),
         }
+    }
+}
+
+impl Default for SettingsScreen {
+    fn default() -> Self {
+        Self::new()
     }
 }
 
@@ -388,6 +406,12 @@ impl UpdateScreen {
             ),
             check_started: false,
         }
+    }
+}
+
+impl Default for UpdateScreen {
+    fn default() -> Self {
+        Self::new()
     }
 }
 

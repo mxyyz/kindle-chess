@@ -1,7 +1,7 @@
 use crate::models::board_api::Turn;
 use crate::ui::events::{AppEvent, Rectangle, RectangleExt, TouchEvent, TouchKind};
 use crate::ui::renderer::{DrawColor, Renderer};
-use crate::ui::widgets::icon_button::{load_icon, Icon, IconButton, ICON_BUTTON_SIZE};
+use crate::ui::widgets::icon_button::{ICON_BUTTON_SIZE, Icon, IconButton, load_icon};
 use log::info;
 
 /// Sidebar shown below the board on the live-game screen. Displays the opponent

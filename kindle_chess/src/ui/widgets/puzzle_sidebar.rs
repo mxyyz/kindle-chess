@@ -3,8 +3,8 @@ use log::info;
 use crate::models::puzzle::PuzzleStatus;
 use crate::ui::events::{AppEvent, Rectangle, RectangleExt, TouchEvent, TouchKind};
 use crate::ui::renderer::{DrawColor, Renderer};
-use crate::ui::widgets::icon_button::{load_icon, Icon, IconButton, ICON_BUTTON_SIZE};
 use crate::ui::widgets::Button;
+use crate::ui::widgets::icon_button::{ICON_BUTTON_SIZE, Icon, IconButton, load_icon};
 
 /// Which glyph, if any, precedes the status line.
 #[derive(Clone, Copy, PartialEq)]
@@ -70,8 +70,7 @@ impl PuzzleSidebarWidget {
                 btn_y - ICON_BUTTON_SIZE as i16 - STACK_GAP,
                 "hint.png",
             ),
-            settings_button: IconButton::new(right_x, btn_y, "settings.png")
-                .with_glyph_size(90),
+            settings_button: IconButton::new(right_x, btn_y, "settings.png").with_glyph_size(90),
             next_button: Button::new(
                 next_x,
                 next_y,

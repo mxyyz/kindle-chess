@@ -13,7 +13,7 @@
 // These names are the contract between this client and .github/workflows/release.yml.
 
 use log::{info, warn};
-use reqwest::header::{HeaderMap, HeaderValue, ACCEPT, USER_AGENT};
+use reqwest::header::{ACCEPT, HeaderMap, HeaderValue, USER_AGENT};
 use semver::Version;
 use serde::Deserialize;
 
@@ -53,15 +53,23 @@ pub struct UpdateInfo {
 
 /// Hits `releases/latest` and returns the parsed JSON.
 pub async fn fetch_latest_release() -> Result<Release, Box<dyn std::error::Error>> {
-    let url = format!("https://api.github.com/repos/{}/{}/releases/latest", OWNER, REPO);
+    let url = format!(
+        "https://api.github.com/repos/{}/{}/releases/latest",
+        OWNER, REPO
+    );
 
     let mut headers = HeaderMap::new();
     // GitHub rejects requests without a User-Agent.
     let ua = format!("kindle-hello/{}", version::VERSION);
     headers.insert(USER_AGENT, HeaderValue::from_str(&ua)?);
-    headers.insert(ACCEPT, HeaderValue::from_static("application/vnd.github+json"));
+    headers.insert(
+        ACCEPT,
+        HeaderValue::from_static("application/vnd.github+json"),
+    );
 
-    let client = reqwest::Client::builder().default_headers(headers).build()?;
+    let client = reqwest::Client::builder()
+        .default_headers(headers)
+        .build()?;
 
     info!("Fetching latest release from {}", url);
     let response = client.get(&url).send().await?;

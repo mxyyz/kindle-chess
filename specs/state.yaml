@@ -9,12 +9,16 @@ vcs:
   kind: git
   branch: puzzle-implementation
   # head stale after next commit — re-read with git rev-parse, don't trust.
-  head: 65b3f0264fa381c916a953a877a24cc47bdbf253
+  head: 016d6aeb5db6a69822415203a9ff6865e9e9fbcb
 
 handoff:
-  next_skill: commit-message
-  # Tree mixes finished Phase-1 tests with puzzle work; separate before
-  # resuming e01 Phase 2.
+  next_skill: survey-context
+  # Phase 1 landed in 3 scoped commits (ac9b365, 3471285, 016d6ae).
+  # Phase 2 plan: specs/WORKFLOW-e01-phases.md. Start a new session with
+  # survey-context, then assess-impact -> plan-refactor for t05.
+  # LANDMINE: puzzle-feature WIP (ui/renderer/widgets/board/game/oauth,
+  # build.rs) is still uncommitted and unrelated to e01 — resolve before
+  # release-branch or it rides into main.
 
 notes:
   # Phase 1 complete (t01-t04): 39 bitboard + 22 puzzle + 4 integration
