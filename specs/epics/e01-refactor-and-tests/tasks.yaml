@@ -1,0 +1,554 @@
+# Epic e01-refactor-and-tests - Task Specifications
+# Format: YAML for machine readability and CI integration
+
+---
+# Phase 1: Test Infrastructure (P0)
+
+- id: t01-create-test-structure
+  title: Create Test Directory Structure
+  phase: 1
+  priority: P0
+  estimate_hours: 1
+  status: complete
+  description: |
+    Create proper test directory structure with common utilities.
+  acceptance_criteria:
+    - kindle_chess/tests/ directory exists
+    - tests/lib.rs with mod re-exports
+    - tests/helpers/ directory with mod.rs
+    - All tests can be run with cargo test
+  files_created:
+    - kindle_chess/tests/lib.rs
+    - kindle_chess/tests/helpers/mod.rs
+  files_modified: []
+  dependencies: []
+  blocker: false
+
+- id: t02-mock-http-client
+  title: Add Mock HTTP Client
+  phase: 1
+  priority: P0
+  estimate_hours: 2
+  # DESIGN CHANGE from original spec: a trait over reqwest::Response is
+  # unimplementable (a Response can't be synthesised offline). The seam is
+  # instead the response BODY (String): PuzzleFetcher in src/api/traits.rs,
+  # real ReqwestFetcher + test MockFetcher. api.rs puzzle fetches refactored
+  # to *_with(fetcher) variants; public fns delegate via ReqwestFetcher so
+  # callers are unchanged. Also added a [lib] target so tests/ can link.
+  # Scope: puzzle endpoints only (get_daily_puzzle, get_puzzle_by_id);
+  # oauth.rs / board.rs integration deferred to t09 / t10.
+  status: complete
+  description: |
+    Create mock implementations for reqwest client to enable API testing.
+    The mock should implement a trait that both reqwest::Client and the mock
+    satisfy, allowing dependency injection in API functions.
+  acceptance_criteria:
+    - MockHttpClient trait defined
+    - Mock implementation that returns configurable responses
+    - Integration with api/api.rs (puzzle fetching)
+    - Integration with api/oauth.rs (token exchange)
+    - Integration with api/board.rs (game data)
+  files_created:
+    - kindle_chess/tests/helpers/mock_http.rs
+    - kindle_chess/src/api/traits.rs
+  files_modified:
+    - kindle_chess/src/api/api.rs
+    - kindle_chess/src/api/oauth.rs
+    - kindle_chess/src/api/board.rs
+  dependencies:
+    - t01-create-test-structure
+  blocker: false
+
+- id: t03-bitboard-tests
+  title: Expand Bitboard Tests
+  phase: 1
+  priority: P0
+  estimate_hours: 3
+  status: complete
+  description: |
+    Add comprehensive tests for the bitboard module. Currently has 5 tests,
+    target is 25+ tests covering all core chess logic.
+  acceptance_criteria:
+    - All existing 5 tests still pass
+    - 20+ new tests added
+    - Total >= 25 tests in bitboard module
+    - cargo test --lib bitboard passes
+  test_categories:
+    - FEN parsing (10 tests):
+        - Standard starting position
+        - Empty board
+        - Single piece positions
+        - Invalid FEN (wrong rank count, unknown pieces, overflow)
+        - startpos alias
+        - Side-to-move parsing (w, b, invalid)
+    - Piece movement (8 tests):
+        - Each piece type can be placed and queried
+        - piece_at returns correct (Color, Piece) for all 64 squares
+        - board() returns correct bitboard for each (Color, Piece)
+    - UCI move application (7 tests):
+        - Simple pawn move
+        - Pawn double move
+        - Pawn capture
+        - Knight move (L-shape)
+        - Bishop move (diagonal)
+        - Rook move (straight)
+        - Queen move (any direction)
+        - King move (one square)
+    - Special moves (5 tests):
+        - Kingside castling (O-O)
+        - Queenside castling (O-O-O)
+        - Castling with pieces in between (should fail)
+        - En passant capture
+        - Promotion to Queen
+        - Promotion to Knight
+        - Promotion to Rook
+        - Promotion to Bishop
+    - Edge cases (5 tests):
+        - Move from empty square
+        - Move to occupied square (same color)
+        - Capture (opponent piece)
+        - Invalid UCI format (too short, bad squares)
+        - Square indexing (square() and bit() functions)
+  files_created: []
+  files_modified:
+    - kindle_chess/src/models/bitboard.rs
+  dependencies: []
+  blocker: false
+
+- id: t04-puzzle-tests
+  title: Expand Puzzle Tests
+  phase: 1
+  priority: P0
+  estimate_hours: 2
+  status: complete
+  description: |
+    Add comprehensive tests for the puzzle module. Currently has 4 tests,
+    target is 15+ tests covering puzzle session logic.
+  acceptance_criteria:
+    - All existing 4 tests still pass
+    - 11+ new tests added
+    - Total >= 15 tests in puzzle module
+    - cargo test --lib puzzle passes
+  test_categories:
+    - PuzzleSession construction (3 tests):
+        - From valid puzzle with FEN
+        - From puzzle without FEN (should fail)
+        - From puzzle with invalid FEN (should fail)
+        - solver_white determined from FEN side-to-move
+    - State transitions (4 tests):
+        - Solving -> Correct (on correct move)
+        - Correct -> Solving (after opponent reply)
+        - Solving -> Wrong (on wrong move)
+        - Wrong -> Solving (on next move attempt)
+        - Solving -> Solved (on final correct move)
+    - Move validation (4 tests):
+        - Correct move accepted
+        - Wrong move rejected
+        - Move when not accepting input (should be no-op)
+        - Partial UCI match (first 4 chars only)
+    - Opponent replies (3 tests):
+        - Reply applied after correct move
+        - Reply not applied when not pending
+        - Final reply transitions to Solved
+    - PuzzleParams (3 tests):
+        - Difficulty cycling (Easiest..Hardest wraps)
+        - PuzzlePhase cycling
+        - PuzzleColor cycling
+        - Default values
+  files_created: []
+  files_modified:
+    - kindle_chess/src/models/puzzle.rs
+  dependencies: []
+  blocker: false
+
+---
+# Phase 2: Code Organization (P1)
+
+- id: t05-extract-screen-structs
+  title: Extract Screen Structs from models/ui.rs
+  phase: 2
+  priority: P1
+  estimate_hours: 4
+  status: pending
+  description: |
+    Move Screen struct definitions from monolithic models/ui.rs to separate
+    files in ui/screens/. Each screen gets its own file.
+  acceptance_criteria:
+    - models/ui.rs reduced from ~700 to ~100 lines
+    - Each screen struct in its own file
+    - All imports updated and working
+    - cargo build succeeds
+    - cargo test passes
+  files_created:
+    - kindle_chess/src/ui/screens/home.rs
+    - kindle_chess/src/ui/screens/chess_auth.rs
+    - kindle_chess/src/ui/screens/chess_game.rs
+    - kindle_chess/src/ui/screens/ongoing_games.rs
+    - kindle_chess/src/ui/screens/puzzle.rs
+    - kindle_chess/src/ui/screens/puzzle_settings.rs
+    - kindle_chess/src/ui/screens/settings.rs
+    - kindle_chess/src/ui/screens/update.rs
+    - kindle_chess/src/ui/screens/game_actions.rs
+    - kindle_chess/src/ui/screens/mod.rs
+  files_modified:
+    - kindle_chess/src/models/ui.rs
+    - kindle_chess/src/ui/screens.rs
+    - kindle_chess/src/ui/mod.rs
+    - kindle_chess/src/app/app.rs
+    - kindle_chess/src/ui/screens.rs
+  dependencies:
+    - t01-create-test-structure
+  blocker: false
+
+- id: t06-extract-screen-impls
+  title: Extract Screen Impls from ui/screens.rs
+  phase: 2
+  priority: P1
+  estimate_hours: 6
+  status: pending
+  description: |
+    Move Screen trait implementations from monolithic ui/screens.rs to
+    co-located files with their struct definitions.
+  acceptance_criteria:
+    - ui/screens.rs reduced from ~1200 to ~200 lines
+    - Each screen impl Screen in same file as struct
+    - All imports updated and working
+    - cargo build succeeds
+    - cargo test passes
+  files_created: []
+  files_modified:
+    - kindle_chess/src/ui/screens.rs
+    - kindle_chess/src/ui/screens/home.rs
+    - kindle_chess/src/ui/screens/chess_auth.rs
+    - kindle_chess/src/ui/screens/chess_game.rs
+    - kindle_chess/src/ui/screens/ongoing_games.rs
+    - kindle_chess/src/ui/screens/puzzle.rs
+    - kindle_chess/src/ui/screens/puzzle_settings.rs
+    - kindle_chess/src/ui/screens/settings.rs
+    - kindle_chess/src/ui/screens/update.rs
+    - kindle_chess/src/ui/screens/game_actions.rs
+  dependencies:
+    - t05-extract-screen-structs
+  blocker: false
+
+- id: t07-layout-constants
+  title: Create Layout Constants Module
+  phase: 2
+  priority: P1
+  estimate_hours: 2
+  status: pending
+  description: |
+    Extract hardcoded display dimensions to a central layout module.
+    This enables future multi-device support.
+  acceptance_criteria:
+    - ui/layout.rs created with all display constants
+    - All magic numbers replaced with constants
+    - cargo build succeeds
+    - cargo test passes
+  constants_to_extract:
+    - SCREEN_WIDTH: 1072
+    - SCREEN_HEIGHT: 1448
+    - SQUARE_SIZE: 134 (1072 / 8)
+    - PIECE_DRAW_SIZE: 96
+    - SEGMENT_LEN: SQUARE_SIZE / 8
+    - SELECTION_STROKE: 4
+    - LAST_MOVE_STROKE: 6
+    - Button dimensions (BTN_W, BTN_H)
+    - Gaps and margins
+    - Center calculations
+  files_created:
+    - kindle_chess/src/ui/layout.rs
+  files_modified:
+    - kindle_chess/src/ui/screens/home.rs
+    - kindle_chess/src/ui/screens/chess_game.rs
+    - kindle_chess/src/ui/screens/ongoing_games.rs
+    - kindle_chess/src/ui/screens/puzzle.rs
+    - kindle_chess/src/ui/screens/puzzle_settings.rs
+    - kindle_chess/src/ui/screens/settings.rs
+    - kindle_chess/src/ui/widgets/board.rs
+    - kindle_chess/src/ui/widgets/sidebar.rs
+    - kindle_chess/src/ui/widgets/puzzle_sidebar.rs
+  dependencies:
+    - t05-extract-screen-structs
+  blocker: false
+
+---
+# Phase 3: Additional Test Coverage (P1)
+
+- id: t08-game-tests
+  title: Add Game Module Tests
+  phase: 3
+  priority: P1
+  estimate_hours: 2
+  status: pending
+  description: |
+    Add tests for game-related types in models/game.rs.
+  acceptance_criteria:
+    - 10+ tests added
+    - cargo test --lib game passes
+  test_categories:
+    - GameData parsing (3 tests):
+        - From valid JSON
+        - Missing required fields
+        - Invalid enum values
+    - GameDataList (2 tests):
+        - Empty list
+        - Multiple games
+    - StreamEvent parsing (3 tests):
+        - GameStart event
+        - GameFinish event
+        - Challenge event
+    - Turn enum (2 tests):
+        - Playing state
+        - Waiting state
+        - Over state with winner
+  files_created: []
+  files_modified:
+    - kindle_chess/src/models/game.rs
+  dependencies:
+    - t01-create-test-structure
+  blocker: false
+
+- id: t09-oauth-tests
+  title: Add OAuth Module Tests
+  phase: 3
+  priority: P1
+  estimate_hours: 3
+  status: pending
+  description: |
+    Add tests for OAuth-related types and logic.
+  acceptance_criteria:
+    - 12+ tests added across models/oauth.rs and api/oauth.rs
+    - cargo test --lib oauth passes
+  test_categories:
+    - TokenInfo (3 tests):
+        - Serialization to JSON
+        - Deserialization from JSON
+        - Round-trip
+    - LichessUser (3 tests):
+        - Parsing from JSON
+        - Optional fields handling
+        - Nested profile parsing
+    - AuthConfig (2 tests):
+        - Default values
+        - Custom configuration
+    - AuthState (2 tests):
+        - State generation
+        - State validation
+    - OAuth2Client (2 tests with mock):
+        - Client construction
+        - Auth URL generation
+  files_created: []
+  files_modified:
+    - kindle_chess/src/models/oauth.rs
+    - kindle_chess/src/api/oauth.rs
+  dependencies:
+    - t02-mock-http-client
+  blocker: false
+
+- id: t10-board-api-tests
+  title: Add Board API Tests
+  phase: 3
+  priority: P1
+  estimate_hours: 3
+  status: pending
+  description: |
+    Add tests for board API module with typestate pattern.
+  acceptance_criteria:
+    - 10+ tests added
+    - cargo test --lib board_api passes
+  test_categories:
+    - BoardAPI construction (2 tests):
+        - Idle state with token and user
+        - InGame state construction
+    - Typestate enforcement (3 tests - compile-time):
+        - move_piece only available in InGame state
+        - resign_game only available in InGame state
+        - stream_game_event only available in InGame state
+    - State transitions (3 tests):
+        - Idle -> InGame (when game selected)
+        - InGame -> Idle (when game finished)
+    - Game data operations (2 tests with mock):
+        - Fetch ongoing games
+        - Submit move
+  files_created: []
+  files_modified:
+    - kindle_chess/src/models/board_api.rs
+    - kindle_chess/src/api/board.rs
+  dependencies:
+    - t02-mock-http-client
+  blocker: false
+
+- id: t11-widget-tests
+  title: Add Widget Tests
+  phase: 3
+  priority: P1
+  estimate_hours: 3
+  status: pending
+  description: |
+    Add tests for UI widgets focusing on pure logic (not rendering).
+  acceptance_criteria:
+    - 15+ tests added
+    - cargo test --lib widgets passes
+  test_categories:
+    - Rectangle (5 tests):
+        - contains point (inside, outside, edge)
+        - overlaps with other rectangle
+        - width/height calculations
+        - from coordinates
+    - Square (3 tests):
+        - parsing from string
+        - formatting to string
+        - invalid square parsing
+    - Button (4 tests):
+        - Hit detection (tap inside, outside)
+        - Dimensions
+        - Label
+    - IconButton (3 tests):
+        - Hit detection
+        - Icon loading (happy path)
+        - Icon loading (missing file)
+  files_created: []
+  files_modified:
+    - kindle_chess/src/ui/widgets/button.rs
+    - kindle_chess/src/ui/widgets/icon_button.rs
+    - kindle_chess/src/ui/events.rs
+  dependencies:
+    - t01-create-test-structure
+  blocker: false
+
+---
+# Phase 4: Error Handling Improvements (P2)
+
+- id: t12-chess-error-type
+  title: Create ChessError Enum
+  phase: 4
+  priority: P2
+  estimate_hours: 3
+  status: pending
+  description: |
+    Define a consistent, Send+Sync error type for the application.
+  acceptance_criteria:
+    - ChessError enum defined
+    - Implements std::error::Error + Send + Sync + static
+    - From<Box<dyn Error>> implementation
+    - From implementations for common error types
+    - Used in at least 3 modules
+  error_variants:
+    - ApiError(String)
+    - ParseError(String)
+    - IoError(std::io::Error)
+    - NetworkError(String)
+    - AuthError(String)
+    - ValidationError(String)
+    - InternalError(String)
+  files_created:
+    - kindle_chess/src/error.rs
+  files_modified:
+    - kindle_chess/src/lib.rs
+    - kindle_chess/src/models/mod.rs
+  dependencies: []
+  blocker: false
+
+- id: t13-api-error-migration
+  title: Migrate API Module to ChessError
+  phase: 4
+  priority: P2
+  estimate_hours: 2
+  status: pending
+  description: |
+    Update API module functions to return ChessError instead of Box<dyn Error>.
+  acceptance_criteria:
+    - All api/ functions return Result<T, ChessError>
+    - All callers updated
+    - All tests pass
+    - No functionality changes
+  files_modified:
+    - kindle_chess/src/api/api.rs
+    - kindle_chess/src/api/board.rs
+    - kindle_chess/src/api/oauth.rs
+    - kindle_chess/src/api/update.rs
+    - kindle_chess/src/api/github.rs
+    - kindle_chess/src/ui/screens.rs
+    - kindle_chess/src/app/app.rs
+  dependencies:
+    - t12-chess-error-type
+  blocker: false
+
+---
+# Phase 5: Continuous Integration (P2)
+
+- id: t14-github-actions
+  title: Add GitHub Actions Workflow
+  phase: 5
+  priority: P2
+  estimate_hours: 2
+  status: pending
+  description: |
+    Set up CI pipeline for automated testing on push and PR.
+  acceptance_criteria:
+    - .github/workflows/test.yml exists
+    - Runs on push to main
+    - Runs on PRs
+    - Runs cargo test
+    - Runs cargo clippy
+    - Runs cargo fmt --check
+    - Caches dependencies
+  files_created:
+    - .github/workflows/test.yml
+  files_modified: []
+  dependencies: []
+  blocker: false
+
+- id: t15-coverage-reporting
+  title: Add Test Coverage Reporting
+  phase: 5
+  priority: P2
+  estimate_hours: 2
+  status: pending
+  description: |
+    Add coverage reporting to CI pipeline.
+  acceptance_criteria:
+    - Coverage tool configured (tarpaulin or llvm-cov)
+    - Coverage threshold set (start at 20%)
+    - Coverage report uploaded as artifact
+    - Coverage badge in README
+  files_created: []
+  files_modified:
+    - .github/workflows/test.yml
+    - README.md
+  dependencies:
+    - t14-github-actions
+  blocker: false
+
+---
+# Metadata
+
+total_tasks: 15
+total_estimate_hours: 39
+phases:
+  - id: 1
+    name: Test Infrastructure
+    tasks: [t01, t02, t03, t04]
+    estimate: 8
+    priority: P0
+  - id: 2
+    name: Code Organization
+    tasks: [t05, t06, t07]
+    estimate: 12
+    priority: P1
+  - id: 3
+    name: Additional Test Coverage
+    tasks: [t08, t09, t10, t11]
+    estimate: 10
+    priority: P1
+  - id: 4
+    name: Error Handling Improvements
+    tasks: [t12, t13]
+    estimate: 5
+    priority: P2
+  - id: 5
+    name: Continuous Integration
+    tasks: [t14, t15]
+    estimate: 4
+    priority: P2

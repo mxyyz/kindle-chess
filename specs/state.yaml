@@ -1,0 +1,32 @@
+# bigpowers session source-of-truth. See survey-context / session-state.
+session:
+  active_flow: build_epic
+  active_epic_id: e01-refactor-and-tests
+  active_story_id: t05-extract-screen-structs   # next pending task (Phase 2)
+  phase: Execute
+
+vcs:
+  kind: git
+  branch: puzzle-implementation
+  # head stale after next commit — re-read with git rev-parse, don't trust.
+  head: 65b3f0264fa381c916a953a877a24cc47bdbf253
+
+handoff:
+  next_skill: commit-message
+  # Tree mixes finished Phase-1 tests with puzzle work; separate before
+  # resuming e01 Phase 2.
+
+notes:
+  # Phase 1 complete (t01-t04): 39 bitboard + 22 puzzle + 4 integration
+  # tests. tasks.yaml was stale (all pending), corrected.
+  phase1: complete
+  # t02 finished correctly: body-fetcher PuzzleFetcher seam in
+  # src/api/traits.rs, real + mock impls, api.rs puzzle fetches refactored,
+  # [lib] target added, 4 real integration tests. oauth/board -> t09/t10.
+  t02_divergence: resolved
+  # rust.yml already runs cargo test + build (predates epic); t14/t15
+  # clippy/fmt/coverage still pending.
+  ci: partial
+
+metrics:
+  story_start: 2026-10-18T17:37:25Z
