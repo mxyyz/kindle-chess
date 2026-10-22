@@ -960,8 +960,9 @@ impl Screen for PuzzleScreen {
                     self.board.set_last_move(session.last_move_mask);
                     // Drop any hint highlight carried over from a prior puzzle.
                     self.board.select_square(None);
+                    // Currently shows no info on an unsolved puzzle so nothing gets spoiled
                     self.sidebar
-                        .set_puzzle_info(session.rating, &session.themes);
+                        .set_puzzle_info(session.rating, &session.themes, &session.status);
                     self.sidebar.set_status(&session.status);
                     self.session = Some(session);
                     Ok(Transition::Redraw)
@@ -1019,6 +1020,8 @@ impl Screen for PuzzleScreen {
                         let _ = tx.send(AppEvent::PuzzleOpponentMove);
                     });
                 }
+                self.sidebar
+                    .set_puzzle_info(session.rating, &session.themes, &session.status);
                 Ok(Transition::Redraw)
             }
 
@@ -1037,6 +1040,8 @@ impl Screen for PuzzleScreen {
                 self.board.set_position(session.position.clone());
                 self.board.set_last_move(session.last_move_mask);
                 self.sidebar.set_status(&status);
+                self.sidebar
+                    .set_puzzle_info(session.rating, &session.themes, &session.status);
                 Ok(Transition::Redraw)
             }
 

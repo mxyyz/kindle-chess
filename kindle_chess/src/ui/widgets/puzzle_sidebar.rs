@@ -118,15 +118,26 @@ impl PuzzleSidebarWidget {
 
     /// Populate the rating + themes block shown under the status line. The
     /// themes are capped so the joined line stays within the centred info band.
-    pub fn set_puzzle_info(&mut self, rating: i32, themes: &[String]) {
+    pub fn set_puzzle_info(&mut self, rating: i32, themes: &[String], status: &PuzzleStatus) {
         const MAX_THEMES: usize = 4;
-        self.rating = Some(rating);
-        self.themes = themes
-            .iter()
-            .take(MAX_THEMES)
-            .cloned()
-            .collect::<Vec<_>>()
-            .join(" · ");
+        match status {
+            PuzzleStatus::Solving => {
+                self.rating = None;
+                self.themes = "".to_string()
+            }
+
+            PuzzleStatus::Solved => {
+                self.rating = Some(rating);
+                self.themes = themes
+                    .iter()
+                    .take(MAX_THEMES)
+                    .cloned()
+                    .collect::<Vec<_>>()
+                    .join(" · ")
+            }
+
+            _ => (),
+        }
     }
 
     pub fn handle_touch(&self, touch: &TouchEvent) -> Option<AppEvent> {
