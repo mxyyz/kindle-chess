@@ -45,16 +45,33 @@ impl Renderer {
         // Create window
         let window = conn.generate_id()?;
 
-        let win_aux = CreateWindowAux::new()
-            .background_pixel(screen.white_pixel)
-            .override_redirect(1)
-            .event_mask(
-                EventMask::EXPOSURE
-                    | EventMask::BUTTON_PRESS
-                    | EventMask::BUTTON_RELEASE
-                    | EventMask::KEY_PRESS
-                    | EventMask::STRUCTURE_NOTIFY,
-            );
+        let win_aux = CreateWindowAux::new().background_pixel(screen.white_pixel);
+
+        // Build event mask - add pointer events only for debug builds
+        let event_mask = EventMask::EXPOSURE
+            | EventMask::BUTTON_PRESS
+            | EventMask::BUTTON_RELEASE
+            | EventMask::KEY_PRESS
+            | EventMask::STRUCTURE_NOTIFY;
+
+        let event_mask = if cfg!(debug_assertions) {
+            event_mask
+                | EventMask::POINTER_MOTION
+                | EventMask::ENTER_WINDOW
+                | EventMask::LEAVE_WINDOW
+        } else {
+            event_mask
+        };
+
+        let win_aux = win_aux.event_mask(event_mask);
+
+        // For release builds (Kindle), use override_redirect to avoid window manager interference
+        // For debug builds, we want the window manager to handle the cursor
+        let win_aux = if !cfg!(debug_assertions) {
+            win_aux.override_redirect(1)
+        } else {
+            win_aux
+        };
 
         conn.create_window(
             COPY_DEPTH_FROM_PARENT,
@@ -97,6 +114,16 @@ impl Renderer {
             window,
             &ConfigureWindowAux::new().stack_mode(StackMode::ABOVE),
         )?;
+
+        // Request input focus for the window (debug builds only for cursor visibility)
+        if cfg!(debug_assertions) {
+            let _ = conn.set_input_focus(
+                xproto::InputFocus::POINTER_ROOT,
+                window,
+                xproto::Time::CURRENT_TIME,
+            );
+        }
+
         conn.flush()?;
 
         let font = Font::from_bytes(FONT_BYTES, FontSettings::default())
@@ -217,7 +244,7 @@ impl Renderer {
         };
 
         let row_bytes = width as usize * bytes_per_pixel;
-        let width_padded = ((row_bytes + 3) / 4) * 4;
+        let width_padded = row_bytes.div_ceil(4) * 4;
         let mut data: Vec<u8> = Vec::with_capacity(width_padded * height as usize);
 
         for row in scaled.rows() {
@@ -365,11 +392,7 @@ impl Renderer {
                         }
                         let bg = buffer.get_pixel(dx as u32, dy as u32)[0] as i32;
                         let blended = bg + cov * (fg - bg) / 255;
-                        buffer.put_pixel(
-                            dx as u32,
-                            dy as u32,
-                            Luma([blended.clamp(0, 255) as u8]),
-                        );
+                        buffer.put_pixel(dx as u32, dy as u32, Luma([blended.clamp(0, 255) as u8]));
                     }
                 }
             }

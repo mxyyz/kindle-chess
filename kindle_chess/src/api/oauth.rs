@@ -425,7 +425,7 @@ pub fn load_token() -> Result<Option<TokenInfo>, Box<dyn std::error::Error>> {
 
     let token_info = serde_json::from_slice::<TokenInfo>(&buf[..])?;
 
-    return Ok(Some(token_info));
+    Ok(Some(token_info))
 }
 
 pub async fn authenticated_request(
@@ -433,7 +433,7 @@ pub async fn authenticated_request(
     token: &TokenInfo,
     request_type: HttpMethod,
 ) -> Result<reqwest::Response, Box<dyn std::error::Error>> {
-    let url = Url::parse(&*url)?;
+    let url = Url::parse(&url)?;
     let client = reqwest::Client::new();
     // TODO (#6) Handle expiry of token
     let token = &token.access_token;

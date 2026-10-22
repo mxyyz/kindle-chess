@@ -1,0 +1,32 @@
+# bigpowers session source-of-truth. See survey-context / session-state.
+session:
+  active_flow: build_epic
+  active_epic_id: e01-refactor-and-tests
+  active_story_id: t05-extract-screen-structs   # next pending task (Phase 2)
+  phase: Execute
+
+vcs:
+  kind: git
+  branch: puzzle-implementation
+  head: d98d6d5c3a82d97b2db8e7bd49e639debaa2c8d8
+  # Remote requires PRs — no direct push to main.
+  # USER ACTION: push branch + open PR puzzle-implementation -> main.
+
+handoff:
+  next_skill: survey-context
+  # Phase 1 READY TO LAND via PR. 71 tests green, build clean, fmt clean.
+  # Phase 2 ready after merge: assess-impact -> plan-refactor for t05.
+  # Plan: specs/WORKFLOW-e01-phases.md Part 2.
+  # Landmine RESOLVED: puzzle-feature WIP was already committed
+  # (004190f..65b3f02), not uncommitted. No stray work in tree.
+
+notes:
+  phase1: ready_to_land
+  phase1_commits: [004190f, 916dd0f, 101b567, a354370, 65b3f02, ac9b365, 3471285, 016d6ae, d98d6d5]
+  # 61 lib + 7 api_puzzle + 3 lib integration = 71 tests, all green.
+  # clippy: 6 warnings (large_enum_variant, non-blocking).
+  # fmt: clean. build: clean.
+  ci: partial
+
+metrics:
+  phase1_ready: 2026-10-18T22:50:00Z

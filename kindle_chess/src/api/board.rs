@@ -22,7 +22,7 @@ impl<S> BoardAPI<S> {
         let response = authenticated_request(url, &self.token, HttpMethod::GET).await?;
 
         if !&response.status().is_success() {
-            return Err(format!("Failed to retrieve ongoing games: {}", &response.status()).into());
+            return Err(format!("Failed to retrieve ongoing games: {}", response.status()).into());
         }
 
         let bytes = response.bytes().await?;

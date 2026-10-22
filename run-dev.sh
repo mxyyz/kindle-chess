@@ -191,7 +191,8 @@ case "$VIEWER" in
             -dpi "$KINDLE_DPI" \
             -title "$WIN_TITLE" \
             -resizeable \
-            -host-cursor \
+            -grayscale \
+            -retro \
             "${XEPHYR_EXTRA[@]}" \
             "$VDISPLAY" \
             &>/tmp/xephyr-kindle.log &

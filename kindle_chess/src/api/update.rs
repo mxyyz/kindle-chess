@@ -38,7 +38,9 @@ pub async fn apply_update(info: &UpdateInfo) -> Result<(), Box<dyn std::error::E
     let mut headers = HeaderMap::new();
     let ua = format!("kindle-hello/{}", version::VERSION);
     headers.insert(USER_AGENT, HeaderValue::from_str(&ua)?);
-    let client = reqwest::Client::builder().default_headers(headers).build()?;
+    let client = reqwest::Client::builder()
+        .default_headers(headers)
+        .build()?;
 
     // ─── 1. Stream the binary, hashing as we go ──────────────────────────────
     let actual_hash = download_and_hash(&client, &info.asset_url, &new_path).await?;
@@ -103,7 +105,13 @@ async fn fetch_expected_hash(
     client: &reqwest::Client,
     url: &str,
 ) -> Result<String, Box<dyn std::error::Error>> {
-    let body = client.get(url).send().await?.error_for_status()?.text().await?;
+    let body = client
+        .get(url)
+        .send()
+        .await?
+        .error_for_status()?
+        .text()
+        .await?;
     // sha256sum format: "<hex>  <filename>". We only care about the first token.
     match body.split_whitespace().next() {
         Some(hex) => Ok(hex.to_lowercase()),
