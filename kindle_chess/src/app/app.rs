@@ -1,3 +1,4 @@
+use std::sync::{Arc, RwLock};
 use std::thread;
 use std::time::{Duration, Instant};
 
@@ -10,19 +11,28 @@ use crate::{
         ui::{Display, HomeScreen, Screen, Transition},
     },
     ui::events::{AppEvent, TouchEvent, TouchKind},
+    utils::config::AppConfig,
 };
 
 impl App {
     /// Creates the App by wiring together the single Display (X11 connection +
     /// renderer) and pushing the HomeScreen as the first entry on the stack.
     pub fn new() -> Result<Self, Box<dyn std::error::Error>> {
+        // Load the app configuration first — it seeds the screens created
+        // below (e.g. the puzzle screen's initial params). Read once from
+        // the user-editable config file; see AppConfig::load.
+        let config = AppConfig::load();
+        info!("App config loaded: {:?}", config.puzzle);
+        let config = Arc::new(RwLock::new(config));
+
         let display = Display::new()?;
-        let home: Box<dyn Screen> = Box::new(HomeScreen::new());
+        let home: Box<dyn Screen> = Box::new(HomeScreen::new(config.clone()));
         info!("Creatinjg App Instance");
 
         Ok(Self {
             display,
             screen_stack: vec![home],
+            config,
         })
     }
 

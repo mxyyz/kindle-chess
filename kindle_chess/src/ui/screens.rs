@@ -101,7 +101,10 @@ impl Screen for HomeScreen {
                     if self.puzzle_button.rect.contains(touch.x, touch.y) {
                         info!("Puzzle button pressed");
                         let token = self.app.as_ref().and_then(|a| a.token());
-                        return Ok(Transition::Push(Box::new(PuzzleScreen::new(token))));
+                        return Ok(Transition::Push(Box::new(PuzzleScreen::new(
+                            token,
+                            self.config.clone(),
+                        ))));
                     }
 
                     let Some(app) = self.app.clone() else {
@@ -1081,7 +1084,7 @@ impl Screen for PuzzleScreen {
             }
 
             AppEvent::OpenPuzzleSettings => Ok(Transition::Push(Box::new(
-                PuzzleSettingsScreen::new(self.params),
+                PuzzleSettingsScreen::new(self.config.clone()),
             ))),
 
             // The sidebar's "Next puzzle" button — refetch with current params.
@@ -1225,10 +1228,18 @@ impl Screen for PuzzleSettingsScreen {
                     return Ok(Transition::Redraw);
                 }
 
-                // Hand the chosen params back to PuzzleScreen (top of stack
-                // once we pop) and let it drive the fetch.
+                // Persist the confirmed choices in the shared config so they
+                // outlive this screen and seed the next PuzzleScreen, then
+                // hand them to PuzzleScreen (top of stack once we pop) to
+                // drive the fetch.
                 if self.fetch_button.rect.contains(touch.x, touch.y) {
                     info!("Fetching puzzle with {:?}", self.params);
+                    match self.config.write() {
+                        Ok(mut config) => config.puzzle = self.params,
+                        Err(e) => {
+                            warn!("Config store poisoned; puzzle params not persisted: {}", e)
+                        }
+                    }
                     let _ = display
                         .event_tx
                         .send(AppEvent::ApplyPuzzleParams(self.params));

@@ -1,7 +1,7 @@
 use std::{
     error::Error,
     sync::{
-        Arc,
+        Arc, RwLock,
         mpsc::{Receiver, Sender},
     },
     time::Instant,
@@ -25,6 +25,7 @@ use crate::{
             icon_button::{ICON_BUTTON_SIZE, Icon, load_icon},
         },
     },
+    utils::config::AppConfig,
 };
 
 // ─── Display ──────────────────────────────────────────────────────────────────
@@ -92,10 +93,13 @@ pub struct HomeScreen {
     // still needs to be able to update.
     pub app: Option<ChessApp>,
     pub auth_started: bool,
+    /// Shared app configuration, cloned in from `App` at startup. Handed to
+    /// the puzzle screen when the Puzzle button is pressed.
+    pub config: Arc<RwLock<AppConfig>>,
 }
 
 impl HomeScreen {
-    pub fn new() -> Self {
+    pub fn new(config: Arc<RwLock<AppConfig>>) -> Self {
         // Layout: 1072 × 1448 total canvas. The logo occupies the upper half;
         // the four equal buttons are stacked and height-centred in the lower
         // half.
@@ -133,13 +137,14 @@ impl HomeScreen {
             logo: load_home_logo(),
             app: None,
             auth_started: false,
+            config,
         }
     }
 }
 
 impl Default for HomeScreen {
     fn default() -> Self {
-        Self::new()
+        Self::new(Arc::new(RwLock::new(AppConfig::load())))
     }
 }
 
@@ -432,18 +437,24 @@ pub struct PuzzleScreen {
     // Last-used `/next` parameters; seeded into the settings screen and reused
     // by the sidebar's "Next puzzle" button.
     pub params: PuzzleParams,
+    /// Shared app configuration. Seeds `params` at construction (so the
+    /// user's last confirmed choices survive re-entering the puzzle flow) and
+    /// is handed to the settings screen for persisting new choices.
+    pub config: Arc<RwLock<AppConfig>>,
     // First-render guard: kick the daily-puzzle fetch exactly once.
     pub load_started: bool,
 }
 
 impl PuzzleScreen {
-    pub fn new(token: Option<TokenInfo>) -> Self {
+    pub fn new(token: Option<TokenInfo>, config: Arc<RwLock<AppConfig>>) -> Self {
+        let params = config.read().map(|c| c.puzzle).unwrap_or_default();
         Self {
             board: BoardWidget::new(Rectangle::new(0, 0, 1072, 1072)),
             sidebar: PuzzleSidebarWidget::new(Rectangle::new(0, 1072, 1072, 376)),
             session: None,
             token,
-            params: PuzzleParams::default(),
+            params,
+            config,
             load_started: false,
         }
     }
@@ -455,7 +466,11 @@ impl PuzzleScreen {
 // PuzzleScreen, which performs the fetch.
 
 pub struct PuzzleSettingsScreen {
+    /// Working copy of the `/next` parameters. Seeded from the shared config;
+    /// edits stay local until "Get new puzzle" persists them there.
     pub params: PuzzleParams,
+    /// Shared app configuration the confirmed `params` are written back to.
+    pub config: Arc<RwLock<AppConfig>>,
     pub difficulty_button: Button,
     pub phase_button: Button,
     pub color_button: Button,
@@ -464,14 +479,16 @@ pub struct PuzzleSettingsScreen {
 }
 
 impl PuzzleSettingsScreen {
-    pub fn new(params: PuzzleParams) -> Self {
+    pub fn new(config: Arc<RwLock<AppConfig>>) -> Self {
         const BTN_W: u16 = 760;
         const BTN_H: u16 = 110;
         const CENTER_X: i16 = 1072 / 2;
         let x = CENTER_X - BTN_W as i16 / 2;
         let stride = BTN_H as i16 + 24;
+        let params = config.read().map(|c| c.puzzle).unwrap_or_default();
         Self {
             params,
+            config,
             difficulty_button: Button::new(
                 x,
                 320,

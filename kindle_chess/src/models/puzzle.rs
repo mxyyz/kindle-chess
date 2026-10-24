@@ -226,8 +226,14 @@ fn uci_from_to_mask(uci: &str) -> u64 {
 // ─── /api/puzzle/next parameters ──────────────────────────────────────────────
 // Each enum exposes `label` (for the settings UI), the wire value, and `next`
 // for the tap-to-cycle settings buttons.
+//
+// The serde representation is the same vocabulary as the wire values
+// (`as_param` / `as_angle`): the config file (`default_cfg.json`) speaks the
+// Lichess parameter language, so there is exactly one set of strings to keep
+// in sync. The tests at the bottom of this file lock the two together.
 
-#[derive(Debug, Clone, Copy, PartialEq)]
+#[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "lowercase")]
 pub enum Difficulty {
     Easiest,
     Easier,
@@ -269,17 +275,27 @@ impl Difficulty {
 }
 
 /// Game phase, mapped to a Lichess puzzle theme key for the `angle` parameter.
-#[derive(Debug, Clone, Copy, PartialEq)]
+#[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize)]
 pub enum PuzzlePhase {
+    #[serde(rename = "any")]
     Any,
+    #[serde(rename = "opening")]
     Opening,
+    #[serde(rename = "middlegame")]
     Middlegame,
+    #[serde(rename = "endgame")]
     Endgame,
+    #[serde(rename = "rookEndgame")]
     RookEndgame,
+    #[serde(rename = "bishopEndgame")]
     BishopEndgame,
+    #[serde(rename = "pawnEndgame")]
     PawnEndgame,
+    #[serde(rename = "knightEndgame")]
     KnightEndgame,
+    #[serde(rename = "queenEndgame")]
     QueenEndgame,
+    #[serde(rename = "queenRookEndgame")]
     QueenRookEndgame,
 }
 
@@ -332,7 +348,8 @@ impl PuzzlePhase {
     }
 }
 
-#[derive(Debug, Clone, Copy, PartialEq)]
+#[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "lowercase")]
 pub enum PuzzleColor {
     Random,
     White,
@@ -369,7 +386,11 @@ impl PuzzleColor {
 
 /// The full set of `/api/puzzle/next` request parameters chosen on the puzzle
 /// settings screen.
-#[derive(Debug, Clone, Copy, PartialEq)]
+///
+/// `#[serde(default)]` makes every field optional in the config file — a
+/// partial `puzzle` section is completed from `PuzzleParams::default()`.
+#[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize)]
+#[serde(default)]
 pub struct PuzzleParams {
     pub difficulty: Difficulty,
     pub phase: PuzzlePhase,
@@ -700,5 +721,73 @@ mod tests {
         assert_eq!(PuzzleColor::Random.next(), PuzzleColor::White);
         assert_eq!(PuzzleColor::White.next(), PuzzleColor::Black);
         assert_eq!(PuzzleColor::Black.next(), PuzzleColor::Random);
+    }
+
+    // ========================================================================
+    // Serde vocabulary — the config file speaks the wire language
+    // ========================================================================
+
+    #[test]
+    fn difficulty_serde_matches_wire_param() {
+        let all = [
+            (Difficulty::Easiest, "easiest"),
+            (Difficulty::Easier, "easier"),
+            (Difficulty::Normal, "normal"),
+            (Difficulty::Harder, "harder"),
+            (Difficulty::Hardest, "hardest"),
+        ];
+        for (variant, wire) in all {
+            assert_eq!(variant.as_param(), wire);
+            let json = serde_json::to_string(&variant).unwrap();
+            assert_eq!(json, format!("\"{wire}\""));
+            assert_eq!(serde_json::from_str::<Difficulty>(&json).unwrap(), variant);
+        }
+    }
+
+    #[test]
+    fn puzzle_phase_serde_matches_wire_angle() {
+        let all = [
+            (PuzzlePhase::Any, "any"),
+            (PuzzlePhase::Opening, "opening"),
+            (PuzzlePhase::Middlegame, "middlegame"),
+            (PuzzlePhase::Endgame, "endgame"),
+            (PuzzlePhase::RookEndgame, "rookEndgame"),
+            (PuzzlePhase::BishopEndgame, "bishopEndgame"),
+            (PuzzlePhase::PawnEndgame, "pawnEndgame"),
+            (PuzzlePhase::KnightEndgame, "knightEndgame"),
+            (PuzzlePhase::QueenEndgame, "queenEndgame"),
+            (PuzzlePhase::QueenRookEndgame, "queenRookEndgame"),
+        ];
+        for (variant, wire) in all {
+            // "any" deliberately maps to no angle parameter; the rest 1:1.
+            assert_eq!(variant.as_angle(), (wire != "any").then_some(wire));
+            let json = serde_json::to_string(&variant).unwrap();
+            assert_eq!(json, format!("\"{wire}\""));
+            assert_eq!(serde_json::from_str::<PuzzlePhase>(&json).unwrap(), variant);
+        }
+    }
+
+    #[test]
+    fn puzzle_color_serde_matches_wire_param() {
+        let all = [
+            (PuzzleColor::Random, "random"),
+            (PuzzleColor::White, "white"),
+            (PuzzleColor::Black, "black"),
+        ];
+        for (variant, wire) in all {
+            // "random" deliberately maps to no color parameter; the rest 1:1.
+            assert_eq!(variant.as_param(), (wire != "random").then_some(wire));
+            let json = serde_json::to_string(&variant).unwrap();
+            assert_eq!(json, format!("\"{wire}\""));
+            assert_eq!(serde_json::from_str::<PuzzleColor>(&json).unwrap(), variant);
+        }
+    }
+
+    #[test]
+    fn puzzle_params_serde_fills_missing_fields_with_defaults() {
+        let params: PuzzleParams = serde_json::from_str(r#"{ "color": "white" }"#).unwrap();
+        assert_eq!(params.difficulty, Difficulty::Normal);
+        assert_eq!(params.phase, PuzzlePhase::Any);
+        assert_eq!(params.color, PuzzleColor::White);
     }
 }
