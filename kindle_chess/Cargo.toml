@@ -28,6 +28,7 @@ url = "2.5.7"
 uuid = { version = "1.18.1", features = ["v4"]}
 x11rb = { version = "0.13", default-features = false }
 dotenv = "0.15"
+litchee = "0.2"
 
 
 [build-dependencies]

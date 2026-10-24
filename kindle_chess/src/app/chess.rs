@@ -1,3 +1,5 @@
+use litchee::LichessError;
+
 use crate::models::{
     board_api::{BoardAPI, Idle, InGame, PlayedBy, Turn},
     board_local::BoardLocal,
@@ -8,11 +10,12 @@ use log::warn;
 
 impl ChessApp {
     /// Constructs an online backend in the `Idle` state. No game is scoped
-    /// yet — call `attach_game` after picking one from the ongoing-games list.
-    pub fn new_online(token: TokenInfo, user: LichessUser) -> ChessApp {
-        Self {
-            backend: ChessBackend::OnlineIdle(BoardAPI::<Idle>::new(token, user)),
-        }
+    /// yet — call `attach_game` after picking one from the ongoing-games
+    /// list. Fails if the Lichess client can't be built.
+    pub fn new_online(token: TokenInfo, user: LichessUser) -> Result<ChessApp, LichessError> {
+        Ok(Self {
+            backend: ChessBackend::OnlineIdle(BoardAPI::<Idle>::new(token, user)?),
+        })
     }
 
     pub fn new_offline() -> ChessApp {

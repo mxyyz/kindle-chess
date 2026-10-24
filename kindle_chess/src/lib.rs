@@ -7,6 +7,7 @@ pub mod api {
     pub mod api;
     pub mod board;
     pub mod github;
+    pub mod litchee_adapter;
     pub mod oauth;
     pub mod traits;
     pub mod update;

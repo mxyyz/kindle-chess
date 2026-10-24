@@ -1,9 +1,12 @@
 use serde::{Deserialize, Deserializer, Serialize};
 
-use crate::models::{
-    bitboard::Bitboards,
-    game::Player,
-    oauth::{LichessUser, TokenInfo},
+use crate::{
+    api::litchee_adapter::LitcheeAdapter,
+    models::{
+        bitboard::Bitboards,
+        game::Player,
+        oauth::{LichessUser, TokenInfo},
+    },
 };
 
 // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ BOARD ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -45,6 +48,7 @@ pub struct BoardAPI<S> {
     pub token: TokenInfo,
     pub user: LichessUser,
     pub state: S,
+    pub adapter: LitcheeAdapter,
 }
 
 #[derive(Debug, Deserialize, Serialize)]
@@ -56,6 +60,7 @@ pub struct GameData {
     pub fen: String,
     pub has_moved: bool,
     pub is_my_turn: bool,
+    #[serde(default)]
     pub last_move: String,
     pub opponent: PlayedBy,
     pub perf: String,
@@ -215,7 +220,7 @@ pub struct TimeControl {
 #[derive(Serialize, Deserialize, Debug)]
 pub struct PerfCallenge {
     icon: String,
-    name: String,
+    pub name: String,
 }
 
 #[derive(Debug, Deserialize, Serialize)]
@@ -305,21 +310,21 @@ pub struct OpponentGoneEvent {
 // MISC GAME-STATE-STREAM-EVENT-TYPES
 #[derive(Serialize, Deserialize, Debug)]
 pub struct GameVariant {
-    key: String,
-    name: String,
-    short: Option<String>,
+    pub key: String,
+    pub name: String,
+    pub short: Option<String>,
 }
 
 #[derive(Serialize, Deserialize, Debug)]
 pub struct PerfMode {
     // #[serde(rename = "correspondence")]
-    name: String,
+    pub name: String,
 }
 
 #[derive(Serialize, Deserialize, Debug)]
 pub struct Clock {
-    initial: u64,
-    increment: u64,
+    pub initial: u64,
+    pub increment: u64,
 }
 
 #[derive(Debug, Serialize, Clone)]

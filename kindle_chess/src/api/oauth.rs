@@ -1,4 +1,5 @@
 use crate::{
+    api::litchee_adapter::LitcheeAdapter,
     models::oauth::{
         AuthCallbackQuery, AuthConfig, AuthState, HttpMethod, LichessUser, OAuth2Client, TokenInfo,
     },
@@ -13,18 +14,8 @@ use axum::{
 };
 use image::{ImageBuffer, Luma};
 use log::info;
-use oauth2::{
-    AuthUrl, AuthorizationCode, ClientId, CsrfToken, EmptyExtraTokenFields, EndpointNotSet,
-    EndpointSet, PkceCodeChallenge, PkceCodeVerifier, RedirectUrl, RevocationErrorResponseType,
-    Scope, StandardErrorResponse, StandardRevocableToken, StandardTokenIntrospectionResponse,
-    StandardTokenResponse, TokenResponse, TokenUrl,
-    basic::{BasicClient, BasicErrorResponseType, BasicTokenType},
-};
-use qrcode::{
-    QrCode,
-    // render::{Pixel, Renderer},
-};
-use reqwest::ClientBuilder;
+use oauth2::{AuthUrl, ClientId, RedirectUrl, TokenUrl};
+use qrcode::QrCode;
 use std::sync::Arc;
 use tokio::sync::{Mutex, oneshot};
 use tower_http::cors::CorsLayer;
@@ -48,64 +39,55 @@ impl OAuth2Client {
         })
     }
 
-    fn create_client(
-        &self,
-    ) -> oauth2::Client<
-        StandardErrorResponse<BasicErrorResponseType>,
-        StandardTokenResponse<EmptyExtraTokenFields, BasicTokenType>,
-        StandardTokenIntrospectionResponse<EmptyExtraTokenFields, BasicTokenType>,
-        StandardRevocableToken,
-        StandardErrorResponse<RevocationErrorResponseType>,
-        EndpointSet,
-        EndpointNotSet,
-        EndpointNotSet,
-        EndpointNotSet,
-        EndpointSet,
-    > {
-        BasicClient::new(self.client_id.clone())
-            .set_auth_uri(self.auth_url.clone())
-            .set_token_uri(self.token_url.clone())
-            .set_redirect_uri(self.redirect_url.clone())
-    }
-
-    fn create_http_client(&self) -> reqwest::Client {
-        ClientBuilder::new()
-            .redirect(reqwest::redirect::Policy::none())
-            .build()
-            .expect("Client should build.")
-    }
-
     pub async fn start_auth_flow(&self) -> Result<AuthState, Box<dyn std::error::Error>> {
         // Create a fresh client for this request
-        let client = self.create_client();
+        let client = litchee::LichessClient::new();
+        let redirect_uri = self.redirect_url.url().to_string();
 
-        // Generate PKCE challenge
-        let (pkce_challenge, pkce_verifier) = PkceCodeChallenge::new_random_sha256();
+        // Get scopes from config and map them to litchee primitives
+        // Add mappings here and entries in cfg for future token permissions
+        let scopes: Vec<litchee::api::auth::oauth::Scope> = self
+            .config
+            .scopes
+            .iter()
+            .filter_map(|s| match s.as_str() {
+                "challenge:read" => Some(litchee::api::auth::oauth::Scope::ChallengeRead),
+                "challenge:write" => Some(litchee::api::auth::oauth::Scope::ChallengeWrite),
+                "bot:play" => Some(litchee::api::auth::oauth::Scope::BotPlay),
+                "board:play" => Some(litchee::api::auth::oauth::Scope::BoardPlay),
+                "puzzle:read" => Some(litchee::api::auth::oauth::Scope::PuzzleRead),
+                "puzzle:write" => Some(litchee::api::auth::oauth::Scope::PuzzleWrite),
+                _ => None,
+            })
+            .collect();
 
-        // Generate state token for CSRF protection
-        let state = CsrfToken::new_random();
+        let auth =
+            client
+                .oauth()
+                .authorization_url(&litchee::api::auth::oauth::AuthorizationRequest {
+                    client_id: &self.config.client_id,
+                    redirect_uri: &redirect_uri,
+                    scopes: &scopes,
+                    username_hint: None,
+                })?;
 
-        // Build authorization URL with scopes
-        let mut auth_request = client
-            .authorize_url(|| state.clone())
-            .set_pkce_challenge(pkce_challenge);
-
-        for scope in &self.config.scopes {
-            auth_request = auth_request.add_scope(Scope::new(scope.clone()));
-        }
-
-        let (auth_url, _) = auth_request.url();
+        // Authorization doesn't derive Clone, but all fields are public —
+        // destructure to move them all out at once.
+        let litchee::api::auth::oauth::Authorization {
+            url,
+            state,
+            verifier,
+        } = auth;
 
         let auth_state = AuthState {
-            state: state.secret().clone(),
-            code_verifier: pkce_verifier.secret().clone(),
-            auth_url: auth_url.to_string(),
+            state,
+            code_verifier: verifier.as_str().to_string(),
+            auth_url: url.to_string(),
         };
 
         // Store state for callback verification
         let mut state_lock = self.state.lock().await;
         *state_lock = Some(auth_state.clone());
-
         Ok(auth_state)
     }
 
@@ -117,42 +99,36 @@ impl OAuth2Client {
         // Verify state
         let state_lock = self.state.lock().await;
         let stored_state = state_lock.as_ref().ok_or("No auth state found")?;
-
         if stored_state.state != state {
             return Err("State mismatch - possible CSRF attack".into());
         }
 
-        let code_verifier = PkceCodeVerifier::new(stored_state.code_verifier.clone());
+        let verifier = litchee::api::auth::oauth::PkceVerifier::new(&stored_state.code_verifier)?;
+        let redirect_uri = self.redirect_url.url().to_string();
         drop(state_lock);
 
         // Create a fresh client for token exchange
-        let client = self.create_client();
-        let http_client = self.create_http_client();
-
-        // Exchange code for token
-        let token_result = client
-            .exchange_code(AuthorizationCode::new(code))
-            .set_pkce_verifier(code_verifier)
-            .request_async(&http_client)
+        let client = litchee::LichessClient::new();
+        let token = client
+            .oauth()
+            .exchange_code(&litchee::api::auth::oauth::CodeExchange {
+                code: &code,
+                code_verifier: &verifier,
+                redirect_uri: &redirect_uri,
+                client_id: &self.config.client_id,
+            })
             .await?;
 
         let token_info = TokenInfo {
-            access_token: token_result.access_token().secret().clone(),
-            token_type: format!("{:?}", token_result.token_type()),
-            expires_in: token_result.expires_in().map(|d| d.as_secs() as i64),
-            scope: token_result.scopes().map(|scopes| {
-                scopes
-                    .iter()
-                    .map(|s| s.to_string())
-                    .collect::<Vec<_>>()
-                    .join(" ")
-            }),
+            access_token: token.access_token.expose().clone(),
+            token_type: token.token_type,
+            expires_in: Some(token.expires_in as i64),
+            scope: None, // litchee's LichessToken doesn't store scopes
         };
 
         // Clear state after successful exchange
         let mut state_lock = self.state.lock().await;
         *state_lock = None;
-
         Ok(token_info)
     }
 }
@@ -364,19 +340,7 @@ pub async fn start_auth(
 
 pub async fn get_user_info(token: &str) -> Result<LichessUser, Box<dyn std::error::Error>> {
     /*! Tests success of authentication with privileged request (without wrapper) */
-    let client = reqwest::Client::new();
-    let response = client
-        .get(format!("{}/account", env!("LICHESS_API_BASE")))
-        .bearer_auth(token)
-        .send()
-        .await?;
-
-    if !response.status().is_success() {
-        return Err(format!("Failed to get user info: {}", response.status()).into());
-    }
-
-    let user: LichessUser = response.json().await?;
-    Ok(user)
+    Ok(LitcheeAdapter::new(&token)?.get_user_info().await?)
 }
 
 pub async fn authenticate(

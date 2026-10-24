@@ -161,9 +161,15 @@ fn kick_auth_bootstrap(tx: std::sync::mpsc::Sender<AppEvent>) {
                 match user_info {
                     Ok(user_info) => {
                         info!("Authenticated from cached token as: {}", user_info.username);
-                        let _ = tx.send(AppEvent::ChessReady(ChessApp::new_online(
-                            token_info, user_info,
-                        )));
+                        match ChessApp::new_online(token_info, user_info) {
+                            Ok(app) => {
+                                let _ = tx.send(AppEvent::ChessReady(app));
+                            }
+                            Err(e) => {
+                                warn!("Failed to build online backend: {} — needs re-auth", e);
+                                let _ = tx.send(AppEvent::AuthFailed(e.to_string()));
+                            }
+                        }
                     }
                     Err(e) => {
                         warn!("Cached token rejected: {} — needs re-auth", e);
@@ -404,11 +410,17 @@ impl Screen for ChessAuthScreen {
     ) -> Result<Transition, Box<dyn std::error::Error>> {
         match event {
             AppEvent::AuthSuccess(token, user) => {
-                // ChessApp::new_online is sync (no I/O at construction), so just
-                // post ChessReady directly.
-                let _ = display
-                    .event_tx
-                    .send(AppEvent::ChessReady(ChessApp::new_online(token, user)));
+                // new_online is sync (no network I/O), but building the Lichess
+                // client can still fail — route that back through the auth flow.
+                match ChessApp::new_online(token, user) {
+                    Ok(app) => {
+                        let _ = display.event_tx.send(AppEvent::ChessReady(app));
+                    }
+                    Err(e) => {
+                        warn!("Failed to build online backend: {}", e);
+                        let _ = display.event_tx.send(AppEvent::AuthFailed(e.to_string()));
+                    }
+                }
                 Ok(Transition::Stay)
             }
 

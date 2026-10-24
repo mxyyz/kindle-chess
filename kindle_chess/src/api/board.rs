@@ -1,3 +1,4 @@
+use crate::api::litchee_adapter::LitcheeAdapter;
 use crate::api::oauth::authenticated_request;
 use crate::app::game::player0_turn;
 use crate::models::bitboard::Bitboards;
@@ -7,6 +8,7 @@ use crate::models::board_api::{
 use crate::models::oauth::{HttpMethod, LichessUser, TokenInfo};
 use crate::ui::events::AppEvent;
 use futures::StreamExt;
+use litchee::LichessError;
 use log::{info, warn};
 use reqwest_streams::JsonStreamResponse;
 use std::sync::mpsc::Sender;
@@ -18,25 +20,9 @@ impl<S> BoardAPI<S> {
         &self,
         n: u8,
     ) -> Result<GameDataList, Box<dyn std::error::Error>> {
-        let url = format!("{}/account/playing?nb={}", env!("LICHESS_API_BASE"), n);
-        let response = authenticated_request(url, &self.token, HttpMethod::GET).await?;
-
-        if !&response.status().is_success() {
-            return Err(format!("Failed to retrieve ongoing games: {}", response.status()).into());
-        }
-
-        let bytes = response.bytes().await?;
-
-        let data: GameDataList = serde_json::from_slice(&bytes).map_err(|e| {
-            warn!(
-                "Failed to parse JSON. Raw response: {}",
-                String::from_utf8_lossy(&bytes)
-            );
-            warn!("Parse error: {}", e);
-            e
-        })?;
-        info!("The received and parsed data {:?}", data);
-        Ok(data)
+        Ok(LitcheeAdapter::new(&self.token.access_token)?
+            .get_ongoing_games(n)
+            .await?)
     }
 
     pub async fn stream_event(&self) -> Result<(), Box<dyn std::error::Error>> {
@@ -77,12 +63,14 @@ impl<S> BoardAPI<S> {
 }
 
 impl BoardAPI<Idle> {
-    pub fn new(token: TokenInfo, user: LichessUser) -> Self {
-        Self {
+    pub fn new(token: TokenInfo, user: LichessUser) -> Result<Self, LichessError> {
+        let adapter = LitcheeAdapter::new(&token.access_token)?;
+        Ok(Self {
             token,
             user,
             state: Idle,
-        }
+            adapter: adapter,
+        })
     }
 
     /// Consume the idle API and produce an in-game one scoped to `game_id`.
@@ -106,6 +94,7 @@ impl BoardAPI<Idle> {
                 initial_board: starting.clone(),
                 board: starting,
             },
+            adapter: self.adapter,
         }
     }
 }
@@ -120,56 +109,21 @@ impl BoardAPI<InGame> {
     }
 
     pub async fn move_piece(&self, board_move: &str) -> Result<(), Box<dyn std::error::Error>> {
-        let url = format!(
-            "{}/board/game/{}/move/{}",
-            env!("LICHESS_API_BASE"),
-            self.state.game_id,
-            board_move
-        );
-        info!(
-            "Sending move {} for game {}",
-            board_move, self.state.game_id
-        );
-
-        let response = authenticated_request(url, &self.token, HttpMethod::POST).await?;
-
-        if !response.status().is_success() {
-            return Err(format!("Failed to move piece: {}", response.status()).into());
-        }
-        info!("Piece moved successfully");
-        Ok(())
+        Ok(LitcheeAdapter::new(&self.token.access_token)?
+            .move_piece(self.game_id(), board_move)
+            .await?)
     }
 
     pub async fn resign_game(&self) -> Result<(), Box<dyn std::error::Error>> {
-        let url = format!(
-            "{}/board/game/{}/resign",
-            env!("LICHESS_API_BASE"),
-            self.state.game_id
-        );
-
-        let response = authenticated_request(url, &self.token, HttpMethod::POST).await?;
-
-        if !response.status().is_success() {
-            return Err(format!("Failed to resign game: {}", response.status()).into());
-        }
-        info!("Game resigned");
-        Ok(())
+        Ok(LitcheeAdapter::new(&self.token.access_token)?
+            .resign_game(self.game_id())
+            .await?)
     }
 
     pub async fn abort_game(&self) -> Result<(), Box<dyn std::error::Error>> {
-        let url = format!(
-            "{}/board/game/{}/abort",
-            env!("LICHESS_API_BASE"),
-            self.state.game_id
-        );
-
-        let response = authenticated_request(url, &self.token, HttpMethod::POST).await?;
-
-        if !response.status().is_success() {
-            return Err(format!("Failed to abort game: {}", response.status()).into());
-        }
-        info!("Game aborted");
-        Ok(())
+        Ok(LitcheeAdapter::new(&self.token.access_token)?
+            .abort_game(self.game_id())
+            .await?)
     }
 
     /// Open the game-state stream and drive it to completion.
@@ -184,18 +138,10 @@ impl BoardAPI<InGame> {
         &mut self,
         tx: Sender<AppEvent>,
     ) -> Result<(), Box<dyn std::error::Error>> {
-        let url = format!(
-            "{}/board/game/stream/{}",
-            env!("LICHESS_API_BASE"),
-            self.state.game_id
-        );
-        info!("Game-state stream started for {}", self.state.game_id);
+        let adapter = LitcheeAdapter::new(&self.token.access_token)?;
+        let mut stream = adapter.stream_game(self.game_id()).await?;
 
-        let mut response = authenticated_request(url, &self.token, HttpMethod::STREAM)
-            .await?
-            .json_nl_stream::<GameStateStreamEvent>(1024);
-
-        while let Some(result) = response.next().await {
+        while let Some(result) = stream.next().await {
             match result {
                 Ok(event) => {
                     info!("Received event: {:?}", event);

@@ -106,6 +106,7 @@ impl Default for AuthConfig {
                 // Tokens issued before this was added 403 on that path; the
                 // puzzle fetch falls back to an anonymous request in that case.
                 "puzzle:read".to_string(),
+                "puzzle:write".to_string(),
             ],
         }
     }
