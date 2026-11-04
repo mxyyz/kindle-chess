@@ -61,6 +61,9 @@ pub enum PuzzleStatus {
 /// Live state of a puzzle being solved. Built once from a `Puzzle` and mutated
 /// in place as the solver makes moves.
 pub struct PuzzleSession {
+    /// Lichess puzzle id — needed to post the result on solve
+    /// (POST /api/puzzle/batch/{angle}).
+    pub id: String,
     pub rating: i32,
     pub themes: Vec<String>,
     /// Live board position. Starts at the puzzle FEN and advances as correct
@@ -94,6 +97,7 @@ impl PuzzleSession {
             .map(uci_from_to_mask)
             .unwrap_or(0);
         Ok(Self {
+            id: puzzle.id,
             rating: puzzle.rating,
             themes: puzzle.themes,
             position,
