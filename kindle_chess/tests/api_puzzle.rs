@@ -304,15 +304,15 @@ async fn adapter_post_puzzle_solution_posts_to_batch_angle() {
         .and(body_json(serde_json::json!({
             "solutions": [{"id": "test123", "win": true, "rated": true}]
         })))
-        .respond_with(ResponseTemplate::new(200).set_body_string(
-            r#"{"rounds":[{"id":"test123","win":true,"ratingDiff":12}]}"#,
-        ))
+        .respond_with(
+            ResponseTemplate::new(200)
+                .set_body_string(r#"{"rounds":[{"id":"test123","win":true,"ratingDiff":12}]}"#),
+        )
         .mount(&server)
         .await;
 
     let base = server.uri().parse().expect("mock uri is a valid url");
-    let adapter =
-        LitcheeAdapter::with_base_url(Some("test-token"), &base).expect("adapter builds");
+    let adapter = LitcheeAdapter::with_base_url(Some("test-token"), &base).expect("adapter builds");
 
     let rounds = adapter
         .post_puzzle_solution("mix", "test123", true, 0)

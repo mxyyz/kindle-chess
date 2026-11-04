@@ -133,7 +133,11 @@ impl LitcheeAdapter {
         use litchee::api::training::puzzles::LichessPuzzleSolution;
         let mut solution = LichessPuzzleSolution::new(id, win);
         solution.rated = Some(true);
-        let response = self.client.puzzles().solve_batch(angle, &[solution], nb).await?;
+        let response = self
+            .client
+            .puzzles()
+            .solve_batch(angle, &[solution], nb)
+            .await?;
         Ok(response
             .rounds
             .iter()
