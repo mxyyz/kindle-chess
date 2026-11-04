@@ -11,7 +11,9 @@
 # APPREG/CMD overridable via env so the script is testable off-device.
 APPREG=${APPREG:-/var/local/appreg.db}
 HANDLER=org.kindlemodding.kindlechess
-CMD=${CMD:-/mnt/us/hellokindle/chess_app.sh}
+# The appreg command carries a source param so launch.log shows where the
+# launch came from (KUAL menu passes --kual itself).
+CMD=${CMD:-/mnt/us/hellokindle/chess_app.sh --appreg}
 
 if [ ! -f "$APPREG" ]; then
     echo "register_appreg: $APPREG not found (off-device?) — skipping"

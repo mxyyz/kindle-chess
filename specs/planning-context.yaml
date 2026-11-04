@@ -1,0 +1,42 @@
+# specs/planning-context.yaml — written by elaborate-spec; consumed by scope-work and slice-tasks
+feature_name: native-kindle-integration
+problem_statement: >-
+  kindle-chess is only launchable through the KUAL booklet, draws fullscreen with
+  pillow disabled and override_redirect(1) set, and sets no AWM window title, so
+  the Kindle's Awesome Window Manager and home UI ignore it entirely. It feels
+  like a foreign fullscreen hack, not a Kindle app. Source research:
+  https://kindlemodding.org/kindle-dev/ (AWM window-title convention, lipc
+  com.lab126.* services, appreg.db registration) — raw extracts in session
+  scratchpad kindle-dev/.
+constraints:
+  - Rust + x11rb only; no C++/GTK/Meson/kindle-sdk rewrite
+  - WAF/Mesquite track (config.xml, window.kindle JS APIs) is out — it cannot host the Rust renderer
+  - KPM packaging (research item 4) is out of scope for this epic
+  - KUAL stays in the repo as the fallback launcher: k1 has no working scriptlets yet,
+    k2 does. appreg.db registration is additive, not a replacement
+  - Static musl armv7-unknown-linux-musleabi release build unchanged
+  - run-dev.sh / Xephyr dev harness must keep working: all AWM/lipc calls degrade to no-ops off-device
+  - 1072x1448 absolute canvas unchanged
+  - flash.sh / flash_usb.sh token.json mv-aside dance must not break
+  - Phase 2 window title uses PC:T (top bar) — not PC:TS; TSB resizing is broken per wiki
+out_of_scope:
+  - KPM .kpkg packaging and kpm launch flow
+  - WAF config.xml / kindle.* JavaScript object APIs
+  - Any C++/GTK rewrite of the renderer
+  - Lichess game logic / puzzle features
+  - Removing the KUAL bundle or menu.json
+key_decisions:
+  - decision: Hybrid phased approach (option C)
+    rationale: Phase 1 delivers native lifecycle at low risk (keeps current fullscreen UX); Phase 2 adds Kindle chrome behind the same window-title mechanism.
+  - decision: Phase 1 = lifecycle (P1), Phase 2 = chrome (P2)
+    rationale: User-confirmed split. P1: appreg.db home-screen registration + launch script, AWM-conformant WM_NAME, powerd resume->full e-ink refresh, eips status. P2: PC:T title, pillow handoff rework, top-bar layout offset.
+  - decision: KUAL kept as fallback launcher
+    rationale: k1's jailbreak has no working scriptlets (kindlemodding.org/kindle-dev/scriptlets.html); scriptlets proven working on k2. Repo must run on both.
+  - decision: Phase 2 exposes the top bar via a dedicated sidebar button (assets/top.png, above the Back button) plus PC:T window title
+    rationale: User wants brightness settings reachable from the Kindle top bar without permanently eating e-ink space; top.png asset already added.
+  - decision: Verification = automated checks now (cargo tests, dev harness), on-device UAT on k2 when reachable
+    rationale: User confirmed "both, device when available"; flash.sh device used for UAT later.
+success_criteria:
+  - Phase 1 on-device (k2): home screen shows the chess app icon; tapping it launches fullscreen without KUAL; after sleep/wake the board redraws cleanly (powerd resume -> full refresh)
+  - Phase 1 automated: WM_NAME/title-builder unit tests green; launch + appreg install script logic tested; cargo build + cargo test green
+  - Phase 2 on-device: window title carries PC:T, Kindle top bar reachable via the top.png sidebar button, brightness adjustable, home button exits to home, layout accounts for top-bar height

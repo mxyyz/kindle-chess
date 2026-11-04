@@ -1,0 +1,189 @@
+# Epic e02-native-kindle-integration - Task Specifications
+# Format: YAML for machine readability and CI integration
+# Planning context: specs/planning-context.yaml
+
+---
+# Phase 1: Lifecycle (fullscreen UX preserved, PC:N)
+
+- id: t01-awm-window-title
+  title: AWM window-title module + WM_NAME on the X11 window
+  phase: 1
+  priority: P0
+  estimate_hours: 3
+  status: complete
+  description: |
+    New module kindle_chess/src/ui/awm.rs that builds an AWM-conformant window
+    title from parts (layer, role, PC flags, ID, orientation) and applies it to
+    the app window via x11rb change_property(WM_NAME). Phase 1 title:
+    L:A_N:application_PC:N_ID:org.kindlemodding.kindlechess_O:U
+    PC:N keeps fullscreen (no chrome) in Phase 1; PC:T variant lands in t05.
+    override_redirect stays for Phase 1 (pillow still disabled by launcher);
+    the title is what AWM reads in Phase 2 when the window becomes managed.
+    Setting WM_NAME under Xephyr is harmless (no AWM), so no cfg gating needed.
+  acceptance_criteria:
+    - awm::WindowTitle builder with unit tests for the exact title string format
+    - renderer.rs applies WM_NAME right after create_window/map_window
+    - cargo build + cargo test green
+  files_created:
+    - kindle_chess/src/ui/awm.rs
+  files_modified:
+    - kindle_chess/src/ui/mod.rs
+    - kindle_chess/src/ui/renderer.rs
+  dependencies: []
+  blocker: false
+
+- id: t02-appreg-registration
+  title: appreg.db home-screen registration + install wiring
+  phase: 1
+  priority: P0
+  estimate_hours: 4
+  status: complete
+  description: |
+    New script kindle_KUAL/hellokindle/register_appreg.sh, idempotent:
+    backs up /var/local/appreg.db, inserts handlerId org.kindlemodding.kindlechess
+    into handlerIds + properties (command=/mnt/us/hellokindle/chess_app.sh,
+    lipcId, supportedOrientation=U, default-chrome-style=N, unloadPolicy=unloadOnPause),
+    plus an associations row (interface=application, contentId=none), then runs
+    sqlite3 integrity check and rolls back from backup on any failure.
+    Wired into flash.sh/flash_usb.sh after the scp/cp, so deploy registers the app.
+    KUAL menu.json stays untouched (fallback for k1 without scriptlets).
+    Off-device (no /var/local/appreg.db) the script exits 0 with a log line.
+  acceptance_criteria:
+    - script is idempotent (second run is a no-op)
+    - failed sqlite write rolls back to the backup byte-identically
+    - k2 home screen shows the chess icon after flash (UAT, device)
+    - k1 KUAL path unaffected
+  files_created:
+    - kindle_KUAL/hellokindle/register_appreg.sh
+  files_modified:
+    - flash.sh
+    - flash_usb.sh
+  dependencies: []
+  blocker: false
+
+- id: t03-powerd-wake-refresh
+  title: powerd resume -> full e-ink refresh
+  phase: 1
+  priority: P1
+  estimate_hours: 4
+  status: complete
+  description: |
+    New module kindle_chess/src/system/ (powerd watcher) started from main/App::new.
+    Background thread shells out to the on-device lipc listener for
+    com.lab126.powerd (resume/wake events); each event is debounced (>=2s apart)
+    and sent as AppEvent::DeviceWake, which the app loop answers with a full
+    redraw of the top screen (renderer clear + redraw; launcher already runs
+    eips -f on exit). When lipc tools or the service are absent (dev harness,
+    k1 without scriptlets) the watcher logs once and stays silent — no-op.
+  acceptance_criteria:
+    - AppEvent::DeviceWake variant exists and triggers full redraw
+    - watcher thread exits cleanly on app quit
+    - off-device: no-op with a single log line; cargo test green (debounce logic unit-tested)
+    - on-device UAT: sleep/wake leaves a cleanly redrawn board
+  files_created:
+    - kindle_chess/src/system/mod.rs
+    - kindle_chess/src/system/powerd.rs
+  files_modified:
+    - kindle_chess/src/lib.rs (or main.rs module tree)
+    - kindle_chess/src/ui/events.rs
+    - kindle_chess/src/app/ (event routing)
+  dependencies:
+    - t01-awm-window-title
+  blocker: false
+
+- id: t04-launch-script-hardening
+  title: Launcher script cleanup for dual launch paths
+  phase: 1
+  priority: P2
+  estimate_hours: 2
+  status: in_progress
+  description: |
+    chess_app.sh keeps working as both the KUAL action and the appreg.db command.
+    Add a --source=kual|appreg parameter for logging only; keep the pillow
+    disable/enable handoff and eips -c/-f as-is (Phase 1 stays fullscreen);
+    keep the token.json dance in flash scripts intact.
+  acceptance_criteria:
+    - script runs identically from KUAL and from appreg command
+    - launch.log records the source parameter
+  files_modified:
+    - kindle_KUAL/hellokindle/chess_app.sh
+  dependencies:
+    - t02-appreg-registration
+  blocker: false
+
+---
+# Phase 2: Chrome (PC:T top bar + sidebar button)
+
+- id: t05-pc-t-title
+  title: Switch window title to PC:T and rework pillow handoff
+  phase: 2
+  priority: P1
+  estimate_hours: 5
+  status: pending
+  description: |
+    Window title becomes L:A_N:application_PC:T_ID:org.kindlemodding.kindlechess_O:U.
+    Launcher stops disabling pillow (or only for fullscreen fallback); AWM
+    composites the Kindle top bar over the app window. Add a LAYOUT constant for
+    top-bar height and shift the 1072x1448 content area down. Home button exits
+    to the home screen via AWM. Config flag (env in .env.release) to fall back to
+    PC:N fullscreen mode.
+  acceptance_criteria:
+    - on-device: Kindle top bar visible above app content, brightness reachable
+    - home button exits to home screen
+    - fallback flag restores Phase 1 behavior
+    - cargo build + cargo test green
+  files_created: []
+  files_modified:
+    - kindle_chess/src/ui/awm.rs
+    - kindle_chess/src/ui/renderer.rs
+    - kindle_KUAL/hellokindle/chess_app.sh
+    - kindle_chess/.env.release
+  dependencies:
+    - t01-awm-window-title
+  blocker: false
+
+- id: t06-topbar-sidebar-button
+  title: Sidebar top-bar button (top.png) above Back
+  phase: 2
+  priority: P1
+  estimate_hours: 3
+  status: pending
+  description: |
+    Add an IconButton using assets/top.png placed above the back-nav button in
+    sidebar.rs (and puzzle_sidebar.rs if it has its own back button). Pressing
+    it requests the Kindle top bar / quick settings (lipc to com.lab126.chromebar,
+    no-op off-device) so the user reaches brightness. Touch handling + redraw
+    covered by existing sidebar event flow.
+  acceptance_criteria:
+    - button renders from assets/top.png above Back on the sidebar
+    - tap emits the top-bar request; off-device it logs and is a no-op
+    - cargo build + cargo test green
+  files_created: []
+  files_modified:
+    - kindle_chess/src/ui/widgets/sidebar.rs
+    - kindle_chess/src/ui/widgets/puzzle_sidebar.rs
+    - kindle_chess/src/ui/events.rs (new event variant)
+    - kindle_chess/src/app/ (event routing)
+  dependencies:
+    - t05-pc-t-title
+  blocker: false
+
+- id: t07-phase2-uat
+  title: On-device UAT of chrome mode on k2
+  phase: 2
+  priority: P2
+  estimate_hours: 2
+  status: pending
+  description: |
+    Manual UAT on k2 (working scriptlets): home icon launch, top bar reachable via
+    top.png button, brightness adjustable, home button exits, sleep/wake redraw,
+    PC:N fallback flag works. Log results in specs/verifications/.
+  acceptance_criteria:
+    - all UAT scenarios pass or have logged follow-up bugs
+  files_created:
+    - specs/verifications/e02-phase2-uat.md
+  files_modified: []
+  dependencies:
+    - t05-pc-t-title
+    - t06-topbar-sidebar-button
+  blocker: false

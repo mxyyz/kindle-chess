@@ -44,6 +44,11 @@ impl App {
         // historical (Kindle-working) ordering at d9fd7cf.
         self.spawn_x11_listener();
 
+        // Device wake watcher (powerd via lipc) — None off-device, where the
+        // lipc tools do not exist; the app then simply never sees DeviceWake.
+        let _powerd_watcher =
+            crate::system::powerd::spawn_powerd_watcher(self.display.event_tx.clone());
+
         // Initial render of whatever is on top of the stack
         if let Some(screen) = self.screen_stack.last_mut()
             && let Err(e) = screen.render(&mut self.display)
@@ -105,6 +110,18 @@ impl App {
             {
                 info!("Triple-tap detected — emergency exit");
                 break;
+            }
+
+            // Device wake: full redraw of the top screen so the e-ink panel
+            // comes back clean after sleep (powerd outOfScreenSaver).
+            if matches!(event, AppEvent::DeviceWake) {
+                info!("Device wake — full redraw");
+                if let Some(screen) = self.screen_stack.last_mut()
+                    && let Err(e) = screen.render(&mut self.display)
+                {
+                    error!("Wake redraw error: {}", e);
+                }
+                continue;
             }
 
             // Delegate to the screen on top of the stack

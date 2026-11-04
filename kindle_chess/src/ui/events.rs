@@ -98,6 +98,11 @@ pub enum AppEvent {
     // X11 Events
     Expose,
     WindowUnmapped,
+
+    // System Events
+    // Device woke from sleep (com.lab126.powerd outOfScreenSaver) — the app
+    // answers with a full redraw of the top screen so the e-ink panel is clean.
+    DeviceWake,
 }
 
 #[derive(Debug, Clone, Copy)]
