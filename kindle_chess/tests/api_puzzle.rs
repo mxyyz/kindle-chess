@@ -342,3 +342,15 @@ async fn adapter_post_puzzle_solution_errors_on_403() {
 
     assert!(result.is_err());
 }
+
+#[tokio::test]
+async fn post_puzzle_solution_without_token_is_ok_none() {
+    // Anonymous users have no account to post to — a no-op, not an error.
+    use kindli_chess::api::api::post_puzzle_solution;
+
+    let result = post_puzzle_solution(None, PuzzleParams::default(), "test123", true)
+        .await
+        .unwrap();
+
+    assert_eq!(result, None);
+}

@@ -810,6 +810,23 @@ mod tests {
     }
 
     #[test]
+    fn batch_angle_maps_phase_to_theme_key() {
+        // POST /api/puzzle/batch/{angle} needs a concrete theme in the path;
+        // "Any" maps to Lichess' catch-all "mix".
+        assert_eq!(PuzzleParams::default().batch_angle(), "mix");
+        let endgame = PuzzleParams {
+            phase: PuzzlePhase::Endgame,
+            ..Default::default()
+        };
+        assert_eq!(endgame.batch_angle(), "endgame");
+        let rook = PuzzleParams {
+            phase: PuzzlePhase::RookEndgame,
+            ..Default::default()
+        };
+        assert_eq!(rook.batch_angle(), "rookEndgame");
+    }
+
+    #[test]
     fn puzzle_params_serde_fills_missing_fields_with_defaults() {
         let params: PuzzleParams = serde_json::from_str(r#"{ "color": "white" }"#).unwrap();
         assert_eq!(params.difficulty, Difficulty::Normal);
