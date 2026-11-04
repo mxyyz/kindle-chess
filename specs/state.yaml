@@ -1,23 +1,26 @@
 # bigpowers session source-of-truth. See survey-context / session-state.
 session:
-  active_flow: fix_bug
-  active_bug_id: BUG-2026-11-04T193559
-  phase: Execute
+  active_flow: build_epic
+  active_epic: e02-native-kindle-integration
+  phase: Execute (Phase 1 done, Phase 2 pending)
 
 vcs:
   kind: git
-  branch: fix-post-puzzle-solutions
-  head: d0415f3
-  # Worktree: /home/mxy/repos/fix-post-puzzle-solutions (branched from
-  # api-migration tip d0415f3 — litchee adapter only exists there, not main).
+  branch: e02-native-kindle-integration
+  head: edab5f7
+  # Branched from main 16ec011. Epic spec: specs/epics/e02-native-kindle-integration{,.md,.yaml}
+  # + specs/planning-context.yaml. Prior fix_bug flow lived in worktree
+  # /home/mxy/repos/fix-post-puzzle-solutions (branch fix-post-puzzle-solutions,
+  # from api-migration tip d0415f3 — litchee adapter only exists there).
 
 handoff:
-  next_skill: verify-work
-  # Bug BUG-2026-11-04T184513 implemented on this branch (8 commits,
-  # RED/GREEN pairs): solved puzzles now auto-post to
-  # POST /api/puzzle/batch/{angle} when signed in. 79 lib + 24 integration
-  # tests green, build + fmt clean. Remaining: live-account UAT of
-  # /puzzle/next advancing + activity entry (needs real token).
+  next_skill: verify-work (on-device UAT on k2) then Phase 2 tasks t05–t07
+  # e02 Phase 1 committed (cc9ffd0, 55b14e0, edab5f7): AWM WM_NAME title
+  # (PC:N), appreg.db home-screen registration (idempotent, rollback-safe,
+  # KUAL kept as fallback for k1), powerd wake->full redraw, --source logging.
+  # 88 lib tests green, build + fmt clean. Remaining: on-device UAT on k2
+  # (home icon launches, sleep/wake redraw clean), then Phase 2: PC:T title,
+  # top.png sidebar button above Back, pillow handoff rework.
 
 notes:
   phase1: ready_to_land
