@@ -34,6 +34,15 @@ pub struct Puzzle {
     pub last_move: Option<String>,
 }
 
+/// One round in a `POST /api/puzzle/batch/{angle}` response: the outcome
+/// Lichess recorded for a submitted solution.
+#[derive(Debug, Clone, PartialEq)]
+pub struct PuzzleSolveRound {
+    pub id: String,
+    pub win: Option<bool>,
+    pub rating_diff: Option<i32>,
+}
+
 #[derive(Deserialize, Debug)]
 pub struct PuzzleResponse {
     // The source game the puzzle was lifted from. Parsed for completeness but
