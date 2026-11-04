@@ -1,7 +1,7 @@
 use crate::{
     api::litchee_adapter::LitcheeAdapter,
     models::oauth::{
-        AuthCallbackQuery, AuthConfig, AuthState, HttpMethod, LichessUser, OAuth2Client, TokenInfo,
+        AuthCallbackQuery, AuthConfig, AuthState, LichessUser, OAuth2Client, TokenInfo,
     },
     ui::events::AppEvent,
 };
@@ -14,35 +14,55 @@ use axum::{
 };
 use image::{ImageBuffer, Luma};
 use log::info;
-use oauth2::{AuthUrl, ClientId, RedirectUrl, TokenUrl};
 use qrcode::QrCode;
 use std::sync::Arc;
 use tokio::sync::{Mutex, oneshot};
 use tower_http::cors::CorsLayer;
-use url::Url;
 
 use std::fs::{File, remove_file, write};
 use std::io::prelude::Read;
 
 impl OAuth2Client {
     pub fn new(config: AuthConfig) -> Result<Self, Box<dyn std::error::Error>> {
-        let host_ip = local_ip_address::local_ip()?.to_string();
+        let host_ip = Self::pick_callback_host_ip()?;
         let redirect_uri = format!("http://{}:{}/callback", host_ip, config.redirect_port);
+        info!("OAuth redirect URI: {redirect_uri}");
 
         Ok(Self {
-            client_id: ClientId::new(config.client_id.clone()),
-            redirect_url: RedirectUrl::new(redirect_uri)?,
-            auth_url: AuthUrl::new("https://lichess.org/oauth".to_string())?,
-            token_url: TokenUrl::new(concat!(env!("LICHESS_API_BASE"), "/token").to_string())?,
+            redirect_url: redirect_uri,
             config,
             state: Arc::new(Mutex::new(None::<AuthState>)),
         })
     }
 
+    /// Picks the IPv4 address the phone must call back on, logging every candidate.
+    ///
+    /// `local_ip()` returns the *first* non-loopback interface, which is not
+    /// necessarily the one the phone can reach: the Kindle can have wifi and the
+    /// usbnet gadget up at once (e.g. while plugged in for flashing). Prefer a
+    /// wifi-named interface when one exists; log all candidates either way so the
+    /// on-device log shows what was available when auth started.
+    fn pick_callback_host_ip() -> Result<std::net::IpAddr, Box<dyn std::error::Error>> {
+        let candidates: Vec<(String, std::net::IpAddr)> = local_ip_address::list_afinet_netifas()?
+            .into_iter()
+            .filter(|(name, ip)| ip.is_ipv4() && !ip.is_loopback() && name != "lo")
+            .collect();
+        info!("Callback host candidates: {:?}", candidates);
+
+        // Kindle wifi interfaces are `wlan*` / `tiwlan*`; anything else (usb0,
+        // bridge, docker, …) is a worse guess than the first available address.
+        candidates
+            .iter()
+            .find(|(name, _)| name.starts_with("wlan") || name.starts_with("tiwlan"))
+            .or_else(|| candidates.first())
+            .map(|(_, ip)| *ip)
+            .ok_or_else(|| "no usable IPv4 network interface for OAuth callback".into())
+    }
+
     pub async fn start_auth_flow(&self) -> Result<AuthState, Box<dyn std::error::Error>> {
         // Create a fresh client for this request
         let client = litchee::LichessClient::new();
-        let redirect_uri = self.redirect_url.url().to_string();
+        let redirect_uri = self.redirect_url.to_string();
 
         // Get scopes from config and map them to litchee primitives
         // Add mappings here and entries in cfg for future token permissions
@@ -104,7 +124,7 @@ impl OAuth2Client {
         }
 
         let verifier = litchee::api::auth::oauth::PkceVerifier::new(&stored_state.code_verifier)?;
-        let redirect_uri = self.redirect_url.url().to_string();
+        let redirect_uri = self.redirect_url.to_string();
         drop(state_lock);
 
         // Create a fresh client for token exchange
@@ -157,6 +177,7 @@ pub async fn run_auth_server(
     info!("Starting OAuth callback server on {}", addr);
 
     let listener = tokio::net::TcpListener::bind(&addr).await?;
+    info!("OAuth callback server listening on {addr}");
 
     // Run server with graceful shutdown
     let server = axum::serve(listener, app).with_graceful_shutdown(async move {
@@ -340,7 +361,7 @@ pub async fn start_auth(
 
 pub async fn get_user_info(token: &str) -> Result<LichessUser, Box<dyn std::error::Error>> {
     /*! Tests success of authentication with privileged request (without wrapper) */
-    Ok(LitcheeAdapter::new(&token)?.get_user_info().await?)
+    Ok(LitcheeAdapter::new(token)?.get_user_info().await?)
 }
 
 pub async fn authenticate(
@@ -390,28 +411,6 @@ pub fn load_token() -> Result<Option<TokenInfo>, Box<dyn std::error::Error>> {
     let token_info = serde_json::from_slice::<TokenInfo>(&buf[..])?;
 
     Ok(Some(token_info))
-}
-
-pub async fn authenticated_request(
-    url: String,
-    token: &TokenInfo,
-    request_type: HttpMethod,
-) -> Result<reqwest::Response, Box<dyn std::error::Error>> {
-    let url = Url::parse(&url)?;
-    let client = reqwest::Client::new();
-    // TODO (#6) Handle expiry of token
-    let token = &token.access_token;
-
-    // propably not all of them are in lichess api
-    let response = match request_type {
-        HttpMethod::GET => client.get(url).bearer_auth(token).send().await?,
-        HttpMethod::POST => client.post(url).bearer_auth(token).send().await.unwrap(),
-        HttpMethod::PUT => client.put(url).bearer_auth(token).send().await.unwrap(),
-        HttpMethod::DELETE => client.delete(url).bearer_auth(token).send().await.unwrap(),
-        HttpMethod::PATCH => client.patch(url).bearer_auth(token).send().await.unwrap(),
-        HttpMethod::STREAM => client.get(url).bearer_auth(token).send().await?,
-    };
-    Ok(response)
 }
 
 pub fn logout() -> std::io::Result<()> {

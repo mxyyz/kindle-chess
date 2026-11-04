@@ -75,7 +75,7 @@ impl Screen for HomeScreen {
             // from a popped ChessAuthScreen after the QR flow finished.
             AppEvent::ChessReady(app) => {
                 info!("ChessApp ready — buttons live");
-                self.app = Some(app);
+                self.app = Some(*app);
                 Ok(Transition::Redraw)
             }
 
@@ -166,7 +166,7 @@ fn kick_auth_bootstrap(tx: std::sync::mpsc::Sender<AppEvent>) {
                         info!("Authenticated from cached token as: {}", user_info.username);
                         match ChessApp::new_online(token_info, user_info) {
                             Ok(app) => {
-                                let _ = tx.send(AppEvent::ChessReady(app));
+                                let _ = tx.send(AppEvent::ChessReady(Box::new(app)));
                             }
                             Err(e) => {
                                 warn!("Failed to build online backend: {} — needs re-auth", e);
@@ -417,7 +417,7 @@ impl Screen for ChessAuthScreen {
                 // client can still fail — route that back through the auth flow.
                 match ChessApp::new_online(token, user) {
                     Ok(app) => {
-                        let _ = display.event_tx.send(AppEvent::ChessReady(app));
+                        let _ = display.event_tx.send(AppEvent::ChessReady(Box::new(app)));
                     }
                     Err(e) => {
                         warn!("Failed to build online backend: {}", e);

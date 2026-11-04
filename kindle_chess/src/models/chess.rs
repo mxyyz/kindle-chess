@@ -34,6 +34,6 @@ pub struct ChessUI {
 #[derive(Debug, Clone)]
 pub enum ChessBackend {
     Offline(BoardLocal),
-    OnlineIdle(BoardAPI<Idle>),
-    OnlineInGame(BoardAPI<InGame>),
+    OnlineIdle(Box<BoardAPI<Idle>>),
+    OnlineInGame(Box<BoardAPI<InGame>>),
 }

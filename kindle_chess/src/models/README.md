@@ -6,8 +6,6 @@ elsewhere (`src/api/`, `src/app/`, `src/ui/`) — with three deliberate exceptio
 carry their own logic *and their own tests*: `bitboard.rs`, `puzzle.rs`, and the custom
 `Deserialize` impl in `board_api.rs`.
 
-> The user's brief called this directory `modules`; the actual path is `src/models`.
-
 ## File map
 
 | File | Group | Contents |

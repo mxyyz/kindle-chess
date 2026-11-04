@@ -1,43 +1,49 @@
 # `src/api` — network clients
 
-Everything that talks HTTP. Two upstreams: **Lichess** (auth, board play, puzzles)
-and **GitHub Releases** (the in-app updater). No X11, no widgets — these modules
-return data or send `AppEvent`s, they never draw.
+Everything that talks HTTP. Two upstreams: **Lichess** (auth, board play, puzzles —
+via the [`litchee`](https://crates.io/crates/litchee) client, wrapped in
+`litchee_adapter.rs`) and **GitHub Releases** (the in-app updater, plain `reqwest`).
+No X11, no widgets — these modules return data or send `AppEvent`s, they never draw.
 
-All Lichess URLs are built from `env!("LICHESS_API_BASE")` (`https://lichess.org/api`,
-baked in by `build.rs`). GitHub URLs are hard-coded in `github.rs`.
+Almost all Lichess calls go through the litchee client, which targets
+`https://lichess.org/api` by default. The exceptions that still build URLs manually
+from `env!("LICHESS_API_BASE")` (baked in by `build.rs`): the `GET /api/account/playing`
+bypass in `litchee_adapter.rs` (litchee 0.2.x's `LichessNowPlaying` DTO doesn't match
+the live wire format) and the `PuzzleFetcher` test seam in `traits.rs`. GitHub URLs are
+hard-coded in `github.rs`.
 
 ## File map
 
-| File | Status | Purpose |
-|---|---|---|
-| `oauth.rs` | live | PKCE OAuth flow, local callback server, token persistence, `authenticated_request` helper |
-| `board.rs` | live | `BoardAPI<S>` impls — ongoing games, move/resign/abort, the two NDJSON streams |
-| `api.rs` | live | Lichess puzzle endpoints (`/puzzle/daily`, `/puzzle/{id}`, `/puzzle/next`, `/puzzle/activity`) |
-| `github.rs` | live | `GET /repos/{owner}/{repo}/releases/latest`, version comparison, `UpdateInfo` |
-| `update.rs` | live | Streams the release asset, verifies SHA256, stages it at `<exe>.new` |
-| `account.rs` | **dead** | Empty file, not declared in any `mod` block |
-| `mod.rs` | **dead** | Shadowed — `main.rs` declares `pub mod api { pub mod api; … }` *inline*, so `mod.rs` is never compiled. It is also stale (missing `github`/`update`). |
+| File | Purpose |
+|---|---|
+| `litchee_adapter.rs` | `LitcheeAdapter` — wraps `litchee::LichessClient`, maps litchee DTOs to the app's models |
+| `oauth.rs` | PKCE OAuth flow (litchee primitives), local axum callback server, token persistence |
+| `board.rs` | `BoardAPI<S>` impls — ongoing games, move/resign/abort, the game NDJSON stream |
+| `api.rs` | Lichess puzzle endpoints (`/puzzle/daily`, `/puzzle/{id}`, `/puzzle/next`, `/puzzle/activity`) via the adapter |
+| `github.rs` | `GET /repos/{owner}/{repo}/releases/latest`, version comparison, `UpdateInfo` |
+| `update.rs` | Streams the release asset, verifies SHA256, stages it at `<exe>.new` |
+| `traits.rs` | `PuzzleFetcher` seam for offline parse tests |
 
-> The authoritative module list for this directory is the inline `pub mod api { … }`
-> block at the top of `src/main.rs`, **not** `src/api/mod.rs`. Adding a file here
-> means editing `main.rs`.
+> The authoritative module list for this directory is the `pub mod api { … }` block in
+> `src/lib.rs`. Adding a file here means editing `lib.rs`.
 
 ## `oauth.rs` — the authentication flow
 
 PKCE against `https://lichess.org/oauth`, with the redirect landing on a
 short-lived HTTP server running **on the Kindle itself**.
 
-1. `OAuth2Client::new` picks the host's LAN IP via `local_ip_address::local_ip()`
-   and builds `http://<lan-ip>:8080/callback` as the redirect URI.
-2. `start_auth_flow` generates the PKCE challenge + CSRF state and returns the
-   authorization URL.
+1. `OAuth2Client::new` picks the host's LAN IP (preferring a `wlan*`/`tiwlan*` interface
+   over usbnet/bridge) and builds `http://<lan-ip>:8080/callback` as the redirect URI.
+2. `start_auth_flow` builds the authorization URL via litchee's
+   `client.oauth().authorization_url(...)` (PKCE challenge + CSRF state) and returns it.
 3. `generate_qr_code` renders that URL as a QR bitmap; the caller (`ChessAuthScreen`)
    draws it and the user scans it with a phone.
 4. `run_auth_server` binds axum on `0.0.0.0:8080`, serves `/callback`, exchanges the
-   code for a token, ships the `TokenInfo` over a `oneshot`, and shuts down.
+   code via litchee's `client.oauth().exchange_code(...)`, ships the `TokenInfo` over a
+   `oneshot`, and shuts down.
 5. `authenticate` writes the token to `env!("AUTH_TOKEN")`
-   (`<ROOT_DIR>/secrets/token.json`) and fetches the `LichessUser` via `/api/account`.
+   (`<ROOT_DIR>/secrets/token.json`) and fetches the `LichessUser` via the adapter
+   (`client.account().profile()`).
 
 **The phone and the Kindle must be on the same network** — the redirect goes to the
 Kindle's LAN IP. Over USB-only networking there is no route from the phone, so the QR
@@ -49,20 +55,17 @@ Other entry points:
   file (empty is treated as "re-authenticate", not as a parse error).
 - `get_user_info(&token)` — the liveness check. The home screen's silent bootstrap
   uses a successful call here as proof the cached token still works.
-- `authenticated_request(url, token, method)` — thin bearer-auth wrapper used by
-  `board.rs`. `HttpMethod::STREAM` is identical to `GET`; it exists only to document intent.
 - `logout()` — deletes the token file.
 
-Known rough edges: token expiry is not handled (`TODO (#6)`); the non-GET arms of
-`authenticated_request` `.unwrap()` on transport errors instead of propagating.
+Known rough edge: token expiry is not handled — an expired token surfaces as a failed
+`get_user_info` and triggers re-auth.
 
 ## `board.rs` — the typestate board client
 
 `BoardAPI<S>` is generic over a typestate marker (`Idle` / `InGame`, defined in
 `models/board_api.rs`). What you can call is decided at compile time:
 
-- `impl<S> BoardAPI<S>` — `get_ongoing_games(n)`, `stream_event()` (account-level event
-  stream). Valid in both states.
+- `impl<S> BoardAPI<S>` — `get_ongoing_games(n)`. Valid in both states.
 - `impl BoardAPI<Idle>` — `new(token, user)`, `attach_game(game_id, my_turn) -> BoardAPI<InGame>`.
 - `impl BoardAPI<InGame>` — `move_piece`, `resign_game`, `abort_game`, `stream_game_event`.
 
@@ -102,9 +105,10 @@ Helpers at the bottom of the file:
   tokens minted before that scope was added return 403 — so a failed authenticated
   request silently retries anonymously.
 - `get_home_puzzle(token, params)` — what the home screen's Puzzle button uses. Returns
-  the daily puzzle, unless `daily_already_played` finds it in the account's last 50
-  `/puzzle/activity` records, in which case a fresh `/puzzle/next` is returned instead.
-  Any failure in that check degrades to the daily puzzle.
+  the daily puzzle, unless `LitcheeAdapter::get_home_puzzle` finds its id in the
+  account's `/puzzle/activity` records from the **last 24 h**, in which case a fresh
+  `/puzzle/next` is returned instead. Any failure in that check degrades to the daily
+  puzzle.
 
 Errors are mapped to `String` before crossing an `await` in a few places on purpose: a
 non-`Send` `Box<dyn Error>` held across an await would make the future non-`Send`, and

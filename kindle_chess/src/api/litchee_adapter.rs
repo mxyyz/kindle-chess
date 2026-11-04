@@ -1,6 +1,6 @@
 use std::pin::Pin;
 
-use futures::{Stream, StreamExt};
+use futures_util::{Stream, StreamExt};
 use litchee::{
     LichessError,
     api::gameplay::{
@@ -45,6 +45,26 @@ impl LitcheeAdapter {
             client: litchee::LichessClient::new(),
             token: None,
         }
+    }
+
+    /// Builds an adapter against a custom base URL, optionally authenticated.
+    ///
+    /// Meant for integration tests: `LichessClientBuilder::base_url()` lets a
+    /// mock server stand in for `lichess.org`, so the adapter's full
+    /// request → decode → DTO-mapping path can be exercised offline.
+    pub fn with_base_url(token: Option<&str>, base_url: &url::Url) -> Result<Self, LichessError> {
+        let mut builder = litchee::LichessClient::builder().base_url(base_url);
+        let token = match token {
+            Some(t) => {
+                builder = builder.token(t);
+                Some(t.to_string())
+            }
+            None => None,
+        };
+        Ok(Self {
+            client: builder.build()?,
+            token,
+        })
     }
 
     // Puzzle methods
@@ -271,7 +291,7 @@ fn map_board_event(lb_event: &LichessBoardEvent) -> GameStateStreamEvent {
                 clock,
                 state: map_game_state(&full.state),
             };
-            GameStateStreamEvent::GameFull(full_event)
+            GameStateStreamEvent::GameFull(Box::new(full_event))
         }
         LichessBoardEvent::GameState(state) => {
             if is_terminal(&state.status) {

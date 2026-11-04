@@ -92,7 +92,7 @@ pub enum AppEvent {
     ExitToMenu,
     // Open the live-game actions screen (resign / abort).
     OpenGameActions,
-    ChessReady(ChessApp),
+    ChessReady(Box<ChessApp>),
     Quit,
 
     // X11 Events

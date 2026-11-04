@@ -14,7 +14,7 @@ impl ChessApp {
     /// list. Fails if the Lichess client can't be built.
     pub fn new_online(token: TokenInfo, user: LichessUser) -> Result<ChessApp, LichessError> {
         Ok(Self {
-            backend: ChessBackend::OnlineIdle(BoardAPI::<Idle>::new(token, user)?),
+            backend: ChessBackend::OnlineIdle(Box::new(BoardAPI::<Idle>::new(token, user)?)),
         })
     }
 
@@ -31,7 +31,7 @@ impl ChessApp {
     pub fn attach_game(mut self, game_id: String, my_turn: bool) -> Self {
         self.backend = match self.backend {
             ChessBackend::OnlineIdle(api) => {
-                ChessBackend::OnlineInGame(api.attach_game(game_id, my_turn))
+                ChessBackend::OnlineInGame(Box::new(api.attach_game(game_id, my_turn)))
             }
             other => {
                 warn!("attach_game called on non-idle backend; ignored");
@@ -45,7 +45,7 @@ impl ChessApp {
     /// the auth scope (e.g. ongoing-games fetch).
     pub fn online_idle_api(&self) -> Option<BoardAPI<Idle>> {
         match &self.backend {
-            ChessBackend::OnlineIdle(api) => Some(api.clone()),
+            ChessBackend::OnlineIdle(api) => Some((**api).clone()),
             _ => None,
         }
     }
@@ -55,7 +55,7 @@ impl ChessApp {
     /// stay inside the task — propagate state changes back via `AppEvent`s.
     pub fn online_in_game_api(&self) -> Option<BoardAPI<InGame>> {
         match &self.backend {
-            ChessBackend::OnlineInGame(api) => Some(api.clone()),
+            ChessBackend::OnlineInGame(api) => Some((**api).clone()),
             _ => None,
         }
     }

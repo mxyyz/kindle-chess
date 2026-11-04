@@ -12,7 +12,7 @@
 use std::os::unix::fs::PermissionsExt;
 use std::path::PathBuf;
 
-use futures::StreamExt;
+use futures_util::StreamExt;
 use log::{info, warn};
 use reqwest::header::{HeaderMap, HeaderValue, USER_AGENT};
 use sha2::{Digest, Sha256};
