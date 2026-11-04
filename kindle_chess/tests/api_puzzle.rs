@@ -291,3 +291,54 @@ async fn adapter_home_puzzle_returns_next_when_daily_already_played() {
         requests.len()
     );
 }
+
+#[tokio::test]
+async fn adapter_post_puzzle_solution_posts_to_batch_angle() {
+    use wiremock::matchers::{body_json, header, query_param};
+
+    let server = MockServer::start().await;
+    Mock::given(method("POST"))
+        .and(path("/api/puzzle/batch/mix"))
+        .and(query_param("nb", "0"))
+        .and(header("Authorization", "Bearer test-token"))
+        .and(body_json(serde_json::json!({
+            "solutions": [{"id": "test123", "win": true, "rated": true}]
+        })))
+        .respond_with(ResponseTemplate::new(200).set_body_string(
+            r#"{"rounds":[{"id":"test123","win":true,"ratingDiff":12}]}"#,
+        ))
+        .mount(&server)
+        .await;
+
+    let base = server.uri().parse().expect("mock uri is a valid url");
+    let adapter =
+        LitcheeAdapter::with_base_url(Some("test-token"), &base).expect("adapter builds");
+
+    let rounds = adapter
+        .post_puzzle_solution("mix", "test123", true, 0)
+        .await
+        .unwrap();
+
+    assert_eq!(rounds.len(), 1);
+    assert_eq!(rounds[0].id, "test123");
+    assert_eq!(rounds[0].win, Some(true));
+    assert_eq!(rounds[0].rating_diff, Some(12));
+}
+
+#[tokio::test]
+async fn adapter_post_puzzle_solution_errors_on_403() {
+    // Tokens issued before the puzzle:write scope get a 403 — the caller
+    // degrades to local-only play, so the error must surface as Err.
+    let server = MockServer::start().await;
+    Mock::given(method("POST"))
+        .and(path("/api/puzzle/batch/mix"))
+        .respond_with(ResponseTemplate::new(403))
+        .mount(&server)
+        .await;
+
+    let result = adapter(&server)
+        .post_puzzle_solution("mix", "test123", true, 0)
+        .await;
+
+    assert!(result.is_err());
+}
