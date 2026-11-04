@@ -277,3 +277,42 @@ impl PuzzleSidebarWidget {
         Ok(())
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn widget() -> PuzzleSidebarWidget {
+        PuzzleSidebarWidget::new(Rectangle::new(0, 1072, 1072, 376))
+    }
+
+    #[test]
+    fn info_change_marks_full_repaint_but_status_change_does_not() {
+        let mut w = widget();
+        w.needs_full_repaint = false; // simulate post-first-render state
+
+        // Status-only update keeps the cheap band-diff path.
+        w.set_status(&PuzzleStatus::Wrong);
+        assert!(!w.needs_full_repaint);
+
+        // Showing the solved info is a change → must fully repaint, because the
+        // themes text can be wider than the 600px info band and a band-sized
+        // white rect would leave glyph residue at the sides.
+        w.set_puzzle_info(1500, &["tactics".to_string()], &PuzzleStatus::Solved);
+        assert!(w.needs_full_repaint);
+        assert_eq!(w.rating, Some(1500));
+        assert_eq!(w.themes, "tactics");
+
+        // Re-setting identical info is not a change → no repaint.
+        w.needs_full_repaint = false;
+        w.set_puzzle_info(1500, &["tactics".to_string()], &PuzzleStatus::Solved);
+        assert!(!w.needs_full_repaint);
+
+        // Clearing the info (next puzzle pressed / new puzzle loading) is a
+        // change → full repaint, and the fields actually clear.
+        w.set_puzzle_info(0, &[], &PuzzleStatus::Solving);
+        assert!(w.needs_full_repaint);
+        assert_eq!(w.rating, None);
+        assert!(w.themes.is_empty());
+    }
+}
