@@ -19,6 +19,9 @@ mv ./kindle_KUAL/hellokindle/secrets/token.json ./
 echo "Flashing local KUAL-App to Kindle"
 scp -r ./kindle_KUAL/* root@kindle:/mnt/us
 
+echo "Registering app in appreg.db (home-screen icon, best effort)"
+ssh root@kindle "sh /mnt/us/hellokindle/register_appreg.sh" || echo "appreg registration skipped"
+
 echo "Moving token back.."
 mv ./token.json ./kindle_KUAL/hellokindle/secrets/
 echo "Done flashing!"

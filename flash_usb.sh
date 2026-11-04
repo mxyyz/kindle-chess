@@ -19,6 +19,8 @@ mv ./kindle_KUAL/hellokindle/secrets/token.json ./
 echo "Flashing local KUAL-App to Kindle"
 yes | sudo cp -r ./kindle_KUAL/* /mnt/tmp/
 
+echo "Note: USB flash cannot reach /var/local/appreg.db — the launcher self-registers on first run (chess_app.sh calls register_appreg.sh)"
+
 echo "Moving token back.."
 mv ./token.json ./kindle_KUAL/hellokindle/secrets/
 
