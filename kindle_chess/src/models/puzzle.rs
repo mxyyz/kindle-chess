@@ -818,6 +818,25 @@ mod tests {
     }
 
     #[test]
+    fn solution_to_post_only_when_solved_and_authenticated() {
+        let mut s = PuzzleSession::new(puzzle(
+            "4k2r/4bppp/1qpB4/1p2p3/4Q1n1/5N2/PPP2PPP/R2R2K1 b k - 0 1",
+            &["g4f2", "e4d4", "e5d4"],
+            Some("d3e4"),
+        ))
+        .unwrap();
+        // Not solved yet — nothing to post, even signed in.
+        assert_eq!(s.solution_to_post(true), None);
+        assert_eq!(s.try_move("g4f2"), PuzzleStatus::Correct);
+        assert_eq!(s.solution_to_post(true), None);
+        assert_eq!(s.apply_opponent_reply(), PuzzleStatus::Solving);
+        assert_eq!(s.try_move("e5d4"), PuzzleStatus::Solved);
+        // Solved + signed in → the id to post. Anonymous → never post.
+        assert_eq!(s.solution_to_post(true), Some("test"));
+        assert_eq!(s.solution_to_post(false), None);
+    }
+
+    #[test]
     fn batch_angle_maps_phase_to_theme_key() {
         // POST /api/puzzle/batch/{angle} needs a concrete theme in the path;
         // "Any" maps to Lichess' catch-all "mix".
