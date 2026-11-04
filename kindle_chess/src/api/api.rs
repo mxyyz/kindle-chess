@@ -1,7 +1,7 @@
 use crate::api::litchee_adapter::LitcheeAdapter;
 use crate::api::traits::PuzzleFetcher;
 use crate::models::oauth::TokenInfo;
-use crate::models::puzzle::{Puzzle, PuzzleParams, PuzzleResponse};
+use crate::models::puzzle::{Puzzle, PuzzleParams, PuzzleResponse, PuzzleSolveRound};
 
 use log::warn;
 
@@ -77,6 +77,37 @@ pub async fn get_next_puzzle(
         }
     };
     get_puzzle_by_id(&next_id).await
+}
+
+/// POST /api/puzzle/batch/{angle} — submit a finished puzzle to the signed-in
+/// account, so Lichess records the solve (activity stream, rating) and
+/// `/puzzle/next` advances past it.
+///
+/// Returns `Ok(None)` when there is no token (anonymous — nothing to post to)
+/// or when the request fails, e.g. a 403 from tokens issued before the
+/// `puzzle:write` scope: local play must not break over a failed post, so the
+/// error is logged and swallowed. `Ok(Some(rounds))` carries Lichess' recorded
+/// outcome (win flag, rating diff).
+pub async fn post_puzzle_solution(
+    token: Option<TokenInfo>,
+    params: PuzzleParams,
+    id: &str,
+    win: bool,
+) -> Result<Option<Vec<PuzzleSolveRound>>, Box<dyn std::error::Error>> {
+    let Some(t) = token else {
+        return Ok(None);
+    };
+    let adapter = LitcheeAdapter::new(&t.access_token)?;
+    match adapter
+        .post_puzzle_solution(params.batch_angle(), id, win, 0)
+        .await
+    {
+        Ok(rounds) => Ok(Some(rounds)),
+        Err(e) => {
+            warn!("post_puzzle_solution failed ({e}); puzzle stays local-only");
+            Ok(None)
+        }
+    }
 }
 
 // ~~~~~~~~~~~~~~~~ HOME-SCREEN PUZZLE SELECTION ~~~~~~~~~~~~~~~~

@@ -420,6 +420,14 @@ impl Default for PuzzleParams {
     }
 }
 
+impl PuzzleParams {
+    /// Path segment for `POST /api/puzzle/batch/{angle}`: the phase's theme
+    /// key, or `"mix"` (Lichess' catch-all angle) when the phase is `Any`.
+    pub fn batch_angle(&self) -> &'static str {
+        self.phase.as_angle().unwrap_or("mix")
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
