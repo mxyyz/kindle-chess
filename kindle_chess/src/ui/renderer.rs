@@ -115,6 +115,13 @@ impl Renderer {
             &ConfigureWindowAux::new().stack_mode(StackMode::ABOVE),
         )?;
 
+        // Declare our role to the Kindle's Awesome Window Manager via WM_NAME
+        // (fullscreen PC:N in Phase 1; PC:T chrome mode is a Phase 2 variant).
+        // Harmless on a plain X server: the property is set, nothing reads it.
+        if let Err(e) = crate::ui::awm::WindowTitle::fullscreen_app().apply(&conn, window) {
+            info!("AWM window title not set (non-Kindle X server?): {}", e);
+        }
+
         // Request input focus for the window (debug builds only for cursor visibility)
         if cfg!(debug_assertions) {
             let _ = conn.set_input_focus(
