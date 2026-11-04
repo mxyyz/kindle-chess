@@ -531,6 +531,19 @@ mod tests {
     }
 
     #[test]
+    fn session_retains_puzzle_id() {
+        // The id is what gets posted back to Lichess on solve, so the session
+        // must keep it — PuzzleSession::new must not drop it.
+        let s = PuzzleSession::new(puzzle(
+            "4k2r/4bppp/1qpB4/1p2p3/4Q1n1/5N2/PPP2PPP/R2R2K1 b k - 0 1",
+            &["g4f2"],
+            Some("d3e4"),
+        ))
+        .unwrap();
+        assert_eq!(s.id, "test");
+    }
+
+    #[test]
     fn puzzle_session_from_invalid_fen() {
         let p = Puzzle {
             id: "test".to_string(),
