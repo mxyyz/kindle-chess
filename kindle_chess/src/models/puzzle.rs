@@ -125,6 +125,18 @@ impl PuzzleSession {
             && self.progress < self.solution.len()
     }
 
+    /// The puzzle id to post to Lichess, present only when the puzzle has been
+    /// solved and the user is signed in. Drives the automatic solve-post on
+    /// the puzzle screen; `None` while solving, after wrong moves, once solved
+    /// but anonymous, etc.
+    pub fn solution_to_post(&self, authenticated: bool) -> Option<&str> {
+        if self.status == PuzzleStatus::Solved && authenticated {
+            Some(&self.id)
+        } else {
+            None
+        }
+    }
+
     /// UCI of the move the solver is expected to play next — used by the hint
     /// button to mark the piece that should move. `None` once the puzzle no
     /// longer accepts input.
