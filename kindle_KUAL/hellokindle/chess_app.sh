@@ -60,6 +60,21 @@ if [ -f "$BINARY.new" ]; then
 fi
 
 
+# ─── OAuth callback firewall ─────────────────────────────────────────────────
+# The QR auth flow needs the phone to reach this device on TCP 8080. Stock
+# firmware restores its iptables rules on every boot, silently dropping the
+# phone's callback (browser timeout, no error in app.log). Re-open the port
+# at every launch so the rule survives reboots.
+if iptables -C INPUT -p tcp --dport 8080 -j ACCEPT 2>/dev/null; then
+    echo "Firewall: callback port 8080 already open" >> "$SCRIPT_LOG"
+else
+    if iptables -I INPUT -p tcp --dport 8080 -j ACCEPT 2>> "$SCRIPT_LOG"; then
+        echo "Firewall: opened callback port 8080 (INPUT)" >> "$SCRIPT_LOG"
+    else
+        echo "WARNING: could not open port 8080 — QR auth callback may time out" >> "$SCRIPT_LOG"
+    fi
+fi
+
 # AB HIER FRANKENSTEINED
 
 # Sicherheitscheck 3: Backup des aktuellen Displays (falls möglich)

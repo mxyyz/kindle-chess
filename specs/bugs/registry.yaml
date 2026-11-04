@@ -1,0 +1,23 @@
+# Bug registry. One row per BUG-*.md in this directory.
+registry:
+  - bug_id: BUG-2026-11-04T184513
+    date: 2026-11-04
+    severity: medium
+    priority: high
+    scope: puzzle-flow
+    summary: >-
+      Solved puzzles are never posted to Lichess (POST /api/puzzle/batch/{angle}
+      unimplemented; PuzzleSession drops the puzzle id), so /puzzle/next repeats
+      the same puzzle and the finished daily never lands in puzzle activity.
+    file: specs/bugs/BUG-2026-11-04T184513-post-puzzle-solutions.md
+  - bug_id: BUG-2026-11-04T193559
+    date: 2026-11-04
+    severity: low
+    priority: medium
+    scope: puzzle-ui
+    summary: >-
+      Clearing the solved-puzzle info block uses a fixed 600px band while the
+      themes text is centered across the full 1072px sidebar, leaving glyph
+      residue outside the band on "Next puzzle". Fix: info changes trigger a
+      full sidebar repaint; clear also happens at button-press time.
+    file: specs/bugs/BUG-2026-11-04T193559-sidebar-info-clear-residue.md

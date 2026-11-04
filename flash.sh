@@ -17,7 +17,7 @@ echo "Temporarly moving token before copying.."
 mv ./kindle_KUAL/hellokindle/secrets/token.json ./
 
 echo "Flashing local KUAL-App to Kindle"
-scp -r ./kindle_KUAL/* root@192.168.15.244:/mnt/us
+scp -r ./kindle_KUAL/* root@kindle:/mnt/us
 
 echo "Moving token back.."
 mv ./token.json ./kindle_KUAL/hellokindle/secrets/

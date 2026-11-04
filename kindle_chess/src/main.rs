@@ -7,20 +7,8 @@ use log4rs::append::file::FileAppender;
 use log4rs::config::{Appender, Config, Root};
 use log4rs::encode::pattern::PatternEncoder;
 
-pub mod api {
-    pub mod api;
-    pub mod board;
-    pub mod github;
-    pub mod oauth;
-    pub mod update;
-}
-pub mod app;
-pub mod local;
-pub mod models;
-pub mod ui;
-pub mod version;
-
-use crate::models::app::App;
+use kindli_chess::models::app::App;
+use kindli_chess::version;
 
 #[tokio::main]
 async fn main() {
@@ -30,7 +18,7 @@ async fn main() {
             info!("kindle-hello {}", version::full());
             info!("Creating App instance..");
 
-            let _app = match App::new() {
+            match App::new() {
                 Ok(app) => {
                     info!("App instance created. Starting...");
                     app.run()

@@ -1,9 +1,11 @@
 use serde::{Deserialize, Deserializer, Serialize};
 
-use crate::models::{
-    bitboard::Bitboards,
-    game::Player,
-    oauth::{LichessUser, TokenInfo},
+use crate::{
+    api::litchee_adapter::LitcheeAdapter,
+    models::{
+        bitboard::Bitboards,
+        oauth::{LichessUser, TokenInfo},
+    },
 };
 
 // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ BOARD ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -45,6 +47,7 @@ pub struct BoardAPI<S> {
     pub token: TokenInfo,
     pub user: LichessUser,
     pub state: S,
+    pub adapter: LitcheeAdapter,
 }
 
 #[derive(Debug, Deserialize, Serialize)]
@@ -56,6 +59,7 @@ pub struct GameData {
     pub fen: String,
     pub has_moved: bool,
     pub is_my_turn: bool,
+    #[serde(default)]
     pub last_move: String,
     pub opponent: PlayedBy,
     pub perf: String,
@@ -77,152 +81,8 @@ pub struct GameDataList {
 #[derive(Debug, Deserialize, Serialize)]
 #[serde(tag = "type")]
 #[serde(rename_all = "camelCase")]
-pub enum StreamEvent {
-    GameStart(GameStartEvent),
-    GameFinish(GameFinishEvent),
-    Challenge(ChallengeEvent),
-    ChallengeDeclined(ChallengeDeclinedEvent),
-}
-
-// ~~~~~~~~~~~~~~~~ EVENT-STREAM-TYPES ~~~~~~~~~~~~~~~~
-#[derive(Serialize, Deserialize, Debug)]
-pub struct GameStartEvent {
-    #[serde(rename = "fullId")]
-    pub full_id: String,
-    #[serde(rename = "gameId")]
-    pub game_id: String,
-    pub fen: String,
-    pub color: String,
-    #[serde(rename = "lastMove")]
-    pub last_move: String,
-    pub source: String,
-    pub status: GameStatus,
-    pub variant: String,
-    pub speed: String,
-    pub perf: String,
-    pub rated: bool,
-    #[serde(rename = "hasMoved")]
-    pub has_moved: bool,
-    pub opponent: Opponent,
-    #[serde(rename = "isMyTurn")]
-    pub is_my_turn: bool,
-    #[serde(rename = "secondsLeft")]
-    pub seconds_left: Option<u64>,
-    pub compat: Compat,
-    pub id: String,
-}
-
-#[derive(Serialize, Deserialize, Debug)]
-pub struct GameFinishEvent {
-    #[serde(rename = "fullId")]
-    pub full_id: String,
-    #[serde(rename = "gameId")]
-    pub game_id: String,
-    pub fen: String,
-    pub color: String,
-    #[serde(rename = "lastMove")]
-    pub last_move: String,
-    pub source: String,
-    pub status: GameStatus,
-    pub variant: GameVariant,
-    pub speed: String,
-    pub perf: String,
-    pub rated: bool,
-    #[serde(rename = "hasMoved")]
-    pub has_moved: bool,
-    pub opponent: Opponent,
-    #[serde(rename = "isMyTurn")]
-    pub is_my_turn: bool,
-    #[serde(rename = "secondsLeft")]
-    pub seconds_left: Option<u64>,
-    pub winner: Option<String>,
-    #[serde(rename = "ratingDiff")]
-    pub rating_diff: Option<i16>,
-    pub compat: Compat,
-    pub id: String,
-}
-
-#[derive(Serialize, Deserialize, Debug)]
-pub struct ChallengeEvent {
-    pub id: String,
-    pub url: String,
-    pub status: String,
-    pub challenger: Player,
-    #[serde(rename = "destUser")]
-    pub dest_user: Player,
-    pub variant: GameVariant,
-    pub rated: bool,
-    pub speed: String,
-    #[serde(rename = "timeControl")]
-    pub time_control: TimeControl,
-    pub color: String,
-    #[serde(rename = "finalColor")]
-    pub final_color: String,
-    pub perf: PerfCallenge,
-    pub compat: Compat,
-}
-
-#[derive(Serialize, Deserialize, Debug)]
-pub struct ChallengeDeclinedEvent {
-    pub id: String,
-    pub url: String,
-    pub status: String,
-    pub challenger: Player,
-    #[serde(rename = "destUser")]
-    pub dest_user: Player,
-    pub variant: GameVariant,
-    pub rated: bool,
-    pub speed: String,
-    #[serde(rename = "timeControl")]
-    pub time_control: TimeControl,
-    pub color: String,
-    #[serde(rename = "finalColor")]
-    pub final_color: String,
-    pub perf: PerfCallenge,
-    pub compat: Compat,
-    #[serde(rename = "declineReason")]
-    decline_reason: String,
-    #[serde(rename = "declineReasonKey")]
-    decline_reason_key: String,
-}
-
-// MISC EVENT-STREAM-TYPES
-#[derive(Serialize, Deserialize, Debug)]
-pub struct GameStatus {
-    id: u16,
-    name: String,
-}
-
-#[derive(Serialize, Deserialize, Debug)]
-pub struct Opponent {
-    id: String,
-    username: String,
-    rating: u64,
-}
-
-#[derive(Serialize, Deserialize, Debug)]
-pub struct Compat {
-    bot: bool,
-    board: bool,
-}
-
-#[derive(Serialize, Deserialize, Debug)]
-pub struct TimeControl {
-    #[serde(rename = "type")]
-    tc_type: String,
-}
-
-#[derive(Serialize, Deserialize, Debug)]
-pub struct PerfCallenge {
-    icon: String,
-    name: String,
-}
-
-#[derive(Debug, Deserialize, Serialize)]
-#[serde(tag = "type")]
-#[serde(rename_all = "camelCase")]
 pub enum GameStateStreamEvent {
-    GameFull(GameFullEvent),
+    GameFull(Box<GameFullEvent>),
     GameState(GameStateEvent),
     GameOver(GameOverEvent),
     ChatLine(ChatLineEvent),
@@ -305,21 +165,21 @@ pub struct OpponentGoneEvent {
 // MISC GAME-STATE-STREAM-EVENT-TYPES
 #[derive(Serialize, Deserialize, Debug)]
 pub struct GameVariant {
-    key: String,
-    name: String,
-    short: Option<String>,
+    pub key: String,
+    pub name: String,
+    pub short: Option<String>,
 }
 
 #[derive(Serialize, Deserialize, Debug)]
 pub struct PerfMode {
     // #[serde(rename = "correspondence")]
-    name: String,
+    pub name: String,
 }
 
 #[derive(Serialize, Deserialize, Debug)]
 pub struct Clock {
-    initial: u64,
-    increment: u64,
+    pub initial: u64,
+    pub increment: u64,
 }
 
 #[derive(Debug, Serialize, Clone)]

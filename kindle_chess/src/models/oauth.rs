@@ -2,17 +2,13 @@ use std::sync::Arc;
 use tokio::sync::Mutex;
 
 use ::uuid::Uuid;
-use oauth2::{AccessToken, AuthUrl, ClientId, RedirectUrl, TokenUrl};
 use serde::{Deserialize, Serialize};
 
 // OAUTH2
 #[derive(Debug, Deserialize, Serialize)]
 pub struct OAuth2Client {
     pub config: AuthConfig,
-    pub client_id: ClientId,
-    pub redirect_url: RedirectUrl,
-    pub auth_url: AuthUrl,
-    pub token_url: TokenUrl,
+    pub redirect_url: String,
     #[serde(with = "arc_mutable_option")]
     pub state: Arc<Mutex<Option<AuthState>>>,
 }
@@ -79,12 +75,6 @@ pub struct TokenInfo {
     pub scope: Option<String>,
 }
 
-impl TokenInfo {
-    pub fn to_oauth2_token(&self) -> AccessToken {
-        AccessToken::new(self.access_token.clone())
-    }
-}
-
 #[derive(Debug, Deserialize, Clone, Serialize)]
 pub struct AuthConfig {
     pub client_id: String,
@@ -102,6 +92,11 @@ impl Default for AuthConfig {
                 "challenge:write".to_string(),
                 "bot:play".to_string(),
                 "board:play".to_string(),
+                // Lets /api/puzzle/next tailor puzzles to the user's rating.
+                // Tokens issued before this was added 403 on that path; the
+                // puzzle fetch falls back to an anonymous request in that case.
+                "puzzle:read".to_string(),
+                "puzzle:write".to_string(),
             ],
         }
     }
@@ -120,14 +115,4 @@ pub struct AuthCallbackQuery {
     pub state: Option<String>,
     pub error: Option<String>,
     pub error_description: Option<String>,
-}
-
-#[derive(Debug, Deserialize)]
-pub enum HttpMethod {
-    GET,
-    POST,
-    PUT,
-    DELETE,
-    PATCH,
-    STREAM,
 }

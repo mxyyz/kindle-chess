@@ -1,0 +1,31 @@
+# bigpowers session source-of-truth. See survey-context / session-state.
+session:
+  active_flow: fix_bug
+  active_bug_id: BUG-2026-11-04T193559
+  phase: Execute
+
+vcs:
+  kind: git
+  branch: fix-post-puzzle-solutions
+  head: d0415f3
+  # Worktree: /home/mxy/repos/fix-post-puzzle-solutions (branched from
+  # api-migration tip d0415f3 — litchee adapter only exists there, not main).
+
+handoff:
+  next_skill: verify-work
+  # Bug BUG-2026-11-04T184513 implemented on this branch (8 commits,
+  # RED/GREEN pairs): solved puzzles now auto-post to
+  # POST /api/puzzle/batch/{angle} when signed in. 79 lib + 24 integration
+  # tests green, build + fmt clean. Remaining: live-account UAT of
+  # /puzzle/next advancing + activity entry (needs real token).
+
+notes:
+  phase1: ready_to_land
+  phase1_commits: [004190f, 916dd0f, 101b567, a354370, 65b3f02, ac9b365, 3471285, 016d6ae, d98d6d5]
+  # 61 lib + 7 api_puzzle + 3 lib integration = 71 tests, all green.
+  # clippy: 6 warnings (large_enum_variant, non-blocking).
+  # fmt: clean. build: clean.
+  ci: partial
+
+metrics:
+  phase1_ready: 2026-10-18T22:50:00Z
