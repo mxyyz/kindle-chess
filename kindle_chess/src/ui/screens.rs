@@ -13,7 +13,7 @@ use crate::{
         board_api::PlayedBy,
         chess::ChessApp,
         oauth::TokenInfo,
-        puzzle::{PuzzleParams, PuzzleSession},
+        puzzle::{PuzzleParams, PuzzleSession, PuzzleStatus},
         ui::{
             ChessAuthScreen, ChessGameScreen, Display, GameActionsScreen, HomeScreen,
             OngoingChessGamesScreen, PuzzleScreen, PuzzleSettingsScreen, Screen, SettingsScreen,
@@ -1122,6 +1122,10 @@ impl Screen for PuzzleScreen {
             // The sidebar's "Next puzzle" button — refetch with current params.
             AppEvent::NextPuzzle => {
                 self.sidebar.set_message("Loading…");
+                // Clear the previous puzzle's rating/themes immediately at
+                // press time (not when the new puzzle arrives) — an info change
+                // triggers a full sidebar repaint, so no residue is left.
+                self.sidebar.set_puzzle_info(0, &[], &PuzzleStatus::Solving);
                 kick_next_puzzle(self.token.clone(), self.params, display.event_tx.clone());
                 Ok(Transition::Redraw)
             }
@@ -1131,6 +1135,7 @@ impl Screen for PuzzleScreen {
             AppEvent::ApplyPuzzleParams(params) => {
                 self.params = params;
                 self.sidebar.set_message("Loading…");
+                self.sidebar.set_puzzle_info(0, &[], &PuzzleStatus::Solving);
                 kick_next_puzzle(self.token.clone(), self.params, display.event_tx.clone());
                 Ok(Transition::Redraw)
             }
