@@ -17,9 +17,10 @@ echo "Temporarly moving token before copying.."
 mv ./kindle_KUAL/hellokindle/secrets/token.json ./
 
 echo "Flashing local KUAL-App to Kindle"
-# kindle_KUAL/documents/kindle-chess.sh lands in /mnt/us/documents — the
-# jailbreak's SH_Integration auto-registers it as a launchable scriptlet.
 scp -r ./kindle_KUAL/* root@kindle:/mnt/us
+
+echo "Deploying scriptlet to /mnt/us/documents (SH_Integration auto-registers it)"
+scp ./scriptlet/kindle-chess.sh root@kindle:/mnt/us/documents/
 
 echo "Moving token back.."
 mv ./token.json ./kindle_KUAL/hellokindle/secrets/

@@ -99,9 +99,12 @@ pub enum AppEvent {
     Expose,
     WindowUnmapped,
 
-    // System Events
-    // Device woke from sleep (com.lab126.powerd outOfScreenSaver) — the app
-    // answers with a full redraw of the top screen so the e-ink panel is clean.
+    // System Events (com.lab126.powerd via lipc, display-lock aware)
+    // Display locked / going to screensaver (goingToScreenSaver) — hook point
+    // for a custom screensaver later; currently just logged.
+    DeviceLock,
+    // Device woke / unlocked (outOfScreenSaver) — the app answers with a full
+    // redraw of the top screen so the e-ink panel is clean.
     DeviceWake,
 }
 

@@ -15,14 +15,16 @@ vcs:
 
 handoff:
   next_skill: verify-work (on-device UAT on k2) then Phase 2 tasks t05–t07
-  # e02 Phase 1 committed (cc9ffd0, 55b14e0, edab5f7 + scriptlet fix): AWM WM_NAME
-  # title (PC:N), scriptlet launcher kindle_KUAL/documents/kindle-chess.sh
-  # (SH_Integration auto-registers it; appreg.db NOT edited — it is Amazon's
-  # native registry, the hotfix owns the shell_integration rows; KUAL kept as
-  # fallback), powerd wake->full redraw, --source logging.
-  # 88 lib tests green, build + fmt clean. Remaining: on-device UAT on k1/k2
-  # (scriptlet appears in library and launches, sleep/wake redraw clean),
-  # then Phase 2: PC:T title, top.png sidebar button above Back, pillow handoff.
+  # e02 Phase 1 committed: AWM WM_NAME title (PC:N; UAT deferred to t05 since
+  # override_redirect+pillow-off means AWM never reads it yet), scriptlet
+  # launcher at repo-root scriptlet/kindle-chess.sh deployed to /mnt/us/documents
+  # by flash scripts (appreg.db registration tried for k1, does not work there —
+  # dropped for now; KUAL = fallback on k1), display-lock-aware powerd watcher
+  # (DeviceLock + DeviceWake, wake -> full redraw; lock = hook for custom
+  # screensaver t08), --source logging in launch.log.
+  # 88 lib tests green, build + fmt clean. Remaining: on-device UAT on k2
+  # (scriptlet launches, lock/unlock behavior), then Phase 2: t05 PC:T title,
+  # t06 top.png sidebar button above Back, t07 UAT, t08 custom screensaver.
 
 notes:
   phase1: ready_to_land
