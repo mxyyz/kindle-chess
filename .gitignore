@@ -2,3 +2,5 @@ target/
 kindle_KUAL/hellokindle/secrets/
 kindle_KUAL/hellokindle/log/
 .aider*
+.zed/
+/docs/dev/
