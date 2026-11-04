@@ -12,10 +12,12 @@ vcs:
   # api-migration tip d0415f3 — litchee adapter only exists there, not main).
 
 handoff:
-  next_skill: develop-tdd
-  # Bug spec: specs/bugs/BUG-2026-11-04T184513-post-puzzle-solutions.md
-  # (committed on this branch as 436c361). TDD cycles 1-4 in the bug file.
-  # Baseline green at kickoff: 76 lib + 21 integration tests, build clean.
+  next_skill: verify-work
+  # Bug BUG-2026-11-04T184513 implemented on this branch (8 commits,
+  # RED/GREEN pairs): solved puzzles now auto-post to
+  # POST /api/puzzle/batch/{angle} when signed in. 79 lib + 24 integration
+  # tests green, build + fmt clean. Remaining: live-account UAT of
+  # /puzzle/next advancing + activity entry (needs real token).
 
 notes:
   phase1: ready_to_land

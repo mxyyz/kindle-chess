@@ -97,14 +97,33 @@ shared; do not remove the `PuzzleFetcher` GET seam (still used by fetch tests).
 
 ## Acceptance Criteria
 
-- [ ] Signing in and solving a puzzle results in one
+- [x] Signing in and solving a puzzle results in one
       `POST /api/puzzle/batch/{angle}` with that puzzle's id and `win: true`.
 - [ ] After solving, `GET /api/puzzle/next` (unchanged filters) returns a
       *different* puzzle, and the daily appears in `/api/puzzle/activity`.
-- [ ] Anonymous use (no token) still works; no post attempted, no error shown.
-- [ ] Tokens without `puzzle:write` (403) degrade quietly to local-only play.
-- [ ] All new tests pass; existing 76 lib + integration tests still pass.
+      (server-side effect of the post — needs a live account to confirm)
+- [x] Anonymous use (no token) still works; no post attempted, no error shown.
+- [x] Tokens without `puzzle:write` (403) degrade quietly to local-only play.
+- [x] All new tests pass; existing 76 lib + integration tests still pass
+      (79 lib + 24 integration green, clippy clean apart from the two
+      pre-existing module-name warnings, fmt clean).
 
 ## Resolution
 
-<!-- filled in by validate-fix -->
+Fixed on branch `fix-post-puzzle-solutions` (8 commits, two-commit
+RED/GREEN per cycle):
+
+1. `PuzzleSession` retains the puzzle `id` (`3e99bf6` test, `cb03233` impl).
+2. `LitcheeAdapter::post_puzzle_solution` → litchee `solve_batch`
+   (`c934e7c` wiremock test asserting POST path/`nb`/bearer/solutions body
+   + 403→Err, `e758032` impl mapping `rounds` to `PuzzleSolveRound`).
+3. `api::post_puzzle_solution(token, params, id, win)` +
+   `PuzzleParams::batch_angle()` (`Any` → `"mix"`); no token → `Ok(None)`,
+   request failure → warn + `Ok(None)` (`fbe16eb` tests, `11b9ce8` impl).
+4. `PuzzleSession::solution_to_post(authenticated)` predicate; PuzzleScreen
+   fires the post automatically on transition to `Solved` (both in
+   `MoveMade` and `PuzzleOpponentMove`) — no extra user input
+   (`a84b6fc` test, `5f3d7ca` impl). `11986b0` rustfmt.
+
+Verified: `cargo test` 79 lib + 18 api_puzzle + 3 + 3 integration all green,
+`cargo build` clean, `cargo fmt --check` clean.
