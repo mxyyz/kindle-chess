@@ -11,10 +11,11 @@
 Make kindle-chess feel like an actual Kindle app instead of a KUAL-launched
 fullscreen hack. Two phases (hybrid approach, confirmed in elaborate-spec):
 
-- **Phase 1 — lifecycle**: the app registers in `appreg.db` so it appears on the
-  home screen (k2, where scriptlets work), keeps KUAL as fallback (k1), sets an
-  AWM-conformant X11 `WM_NAME` window title, and reacts to device wake
-  (`com.lab126.powerd` via lipc) with a full e-ink refresh.
+- **Phase 1 — lifecycle**: a scriptlet in `/mnt/us/documents` (auto-registered by
+  the jailbreak's SH_Integration on both k1 and k2 — no appreg.db edits; that db is
+  Amazon's native registry) makes the app launchable from the library, KUAL stays as
+  fallback, the X11 window gets an AWM-conformant `WM_NAME` title, and device wake
+  (`com.lab126.powerd` via lipc) triggers a full e-ink refresh.
 - **Phase 2 — chrome**: window title switches to the `PC:T` variant so the Kindle
   top bar is available; a dedicated sidebar button (`assets/top.png`, above the
   Back button) opens the top bar so the user can reach brightness settings;
@@ -29,11 +30,12 @@ scratchpad `kindle-dev/`):
   title (`WM_NAME`): `L:A_N:application_PC:TS_ID:com.lab126.store` =
   layer/role/persistent-chrome/id. GTK's `gtk_window_set_title` is just a
   `WM_NAME` write — our x11rb renderer can do the same with `change_property`.
-- `appreg.db` (`/var/local/appreg.db`, sqlite3) maps `handlerId` → properties
-  (`command`, `lipcId`, `supportedOrientation`, `default-chrome-style`, …) and
-  `associations` rows with interface `application`; that is how apps become
-  launchable from the home screen. KUAL's `com.notmarek.shell_integration.*`
-  rows are the working template.
+- `appreg.db` (`/var/local/appreg.db`, sqlite3) is **Amazon's native** app registry
+  (Amazon's own booklets live there). The `com.notmarek.shell_integration.*` rows
+  are injected by the jailbreak's Universal Hotfix, and that integration
+  auto-indexes any `.sh` in `/mnt/us/documents` as a launchable scriptlet
+  (scriptlets.html) — so we do NOT edit appreg.db ourselves; we ship a scriptlet.
+  KUAL's menu.json remains as the fallback launcher.
 - lipc services (`com.lab126.pillow`, `winmgr`, `chromebar`, `powerd`, …) are
   reachable from any language via the on-device `lipc-*` shell tools — no C SDK
   needed; from Rust we shell out and degrade to no-ops off-device.
@@ -42,7 +44,7 @@ scratchpad `kindle-dev/`):
 
 ## Success Criteria
 
-- [ ] Phase 1 on-device (k2): home-screen icon launches the app fullscreen, no KUAL needed
+- [ ] Phase 1 on-device (k1 + k2): "Kindli-Chess" scriptlet in the library launches the app fullscreen, no KUAL needed
 - [ ] Phase 1 on-device: after sleep/wake the board is cleanly redrawn (powerd resume → full refresh)
 - [ ] KUAL menu entry still works on k1 (fallback preserved)
 - [ ] `cargo build` + `cargo test` green; AWM title-builder unit tests exist

@@ -17,9 +17,9 @@ echo "Temporarly moving token before copying.."
 mv ./kindle_KUAL/hellokindle/secrets/token.json ./
 
 echo "Flashing local KUAL-App to Kindle"
+# kindle_KUAL/documents/kindle-chess.sh lands in /mnt/us/documents — the
+# jailbreak's SH_Integration auto-registers it as a launchable scriptlet.
 yes | sudo cp -r ./kindle_KUAL/* /mnt/tmp/
-
-echo "Note: USB flash cannot reach /var/local/appreg.db — the launcher self-registers on first run (chess_app.sh calls register_appreg.sh)"
 
 echo "Moving token back.."
 mv ./token.json ./kindle_KUAL/hellokindle/secrets/

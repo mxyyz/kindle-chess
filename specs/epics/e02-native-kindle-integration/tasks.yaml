@@ -32,32 +32,34 @@
   dependencies: []
   blocker: false
 
-- id: t02-appreg-registration
-  title: appreg.db home-screen registration + install wiring
+- id: t02-scriptlet-launcher
+  title: Scriptlet launcher in /mnt/us/documents (replaces appreg.db plan)
   phase: 1
   priority: P0
-  estimate_hours: 4
+  estimate_hours: 1
   status: complete
   description: |
-    New script kindle_KUAL/hellokindle/register_appreg.sh, idempotent:
-    backs up /var/local/appreg.db, inserts handlerId org.kindlemodding.kindlechess
-    into handlerIds + properties (command=/mnt/us/hellokindle/chess_app.sh,
-    lipcId, supportedOrientation=U, default-chrome-style=N, unloadPolicy=unloadOnPause),
-    plus an associations row (interface=application, contentId=none), then runs
-    sqlite3 integrity check and rolls back from backup on any failure.
-    Wired into flash.sh/flash_usb.sh after the scp/cp, so deploy registers the app.
-    KUAL menu.json stays untouched (fallback for k1 without scriptlets).
-    Off-device (no /var/local/appreg.db) the script exits 0 with a log line.
+    REVISED after user correction — original plan was to hand-edit
+    /var/local/appreg.db, but appreg.db is Amazon's native registry; the
+    jailbreak's SH_Integration hotfix owns the com.notmarek.shell_integration
+    rows and auto-indexes any .sh in /mnt/us/documents as a launchable
+    scriptlet (kindlemodding.org/kindle-dev/scriptlets.html). k1 has this
+    proven. So registration is just a scriptlet file:
+    kindle_KUAL/documents/kindle-chess.sh with # Name: Kindli-Chess,
+    # Author, # Icon: /mnt/us/hellokindle/assets/chess-king.png, which execs
+    chess_app.sh --scriptlet. flash.sh/flash_usb.sh copy kindle_KUAL/* to
+    /mnt/us, so the scriptlet lands in /mnt/us/documents automatically.
+    KUAL menu.json stays untouched as fallback. register_appreg.sh removed.
   acceptance_criteria:
-    - script is idempotent (second run is a no-op)
-    - failed sqlite write rolls back to the backup byte-identically
-    - k2 home screen shows the chess icon after flash (UAT, device)
-    - k1 KUAL path unaffected
+    - kindle-chess.sh is executable and has Name/Author/Icon metadata
+    - after flash, the scriptlet appears in the device library (UAT on k1/k2)
+    - launch source logged as --scriptlet
   files_created:
-    - kindle_KUAL/hellokindle/register_appreg.sh
+    - kindle_KUAL/documents/kindle-chess.sh
   files_modified:
     - flash.sh
     - flash_usb.sh
+    - kindle_KUAL/hellokindle/chess_app.sh
   dependencies: []
   blocker: false
 

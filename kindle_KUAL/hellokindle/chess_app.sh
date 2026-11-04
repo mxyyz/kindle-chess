@@ -17,12 +17,7 @@ mkdir -p "$APP_DIR/secrets"
 
 echo "=== chess_app.sh started ===" > "$SCRIPT_LOG"
 echo "Time: $(date)"               >> "$SCRIPT_LOG"
-echo "Source: ${1:-unknown} (kual menu or appreg.db command)" >> "$SCRIPT_LOG"
-
-# ─── Home-screen registration ─────────────────────────────────────────────────
-# Idempotent: makes the app appear on the Kindle home screen via appreg.db.
-# No-op off-device and on devices where it is already registered.
-"$APP_DIR/register_appreg.sh" >> "$SCRIPT_LOG" 2>&1 || true
+echo "Source: ${1:-unknown} (scriptlet / kual menu)" >> "$SCRIPT_LOG"
 
 # ─── Sanity checks ────────────────────────────────────────────────────────────
 if [ ! -f "$BINARY" ]; then
