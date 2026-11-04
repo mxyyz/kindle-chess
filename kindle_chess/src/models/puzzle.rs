@@ -34,6 +34,15 @@ pub struct Puzzle {
     pub last_move: Option<String>,
 }
 
+/// One round in a `POST /api/puzzle/batch/{angle}` response: the outcome
+/// Lichess recorded for a submitted solution.
+#[derive(Debug, Clone, PartialEq)]
+pub struct PuzzleSolveRound {
+    pub id: String,
+    pub win: Option<bool>,
+    pub rating_diff: Option<i32>,
+}
+
 #[derive(Deserialize, Debug)]
 pub struct PuzzleResponse {
     // The source game the puzzle was lifted from. Parsed for completeness but
@@ -61,6 +70,9 @@ pub enum PuzzleStatus {
 /// Live state of a puzzle being solved. Built once from a `Puzzle` and mutated
 /// in place as the solver makes moves.
 pub struct PuzzleSession {
+    /// Lichess puzzle id — needed to post the result on solve
+    /// (POST /api/puzzle/batch/{angle}).
+    pub id: String,
     pub rating: i32,
     pub themes: Vec<String>,
     /// Live board position. Starts at the puzzle FEN and advances as correct
@@ -94,6 +106,7 @@ impl PuzzleSession {
             .map(uci_from_to_mask)
             .unwrap_or(0);
         Ok(Self {
+            id: puzzle.id,
             rating: puzzle.rating,
             themes: puzzle.themes,
             position,
@@ -110,6 +123,18 @@ impl PuzzleSession {
     pub fn accepts_input(&self) -> bool {
         matches!(self.status, PuzzleStatus::Solving | PuzzleStatus::Wrong)
             && self.progress < self.solution.len()
+    }
+
+    /// The puzzle id to post to Lichess, present only when the puzzle has been
+    /// solved and the user is signed in. Drives the automatic solve-post on
+    /// the puzzle screen; `None` while solving, after wrong moves, once solved
+    /// but anonymous, etc.
+    pub fn solution_to_post(&self, authenticated: bool) -> Option<&str> {
+        if self.status == PuzzleStatus::Solved && authenticated {
+            Some(&self.id)
+        } else {
+            None
+        }
     }
 
     /// UCI of the move the solver is expected to play next — used by the hint
@@ -407,6 +432,14 @@ impl Default for PuzzleParams {
     }
 }
 
+impl PuzzleParams {
+    /// Path segment for `POST /api/puzzle/batch/{angle}`: the phase's theme
+    /// key, or `"mix"` (Lichess' catch-all angle) when the phase is `Any`.
+    pub fn batch_angle(&self) -> &'static str {
+        self.phase.as_angle().unwrap_or("mix")
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -528,6 +561,19 @@ mod tests {
         };
         let result = PuzzleSession::new(p);
         assert!(result.is_err(), "Should fail without FEN");
+    }
+
+    #[test]
+    fn session_retains_puzzle_id() {
+        // The id is what gets posted back to Lichess on solve, so the session
+        // must keep it — PuzzleSession::new must not drop it.
+        let s = PuzzleSession::new(puzzle(
+            "4k2r/4bppp/1qpB4/1p2p3/4Q1n1/5N2/PPP2PPP/R2R2K1 b k - 0 1",
+            &["g4f2"],
+            Some("d3e4"),
+        ))
+        .unwrap();
+        assert_eq!(s.id, "test");
     }
 
     #[test]
@@ -781,6 +827,42 @@ mod tests {
             assert_eq!(json, format!("\"{wire}\""));
             assert_eq!(serde_json::from_str::<PuzzleColor>(&json).unwrap(), variant);
         }
+    }
+
+    #[test]
+    fn solution_to_post_only_when_solved_and_authenticated() {
+        let mut s = PuzzleSession::new(puzzle(
+            "4k2r/4bppp/1qpB4/1p2p3/4Q1n1/5N2/PPP2PPP/R2R2K1 b k - 0 1",
+            &["g4f2", "e4d4", "e5d4"],
+            Some("d3e4"),
+        ))
+        .unwrap();
+        // Not solved yet — nothing to post, even signed in.
+        assert_eq!(s.solution_to_post(true), None);
+        assert_eq!(s.try_move("g4f2"), PuzzleStatus::Correct);
+        assert_eq!(s.solution_to_post(true), None);
+        assert_eq!(s.apply_opponent_reply(), PuzzleStatus::Solving);
+        assert_eq!(s.try_move("e5d4"), PuzzleStatus::Solved);
+        // Solved + signed in → the id to post. Anonymous → never post.
+        assert_eq!(s.solution_to_post(true), Some("test"));
+        assert_eq!(s.solution_to_post(false), None);
+    }
+
+    #[test]
+    fn batch_angle_maps_phase_to_theme_key() {
+        // POST /api/puzzle/batch/{angle} needs a concrete theme in the path;
+        // "Any" maps to Lichess' catch-all "mix".
+        assert_eq!(PuzzleParams::default().batch_angle(), "mix");
+        let endgame = PuzzleParams {
+            phase: PuzzlePhase::Endgame,
+            ..Default::default()
+        };
+        assert_eq!(endgame.batch_angle(), "endgame");
+        let rook = PuzzleParams {
+            phase: PuzzlePhase::RookEndgame,
+            ..Default::default()
+        };
+        assert_eq!(rook.batch_angle(), "rookEndgame");
     }
 
     #[test]

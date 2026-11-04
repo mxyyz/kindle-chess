@@ -19,7 +19,7 @@ use crate::models::{
         PlayedByPlayer, Speed,
     },
     oauth::{LichessUser, UserProfile},
-    puzzle::{Puzzle, PuzzleColor, PuzzleParams},
+    puzzle::{Puzzle, PuzzleColor, PuzzleParams, PuzzleSolveRound},
 };
 #[derive(Clone, Debug)]
 pub struct LitcheeAdapter {
@@ -116,6 +116,37 @@ impl LitcheeAdapter {
         // the next-endpoint of the api returns puzzles without fen. Refech the puzzle for full data
         let puzzle = self.get_puzzle_by_id(&response.puzzle.id).await?;
         Ok(puzzle)
+    }
+
+    /// POST /api/puzzle/batch/{angle} — submit one solved puzzle to the
+    /// account. `nb > 0` additionally asks Lichess for a fresh batch in the
+    /// response (not used here; "Next puzzle" goes through /puzzle/next).
+    /// Requires a token with the `puzzle:write` scope — older tokens get a
+    /// 403, which surfaces as `Err` so the caller can degrade quietly.
+    pub async fn post_puzzle_solution(
+        &self,
+        angle: &str,
+        id: &str,
+        win: bool,
+        nb: u32,
+    ) -> Result<Vec<PuzzleSolveRound>, LichessError> {
+        use litchee::api::training::puzzles::LichessPuzzleSolution;
+        let mut solution = LichessPuzzleSolution::new(id, win);
+        solution.rated = Some(true);
+        let response = self
+            .client
+            .puzzles()
+            .solve_batch(angle, &[solution], nb)
+            .await?;
+        Ok(response
+            .rounds
+            .iter()
+            .map(|r| PuzzleSolveRound {
+                id: r.id.clone(),
+                win: r.win,
+                rating_diff: r.rating_diff,
+            })
+            .collect())
     }
 
     pub async fn get_home_puzzle(&self, params: &PuzzleParams) -> Result<Puzzle, LichessError> {

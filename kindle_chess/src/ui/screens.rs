@@ -4,7 +4,7 @@ use log::{debug, info, warn};
 
 use crate::{
     api::{
-        api::{get_home_puzzle, get_next_puzzle},
+        api::{get_home_puzzle, get_next_puzzle, post_puzzle_solution},
         github::{UpdateInfo, check_for_update},
         oauth::{authenticate, get_user_info, load_token},
         update::apply_update,
@@ -13,7 +13,7 @@ use crate::{
         board_api::PlayedBy,
         chess::ChessApp,
         oauth::TokenInfo,
-        puzzle::{PuzzleParams, PuzzleSession},
+        puzzle::{PuzzleParams, PuzzleSession, PuzzleStatus},
         ui::{
             ChessAuthScreen, ChessGameScreen, Display, GameActionsScreen, HomeScreen,
             OngoingChessGamesScreen, PuzzleScreen, PuzzleSettingsScreen, Screen, SettingsScreen,
@@ -936,6 +936,30 @@ fn kick_update_apply(info: UpdateInfo, tx: Sender<AppEvent>) {
 
 // ─── PuzzleScreen ─────────────────────────────────────────────────────────────
 
+impl PuzzleScreen {
+    /// Fire-and-forget solve-post: when the session just reached `Solved` and
+    /// the user is signed in, submit the result via POST /api/puzzle/batch so
+    /// `/puzzle/next` advances and the solve lands in puzzle activity. Never
+    /// blocks the UI — anonymous users and failed posts (e.g. 403 on tokens
+    /// without `puzzle:write`) just log.
+    fn maybe_post_solution(&self, solution: Option<String>) {
+        let Some(id) = solution else { return };
+        let Some(token) = self.token.clone() else {
+            return;
+        };
+        let params = self.params;
+        tokio::spawn(async move {
+            match post_puzzle_solution(Some(token), params, &id, true).await {
+                Ok(Some(rounds)) => info!("Posted puzzle solution to Lichess: {:?}", rounds),
+                Ok(None) => {
+                    info!("Puzzle solved locally; not posted (anonymous or request failed)")
+                }
+                Err(e) => warn!("post_puzzle_solution error: {}", e),
+            }
+        });
+    }
+}
+
 impl Screen for PuzzleScreen {
     fn render(&mut self, display: &mut Display) -> Result<(), Box<dyn std::error::Error>> {
         // First paint after Push: fetch the opening puzzle — the daily one,
@@ -1037,6 +1061,10 @@ impl Screen for PuzzleScreen {
                 }
                 self.sidebar
                     .set_puzzle_info(session.rating, &session.themes, &session.status);
+                let to_post = session
+                    .solution_to_post(self.token.is_some())
+                    .map(str::to_string);
+                self.maybe_post_solution(to_post);
                 Ok(Transition::Redraw)
             }
 
@@ -1057,6 +1085,10 @@ impl Screen for PuzzleScreen {
                 self.sidebar.set_status(&status);
                 self.sidebar
                     .set_puzzle_info(session.rating, &session.themes, &session.status);
+                let to_post = session
+                    .solution_to_post(self.token.is_some())
+                    .map(str::to_string);
+                self.maybe_post_solution(to_post);
                 Ok(Transition::Redraw)
             }
 
@@ -1090,6 +1122,10 @@ impl Screen for PuzzleScreen {
             // The sidebar's "Next puzzle" button — refetch with current params.
             AppEvent::NextPuzzle => {
                 self.sidebar.set_message("Loading…");
+                // Clear the previous puzzle's rating/themes immediately at
+                // press time (not when the new puzzle arrives) — an info change
+                // triggers a full sidebar repaint, so no residue is left.
+                self.sidebar.set_puzzle_info(0, &[], &PuzzleStatus::Solving);
                 kick_next_puzzle(self.token.clone(), self.params, display.event_tx.clone());
                 Ok(Transition::Redraw)
             }
@@ -1099,6 +1135,7 @@ impl Screen for PuzzleScreen {
             AppEvent::ApplyPuzzleParams(params) => {
                 self.params = params;
                 self.sidebar.set_message("Loading…");
+                self.sidebar.set_puzzle_info(0, &[], &PuzzleStatus::Solving);
                 kick_next_puzzle(self.token.clone(), self.params, display.event_tx.clone());
                 Ok(Transition::Redraw)
             }

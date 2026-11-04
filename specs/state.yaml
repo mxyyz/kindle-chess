@@ -1,24 +1,23 @@
 # bigpowers session source-of-truth. See survey-context / session-state.
 session:
-  active_flow: build_epic
-  active_epic_id: e01-refactor-and-tests
-  active_story_id: t05-extract-screen-structs   # next pending task (Phase 2)
+  active_flow: fix_bug
+  active_bug_id: BUG-2026-11-04T193559
   phase: Execute
 
 vcs:
   kind: git
-  branch: puzzle-implementation
-  head: d98d6d5c3a82d97b2db8e7bd49e639debaa2c8d8
-  # Remote requires PRs — no direct push to main.
-  # USER ACTION: push branch + open PR puzzle-implementation -> main.
+  branch: fix-post-puzzle-solutions
+  head: d0415f3
+  # Worktree: /home/mxy/repos/fix-post-puzzle-solutions (branched from
+  # api-migration tip d0415f3 — litchee adapter only exists there, not main).
 
 handoff:
-  next_skill: survey-context
-  # Phase 1 READY TO LAND via PR. 71 tests green, build clean, fmt clean.
-  # Phase 2 ready after merge: assess-impact -> plan-refactor for t05.
-  # Plan: specs/WORKFLOW-e01-phases.md Part 2.
-  # Landmine RESOLVED: puzzle-feature WIP was already committed
-  # (004190f..65b3f02), not uncommitted. No stray work in tree.
+  next_skill: verify-work
+  # Bug BUG-2026-11-04T184513 implemented on this branch (8 commits,
+  # RED/GREEN pairs): solved puzzles now auto-post to
+  # POST /api/puzzle/batch/{angle} when signed in. 79 lib + 24 integration
+  # tests green, build + fmt clean. Remaining: live-account UAT of
+  # /puzzle/next advancing + activity entry (needs real token).
 
 notes:
   phase1: ready_to_land
