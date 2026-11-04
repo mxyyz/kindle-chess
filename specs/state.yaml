@@ -1,7 +1,7 @@
 # bigpowers session source-of-truth. See survey-context / session-state.
 session:
   active_flow: fix_bug
-  active_bug_id: BUG-2026-11-04T184513
+  active_bug_id: BUG-2026-11-04T193559
   phase: Execute
 
 vcs:

@@ -63,11 +63,26 @@ full repaint.
 
 ## Acceptance Criteria
 
-- [ ] "Next puzzle" clears rating/themes immediately at press, with zero glyph
+- [x] "Next puzzle" clears rating/themes immediately at press, with zero glyph
       residue for any theme-string width (full sidebar repaint).
-- [ ] Status-only updates still use the cheap band diff (no full repaint).
-- [ ] All new + existing tests pass; build and fmt clean.
+- [x] Status-only updates still use the cheap band diff (no full repaint).
+- [x] All new + existing tests pass; build and fmt clean
+      (80 lib + 24 integration green, clippy shows only the 2 pre-existing
+      module-name warnings, fmt clean).
 
 ## Resolution
 
-<!-- filled in by validate-fix -->
+Fixed on branch `fix-post-puzzle-solutions`:
+
+1. `b6daeff` (RED test) / `9891cd9` (GREEN): `set_puzzle_info` now detects
+   actual `(rating, themes)` changes and sets `needs_full_repaint`, so the
+   whole sidebar area is whited on info changes — the old 600 px band clear
+   left glyphs of wider centered theme strings at the sides. Status-only
+   updates keep the cheap band-diff path (asserted in the test).
+2. `c3ea294`: `NextPuzzle` / `ApplyPuzzleParams` handlers in PuzzleScreen
+   call `set_puzzle_info(0, &[], &PuzzleStatus::Solving)` at press time, so the
+   block clears immediately instead of when the next puzzle arrives.
+
+Verified: `cargo test` 80 lib + 18 api_puzzle + 3 + 3 integration all green,
+`cargo build` clean, `cargo fmt --check` clean. Visual residue check on-device
+(run-dev.sh) remains for manual UAT.
