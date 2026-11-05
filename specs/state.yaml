@@ -21,7 +21,7 @@ handoff:
     - specs/product/SCOPE_LATEST.yaml
     - specs/planning-context.yaml
     - specs/epics/e03-target-device-directory-restructure.md
-  next_skill: "release-branch (epic verified; all 7 stories passing)"
+  next_skill: "user pushes branch + opens PR (no GitHub credentials in this env); title/body prepared in state notes"
 
 notes:
   e02: merged to main (PR #35); all tasks complete except t07 (moved to e03)
@@ -29,3 +29,26 @@ notes:
 
 metrics:
   reconciled: 2026-11-05T00:00:00Z
+
+release:
+  branch: e03-target-device-restructure
+  head: f6f9410
+  pr_title: "feat(e03): on-device restructure to /mnt/us/kindlichess + live-game friend invites + EN/DE i18n"
+  pr_body: |
+    ## Summary
+    <!-- bigpowers-provenance: agent-generated -->
+
+    Epic e03 (7 stories, all verified):
+    - Phase 1: on-device app root renamed hellokindle -> kindlichess (repo dir mirrors device 1:1; ROOT_DIR, flash scripts, launchers, KUAL menu updated; unneeded test scripts removed; new deploys only)
+    - Phase 2: Home "Demo" -> "Play" flow: FriendlistScreen (Lichess friends), game-mode group (Unlimited / Real time 10:5 / Correspondence with Lichess-allowed day values), send challenge, InvitesScreen (incoming accept/decline, outgoing cancel, 5s poll) -> live ChessGameScreen
+    - Phase 3: fluent-rs i18n, EN/DE locales embedded, runtime language setting in Settings, persisted to disk (new save()); puzzle params now truly persistent too
+    - Bugfix: correspondence challenges 400 (Lichess only allows days 1,2,3,5,7,10,14) — toggle group instead of arbitrary values; follow:read scope added
+    - Home screen Quit button
+    - Carried t07-phase2-uat from e02: on-device UAT confirmed by user
+
+    ## Test plan
+    - cargo test: 150 passed / 0 failed (single run, exit 0) — terminal verdict in specs/verifications/e03-verify.yaml
+    - cargo build + --release clean; release binary bakes /mnt/us/kindlichess
+    - sh -n on all deploy scripts; specs YAML validated
+    - On-device k2 UAT done by user (scriptlet launch, top bar, lock/unlock, invite flow)
+    - Security review: specs/security/REVIEW.md — no HIGH findings
