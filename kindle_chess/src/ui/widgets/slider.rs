@@ -79,6 +79,15 @@ impl Slider {
         // End ticks.
         renderer.draw_line(x0, mid_y - 8, x0, mid_y + 8, DrawColor::Black, 3)?;
         renderer.draw_line(x1, mid_y - 8, x1, mid_y + 8, DrawColor::Black, 3)?;
+        // Range markers just outside the track ends, vertically centred on it.
+        let min_label = self.min.to_string();
+        let max_label = self.max.to_string();
+        let (mw, mh) = renderer.measure_text(&max_label, 24.0);
+        let (iw, _) = renderer.measure_text(&min_label, 24.0);
+        let ty = mid_y - mh as i16 / 2;
+        renderer.draw_text(x0 - iw as i16 - 12, ty, &min_label, 24.0, DrawColor::Black)?;
+        renderer.draw_text(x1 + 12, ty, &max_label, 24.0, DrawColor::Black)?;
+        let _ = mw;
         // Handle: filled square centred on the value position.
         let hx = self.handle_x();
         renderer.draw_rectangle(
