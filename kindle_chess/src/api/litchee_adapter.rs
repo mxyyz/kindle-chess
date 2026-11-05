@@ -347,6 +347,48 @@ impl LitcheeAdapter {
         let challenge: LichessChallenge = req.send().await?;
         Ok(map_challenge(&challenge, false))
     }
+
+    /// List incoming + outgoing challenges, mapped to summaries.
+    pub async fn list_challenges(&self) -> Result<Vec<ChallengeSummary>, LichessError> {
+        if self.token.is_none() {
+            return Err(LichessError::InvalidRequest(
+                "list_challenges requires authentication".into(),
+            ));
+        }
+        let list = self.client.challenges().list().await?;
+        let mut out = Vec::with_capacity(list.incoming.len() + list.outgoing.len());
+        for c in &list.incoming {
+            out.push(map_challenge(c, true));
+        }
+        for c in &list.outgoing {
+            out.push(map_challenge(c, false));
+        }
+        Ok(out)
+    }
+
+    pub async fn accept_challenge(&self, challenge_id: &str) -> Result<(), LichessError> {
+        self.require_auth("accept_challenge")?;
+        self.client.challenges().accept(challenge_id, None).await
+    }
+
+    pub async fn decline_challenge(&self, challenge_id: &str) -> Result<(), LichessError> {
+        self.require_auth("decline_challenge")?;
+        self.client.challenges().decline(challenge_id, None).await
+    }
+
+    pub async fn cancel_challenge(&self, challenge_id: &str) -> Result<(), LichessError> {
+        self.require_auth("cancel_challenge")?;
+        self.client.challenges().cancel(challenge_id, None).await
+    }
+
+    fn require_auth(&self, what: &str) -> Result<(), LichessError> {
+        if self.token.is_none() {
+            return Err(LichessError::InvalidRequest(format!(
+                "{what} requires authentication"
+            )));
+        }
+        Ok(())
+    }
 }
 
 /// Map a litchee challenge to the app's summary. `incoming` is decided by the
@@ -363,6 +405,7 @@ fn map_challenge(c: &LichessChallenge, incoming: bool) -> ChallengeSummary {
         status: format!("{:?}", c.status).to_lowercase(),
         opponent,
         incoming,
+        url: c.url.clone(),
     }
 }
 

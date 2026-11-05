@@ -12,14 +12,14 @@ fn adapter(server: &MockServer) -> LitcheeAdapter {
 
 fn list_body() -> &'static str {
     r#"{
-      "incoming": [
+      "in": [
         {"id":"in1","url":"https://lichess.org/in1","status":"created",
-         "challenger":{"id":"bob","name":"Bob"},"dest_user":{"id":"me","name":"Me"},
+         "challenger":{"id":"bob","name":"Bob"},"destUser":{"id":"me","name":"Me"},
          "rated":false,"speed":"rapid"}
       ],
-      "outgoing": [
+      "out": [
         {"id":"out1","url":"https://lichess.org/","status":"accepted",
-         "challenger":{"id":"me","name":"Me"},"dest_user":{"id":"alice","name":"Alice"},
+         "challenger":{"id":"me","name":"Me"},"destUser":{"id":"alice","name":"Alice"},
          "rated":false,"speed":"blitz"}
       ]
     }"#
@@ -52,9 +52,9 @@ async fn list_challenges_maps_incoming_and_outgoing() {
 #[tokio::test]
 async fn accepted_challenge_yields_game_id_from_url() {
     let server = MockServer::start().await;
-    let body = r#"{"incoming":[],"outgoing":[
+    let body = r#"{"incoming":[],"out": [
         {"id":"out9","url":"https://lichess.org/abcd1234","status":"accepted",
-         "challenger":{"id":"me","name":"Me"},"dest_user":{"id":"alice","name":"Alice"},
+         "challenger":{"id":"me","name":"Me"},"destUser":{"id":"alice","name":"Alice"},
          "rated":false,"speed":"blitz"}]}"#;
     Mock::given(method("GET"))
         .and(path("/api/challenge"))
