@@ -76,12 +76,6 @@ else
     fi
 fi
 
-# AB HIER FRANKENSTEINED
-
-# Sicherheitscheck 3: Backup des aktuellen Displays (falls möglich)
-echo "Starting test app..." >> "$SCRIPT_LOG"
-eips "Starting test app..."
-sleep 3
 eips -c
 
 # Hand the framebuffer over to X11 so the app's window is actually visible

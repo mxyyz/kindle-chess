@@ -22,7 +22,7 @@ echo "Flashing local KUAL-App to Kindle"
 yes | sudo cp -r ./kindle_KUAL/* /mnt/tmp/
 
 echo "Deploying scriptlet to /mnt/us/documents (SH_Integration auto-registers it)"
-yes | sudo cp ./scriptlet/kindle-chess.sh /mnt/tmp/documents/
+yes | sudo cp ./scriptlet/kindlichess.sh /mnt/tmp/documents/
 
 echo "Moving token back.."
 mv ./token.json ./kindle_KUAL/kindlichess/secrets/
