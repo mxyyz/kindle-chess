@@ -1,48 +1,32 @@
 # bigpowers session source-of-truth. See survey-context / session-state.
 session:
-  active_flow: build_epic
-  active_epic: e02-native-kindle-integration
-  phase: Execute (Phase 1 done, Phase 2 pending)
+  active_flow: planning
+  active_epic: e03-target-device-directory-restructure
+  phase: Discover (scope-work on the target-device directory restructure)
 
 vcs:
   kind: git
-  branch: e02-native-kindle-integration
-  head: edab5f7
-  # Branched from main 16ec011. Epic spec: specs/epics/e02-native-kindle-integration{,.md,.yaml}
-  # + specs/planning-context.yaml. Prior fix_bug flow lived in worktree
-  # /home/mxy/repos/fix-post-puzzle-solutions (branch fix-post-puzzle-solutions,
-  # from api-migration tip d0415f3 — litchee adapter only exists there).
+  branch: main
+  head: a36f046
+  # RECONCILED 2026-11-05: previous state.yaml pointed at the merged branch
+  # e02-native-kindle-integration @ edab5f7 (stale — PR #35 merged via ddf74cf,
+  # main is now a36f046). e02 epic is landed; its one open task t07-phase2-uat
+  # was MOVED to the end of e03-target-device-directory-restructure/tasks.yaml.
 
 handoff:
-  next_skill: verify-work (on-device UAT on k2) then Phase 2 tasks t05–t07
-  # e02 Phase 1 committed: AWM WM_NAME title (PC:N; UAT deferred to t05 since
-  # override_redirect+pillow-off means AWM never reads it yet), scriptlet
-  # launcher at repo-root scriptlet/kindle-chess.sh deployed to /mnt/us/documents
-  # by flash scripts (appreg.db registration tried for k1, does not work there —
-  # dropped for now; KUAL = fallback on k1), display-lock-aware powerd watcher
-  # (DeviceLock + DeviceWake, 500ms leading-edge debounce; wake -> full redraw
-  # AND stream re-kick; stream task is now a resilient reconnect loop with
-  # backoff + cancel flag + StreamEnd terminal stop — root-caused via device
-  # logs: post-wake one-shot kick died once on HTTP transport error (wifi not
-  # back yet) and never retried; lock = hook for custom screensaver t08),
-  # --source logging in launch.log.
-  # 89 lib tests green, build + fmt clean. Phase 2 t05+t06 done: runtime
-  # PC:T toggle (status bar ONLY, overlays top strip — no layout shift, no home
-  # buttons; window recreated on override_redirect change; pillow handoff via
-  # system/pillow.rs, no-op off-device; chrome_on_start config flag) + top.png
-  # sidebar button above Back emitting ToggleTopBar. t08 done: logo.png
-  # screensaver on DeviceLock (App.locked suppresses redraws until wake).
-  # BUG-2026-11-05T095333 (wake redraw skipped cached widgets) fixed dc898bf,
-  # CONFIRMED on-device by user. Remaining: t07 UAT log, then branch is ready
-  # to merge to main (user handles push/merge).
+  last_step_completed: slice-tasks — e03 sliced into 7 stories (e03s01 restructure -> e03s02 friendlist -> e03s03 play+send -> e03s04 invites -> e03s05/s06 i18n -> e03s07 carried t07 at END); epic.yaml + release-plan.yaml + per-story tasks.yaml written, all YAML valid
+  open_decisions:
+    - "BUG-2026-11-04T184513 (post-puzzle-solutions) fix lives on branch fix-post-puzzle-solutions off api-migration, not on main — still effectively open"
+  required_reading:
+    - CLAUDE.md
+    - specs/product/SCOPE_LATEST.yaml
+    - specs/planning-context.yaml
+    - specs/epics/e03-target-device-directory-restructure.md
+  next_skill: plan-work (per story, starting with e03s01) — then kickoff-branch before code
 
 notes:
-  phase1: ready_to_land
-  phase1_commits: [004190f, 916dd0f, 101b567, a354370, 65b3f02, ac9b365, 3471285, 016d6ae, d98d6d5]
-  # 61 lib + 7 api_puzzle + 3 lib integration = 71 tests, all green.
-  # clippy: 6 warnings (large_enum_variant, non-blocking).
-  # fmt: clean. build: clean.
+  e02: merged to main (PR #35); all tasks complete except t07 (moved to e03)
   ci: partial
 
 metrics:
-  phase1_ready: 2026-10-18T22:50:00Z
+  reconciled: 2026-11-05T00:00:00Z

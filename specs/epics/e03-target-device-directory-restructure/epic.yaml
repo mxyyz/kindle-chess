@@ -1,0 +1,41 @@
+# Epic capsule manifest — e03-target-device-directory-restructure
+epic_id: e03-target-device-directory-restructure
+status: slicing (slice-tasks done; plan-work pending)
+scope: specs/product/SCOPE_LATEST.yaml
+planning_context: specs/planning-context.yaml
+stories:
+  - story_id: e03s01
+    title: "Phase 1: rename on-device app root hellokindle -> kindlichess + clean unneeded scripts"
+    bcps: 5
+    delta: MODIFIED
+    tasks_file: e03s01-tasks.yaml
+  - story_id: e03s02
+    title: "Phase 2: FriendlistScreen — paged Lichess friends list returning username to Play form"
+    bcps: 5
+    delta: ADDED
+    tasks_file: e03s02-tasks.yaml
+  - story_id: e03s03
+    title: "Phase 2: PlayScreen form (mode group + spinner + opponent) + send challenge; Home Demo -> Play"
+    bcps: 8
+    delta: MODIFIED
+    tasks_file: e03s03-tasks.yaml
+  - story_id: e03s04
+    title: "Phase 2: InvitesScreen (incoming/outgoing, accept/decline/cancel) -> live ChessGameScreen"
+    bcps: 8
+    delta: ADDED
+    tasks_file: e03s04-tasks.yaml
+  - story_id: e03s05
+    title: "Phase 3: i18n infra (fluent-rs) + language setting + Home/Play strings EN/DE"
+    bcps: 5
+    delta: ADDED
+    tasks_file: e03s05-tasks.yaml
+  - story_id: e03s06
+    title: "Phase 3: apply EN/DE locale strings to all remaining screens"
+    bcps: 3
+    delta: MODIFIED
+    tasks_file: e03s06-tasks.yaml
+  - story_id: e03s07
+    title: "Carried from e02: t07-phase2-uat on-device UAT of chrome mode on k2 (END of epic)"
+    bcps: 2
+    delta: ADDED
+    tasks_file: e03s07-tasks.yaml
