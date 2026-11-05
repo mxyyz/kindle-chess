@@ -13,7 +13,7 @@ vcs:
   # cargo build clean, 112 tests pass. e02 landed; t07 moved to e03s07 (end of e03).
 
 handoff:
-  last_step_completed: slice-tasks — e03 sliced into 7 stories (e03s01 restructure -> e03s02 friendlist -> e03s03 play+send -> e03s04 invites -> e03s05/s06 i18n -> e03s07 carried t07 at END); epic.yaml + release-plan.yaml + per-story tasks.yaml written, all YAML valid
+  last_step_completed: develop-tdd e03s01 DONE (5 commits 24198d1..9802898) — on-device root /mnt/us/hellokindle -> /mnt/us/kindlichess across .env.release, flash.sh/flash_usb.sh, chess_app.sh, scriptlet, menu.json; 5 test scripts removed; release binary bakes new ROOT_DIR (verified), 112 tests green
   open_decisions:
     - "BUG-2026-11-04T184513 (post-puzzle-solutions) fix lives on branch fix-post-puzzle-solutions off api-migration, not on main — still effectively open"
   required_reading:
@@ -21,7 +21,7 @@ handoff:
     - specs/product/SCOPE_LATEST.yaml
     - specs/planning-context.yaml
     - specs/epics/e03-target-device-directory-restructure.md
-  next_skill: develop-tdd (e03s01 phase-1 restructure; plan-work story specs can follow per story)
+  next_skill: develop-tdd (e03s02 FriendlistScreen) — verify-work/UAT for e03s01 happens on-device via flash at release time
 
 notes:
   e02: merged to main (PR #35); all tasks complete except t07 (moved to e03)
