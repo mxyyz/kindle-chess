@@ -89,3 +89,6 @@ update-quit = Beenden
 phase-knight-endgame = Springerendspiel
 phase-queen-endgame = Damenendspiel
 phase-queen-rook-endgame = Dame & Turm
+
+puzzle-settings-title = Aufgaben-Einstellungen
+puzzle-fetch = Neue Aufgabe holen

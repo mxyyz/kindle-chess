@@ -89,3 +89,6 @@ update-quit = Quit
 phase-knight-endgame = Knight endgame
 phase-queen-endgame = Queen endgame
 phase-queen-rook-endgame = Queen & rook
+
+puzzle-settings-title = Puzzle Settings
+puzzle-fetch = Get new puzzle

@@ -2369,7 +2369,10 @@ impl Screen for PuzzleSettingsScreen {
     fn render(&mut self, display: &mut Display) -> Result<(), Box<dyn std::error::Error>> {
         display.renderer.clear(DrawColor::White)?;
 
-        let title = "Puzzle Settings";
+        // Localize all labels every render (cheap lookups; picks up language
+        // switches and the current param values).
+        let loc = i18n::locale_of(&self.config);
+        let title = tr(&loc, "puzzle-settings-title");
         let title_size = 56.0;
         let (tw, _) = display.renderer.measure_text(&title, title_size);
         display.renderer.draw_text(
@@ -2379,6 +2382,24 @@ impl Screen for PuzzleSettingsScreen {
             title_size,
             DrawColor::Black,
         )?;
+
+        self.difficulty_button.label = i18n::t(
+            &loc,
+            "puzzle-difficulty",
+            &[("value", &tr(&loc, self.params.difficulty.i18n_key()))],
+        );
+        self.phase_button.label = i18n::t(
+            &loc,
+            "puzzle-phase",
+            &[("value", &tr(&loc, self.params.phase.i18n_key()))],
+        );
+        self.color_button.label = i18n::t(
+            &loc,
+            "puzzle-color",
+            &[("value", &tr(&loc, self.params.color.i18n_key()))],
+        );
+        self.fetch_button.label = tr(&loc, "puzzle-fetch");
+        self.back_button.label = tr(&loc, "settings-back");
 
         self.difficulty_button.draw(&mut display.renderer)?;
         self.phase_button.draw(&mut display.renderer)?;
