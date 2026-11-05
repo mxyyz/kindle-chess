@@ -2,27 +2,27 @@
 # New deploys only; no migration of already-deployed k1/k2. Repo-side layout untouched.
 story_id: e03s01
 title: "Rename on-device app root /mnt/us/hellokindle -> /mnt/us/kindlichess + remove unneeded on-device scripts (chess_app.sh stays)"
-status: pending
+status: passing
 bcps: 5
 delta: MODIFIED
 tasks:
   - id: e03s01t01
     description: "Change release ROOT_DIR in kindle_chess/.env.release from /mnt/us/hellokindle/ to /mnt/us/kindlichess/ (build.rs bakes it via env!(); LOG_FILE_DIR/ASSETS_DIR/AUTH_TOKEN derive from it). .env.debug stays pointing at the local checkout."
     verify: "cd kindle_chess && grep -q 'ROOT_DIR=/mnt/us/kindlichess/' .env.release && cargo build 2>&1 | tail -1"
-    status: pending
+    status: passing
   - id: e03s01t02
     description: "Update flash.sh and flash_usb.sh deploy targets /mnt/us/hellokindle -> /mnt/us/kindlichess (scp/cp destinations, mkdir -p, scriptlet copy path stays /mnt/us/documents). Preserve the secrets/token.json mv-aside dance exactly, just re-pathed."
     verify: "sh -n flash.sh && sh -n flash_usb.sh && ! grep -n '/mnt/us/hellokindle' flash.sh flash_usb.sh && grep -n 'token.json' flash.sh | head -3"
-    status: pending
+    status: passing
   - id: e03s01t03
     description: "Update kindle_KUAL/hellokindle/chess_app.sh and scriptlet/kindle-chess.sh to the new /mnt/us/kindlichess base (binary path, assets, log, secrets, settings.toml); update kindle_KUAL/extensions/hellokindle/menu.json action path if it references the old root."
     verify: "sh -n kindle_KUAL/hellokindle/chess_app.sh && sh -n scriptlet/kindle-chess.sh && python3 -c \"import json; json.load(open('kindle_KUAL/extensions/hellokindle/menu.json'))\" && ! grep -rn 'mnt/us/hellokindle' kindle_KUAL scriptlet"
-    status: pending
+    status: passing
   - id: e03s01t04
     description: "Remove now-unneeded on-device scripts from the deploy set: app_test.sh, display_test.sh, eips_test.sh, oldx11test.sh, x11test.sh (keep chess_app.sh). Delete from kindle_KUAL/hellokindle/ and from flash script file lists."
     verify: "ls kindle_KUAL/hellokindle/*.sh && test -f kindle_KUAL/hellokindle/chess_app.sh && ! ls kindle_KUAL/hellokindle/app_test.sh kindle_KUAL/hellokindle/x11test.sh 2>/dev/null"
-    status: pending
+    status: passing
   - id: e03s01t05
     description: "Full verification pass: cargo build + cargo test green, cross musl build clean, no remaining /mnt/us/hellokindle references anywhere in repo except docs/history."
     verify: "cd kindle_chess && cargo test 2>&1 | tail -3 && grep -rn 'mnt/us/hellokindle' --include='*.rs' --include='*.sh' --include='*.json' --include='*.toml' . ../flash.sh ../flash_usb.sh ../kindle_KUAL ../scriptlet | grep -v docs || echo 'no stale refs'"
-    status: pending
+    status: passing
