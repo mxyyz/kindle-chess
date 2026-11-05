@@ -23,7 +23,8 @@ use crate::{
     },
     ui::{
         events::{AppEvent, RectangleExt, Square, TouchKind},
-        renderer::DrawColor,
+        renderer::{DrawColor, Renderer},
+        events::Rectangle,
         widgets::Button,
     },
     version,
@@ -804,14 +805,45 @@ impl PlayScreen {
         });
     }
 
-    /// Reflect the selected mode button visually (outline = selectable).
-    fn sync_mode_buttons(&mut self) {
-        let sel = self.selected_mode;
-        self.mode_button_unlimited.outline = sel != ChallengeMode::Unlimited;
-        self.mode_button_realtime.outline = sel != ChallengeMode::RealTime;
-        self.mode_button_correspondence.outline = sel != ChallengeMode::Correspondence(self.days)
-            && !matches!(sel, ChallengeMode::Correspondence(_));
+    /// The correspondence days-spinner is only shown in correspondence mode;
+    /// in other modes its row stays blank (layout positions never move).
+    fn spinner_visible(&self) -> bool {
+        matches!(self.mode(), ChallengeMode::Correspondence(_))
     }
+
+    /// The currently selected mode button, for drawing the selection marker.
+    fn selected_mode_button(&self) -> &Button {
+        match self.selected_mode {
+            ChallengeMode::Unlimited => &self.mode_button_unlimited,
+            ChallengeMode::RealTime => &self.mode_button_realtime,
+            ChallengeMode::Correspondence(_) => &self.mode_button_correspondence,
+        }
+    }
+}
+
+/// Selected-file-style marker around `rect`: four 45° diagonal lines from
+/// each corner pointing inward — same style as the chessboard's
+/// selected-square highlight.
+fn draw_selection_marker(
+    renderer: &mut Renderer,
+    rect: &Rectangle,
+) -> Result<(), Box<dyn std::error::Error>> {
+    let l = (rect.width.min(rect.height) / 8).max(12) as i16;
+    let stroke = 4;
+    let x = rect.x;
+    let y = rect.y;
+    let w = rect.width as i16;
+    let h = rect.height as i16;
+    let cuts = [
+        (x, y, x + l, y + l),
+        (x + w, y, x + w - l, y + l),
+        (x + w, y + h, x + w - l, y + h - l),
+        (x, y + h, x + l, y + h - l),
+    ];
+    for (x1, y1, x2, y2) in cuts {
+        renderer.draw_line(x1, y1, x2, y2, DrawColor::Black, stroke)?;
+    }
+    Ok(())
 }
 
 impl Screen for PlayScreen {
@@ -825,23 +857,27 @@ impl Screen for PlayScreen {
         display.renderer.draw_text((1072 - tw as i16) / 2, 120, title, 36.0, DrawColor::Black)?;
 
         self.invites_button.draw(&mut display.renderer)?;
-        self.sync_mode_buttons();
         self.mode_button_unlimited.draw(&mut display.renderer)?;
         self.mode_button_realtime.draw(&mut display.renderer)?;
         self.mode_button_correspondence.draw(&mut display.renderer)?;
+        // Selection marker on the active mode button (selected-file style).
+        draw_selection_marker(&mut display.renderer, &self.selected_mode_button().rect)?;
 
-        // Spinner row: "-  N days/move  +" (spinner only affects correspondence)
-        self.spinner_minus.draw(&mut display.renderer)?;
-        self.spinner_plus.draw(&mut display.renderer)?;
-        let days_label = format!("{} days/move", self.days);
-        let (dw, dh) = display.renderer.measure_text(&days_label, 28.0);
-        display.renderer.draw_text(
-            (1072 - dw as i16) / 2,
-            310 + (96 - dh as i16) / 2 + dh as i16 - 8,
-            &days_label,
-            28.0,
-            DrawColor::Black,
-        )?;
+        // Spinner row: "-  N days/move  +" — only in correspondence mode; the
+        // row stays blank otherwise so nothing below shifts.
+        if self.spinner_visible() {
+            self.spinner_minus.draw(&mut display.renderer)?;
+            self.spinner_plus.draw(&mut display.renderer)?;
+            let days_label = format!("{} days/move", self.days);
+            let (dw, dh) = display.renderer.measure_text(&days_label, 28.0);
+            display.renderer.draw_text(
+                (1072 - dw as i16) / 2,
+                310 + (96 - dh as i16) / 2 + dh as i16 - 8,
+                &days_label,
+                28.0,
+                DrawColor::Black,
+            )?;
+        }
 
         self.opponent_button.label = self.opponent_label();
         self.opponent_button.draw(&mut display.renderer)?;
@@ -970,6 +1006,8 @@ impl Screen for PlayScreen {
 
 /// How often the challenge list is re-polled while the screen is visible.
 const INVITES_POLL_INTERVAL: Duration = Duration::from_secs(5);
+/// Rows per section (incoming / outgoing) per page.
+const INVITES_PER_PAGE: usize = 4;
 
 /// First accepted challenge with a game id — that's a live game to join.
 fn accepted_game(challenges: &[ChallengeSummary]) -> Option<&ChallengeSummary> {
@@ -1048,26 +1086,46 @@ impl InvitesScreen {
         });
     }
 
-    /// Bake the current challenge list into the 2+2 rows. Slots past the list
-    /// end get "-" (inert).
+    fn page_count(&self) -> usize {
+        let Some(list) = self.challenges.as_ref() else {
+            return 0;
+        };
+        let n = list
+            .iter()
+            .filter(|c| c.incoming)
+            .count()
+            .max(list.iter().filter(|c| !c.incoming).count());
+        n.div_ceil(INVITES_PER_PAGE)
+    }
+
+    /// Bake the current page's challenges into the 4+4 rows. Slots past the
+    /// list end keep a "-" label and are simply not drawn.
     fn set_rows(&mut self) {
         let Some(list) = self.challenges.as_ref() else {
             return;
         };
+        let start = self.page_index * INVITES_PER_PAGE;
         let incoming: Vec<&ChallengeSummary> = list.iter().filter(|c| c.incoming).collect();
         let outgoing: Vec<&ChallengeSummary> = list.iter().filter(|c| !c.incoming).collect();
-        let names = [
-            (&mut self.incoming_name_0, &mut self.incoming_name_1, &incoming),
-            (&mut self.outgoing_name_0, &mut self.outgoing_name_1, &outgoing),
-        ];
-        for (n0, n1, src) in names {
-            for (btn, k) in [(n0, 0usize), (n1, 1usize)] {
-                match src.get(k) {
-                    Some(c) => btn.label = format!("{} ({})", c.opponent, c.status),
-                    None => btn.label = "-".to_string(),
-                }
+        let label = |src: &[&ChallengeSummary], k: usize| {
+            match src.get(start + k) {
+                Some(c) => format!("{} ({})", c.opponent, c.status),
+                None => "-".to_string(),
             }
+        };
+        for k in 0..INVITES_PER_PAGE {
+            self.incoming_name[k].label = label(&incoming, k);
+            self.outgoing_name[k].label = label(&outgoing, k);
         }
+    }
+
+    /// Whether row `k` of the current page has a backing challenge — empty
+    /// rows are not rendered at all.
+    fn incoming_visible(&self, k: usize) -> bool {
+        self.incoming_at(k).is_some()
+    }
+    fn outgoing_visible(&self, k: usize) -> bool {
+        self.outgoing_at(k).is_some()
     }
 
     fn incoming_at(&self, k: usize) -> Option<&ChallengeSummary> {
@@ -1075,7 +1133,7 @@ impl InvitesScreen {
             .as_ref()?
             .iter()
             .filter(|c| c.incoming)
-            .nth(k)
+            .nth(self.page_index * INVITES_PER_PAGE + k)
     }
 
     fn outgoing_at(&self, k: usize) -> Option<&ChallengeSummary> {
@@ -1083,7 +1141,7 @@ impl InvitesScreen {
             .as_ref()?
             .iter()
             .filter(|c| !c.incoming)
-            .nth(k)
+            .nth(self.page_index * INVITES_PER_PAGE + k)
     }
 }
 
@@ -1104,14 +1162,12 @@ impl Screen for InvitesScreen {
         let (tw, _) = display.renderer.measure_text(title, 36.0);
         display.renderer.draw_text((1072 - tw as i16) / 2, 120, title, 36.0, DrawColor::Black)?;
 
-        let label_y = |y: i16, text: &str, display: &mut Display| -> Result<(), Box<dyn std::error::Error>> {
-            let (w, _) = display.renderer.measure_text(text, 28.0);
+        let mut label = |y: i16, text: &str| -> Result<(), Box<dyn std::error::Error>> {
             display.renderer.draw_text(136, y, text, 28.0, DrawColor::Black)?;
-            let _ = w;
             Ok(())
         };
-        label_y(200, "Incoming", display)?;
-        label_y(500, "Outgoing", display)?;
+        label(200, "Incoming")?;
+        label(680, "Outgoing")?;
 
         if let Some(err) = &self.error {
             let label = format!("Error: {}", err);
@@ -1124,16 +1180,20 @@ impl Screen for InvitesScreen {
                 DrawColor::Black,
             )?;
         } else if self.challenges.is_some() {
-            self.incoming_name_0.draw(&mut display.renderer)?;
-            self.incoming_name_1.draw(&mut display.renderer)?;
-            self.incoming_accept_0.draw(&mut display.renderer)?;
-            self.incoming_accept_1.draw(&mut display.renderer)?;
-            self.incoming_decline_0.draw(&mut display.renderer)?;
-            self.incoming_decline_1.draw(&mut display.renderer)?;
-            self.outgoing_name_0.draw(&mut display.renderer)?;
-            self.outgoing_name_1.draw(&mut display.renderer)?;
-            self.outgoing_cancel_0.draw(&mut display.renderer)?;
-            self.outgoing_cancel_1.draw(&mut display.renderer)?;
+            // Dynamic rows: only slots backed by a challenge are drawn.
+            for k in 0..INVITES_PER_PAGE {
+                if self.incoming_visible(k) {
+                    self.incoming_name[k].draw(&mut display.renderer)?;
+                    self.incoming_accept[k].draw(&mut display.renderer)?;
+                    self.incoming_decline[k].draw(&mut display.renderer)?;
+                }
+                if self.outgoing_visible(k) {
+                    self.outgoing_name[k].draw(&mut display.renderer)?;
+                    self.outgoing_cancel[k].draw(&mut display.renderer)?;
+                }
+            }
+            self.prev_page_button.draw(&mut display.renderer)?;
+            self.next_page_button.draw(&mut display.renderer)?;
         } else {
             let label = "Loading…";
             let (w, h) = display.renderer.measure_text(label, 24.0);
@@ -1202,24 +1262,36 @@ impl Screen for InvitesScreen {
                     return Ok(Transition::Pop);
                 }
 
+                if self.next_page_button.rect.contains(touch.x, touch.y) {
+                    let last = self.page_count().saturating_sub(1);
+                    if self.page_index < last {
+                        self.page_index += 1;
+                        self.set_rows();
+                        return Ok(Transition::Redraw);
+                    }
+                    return Ok(Transition::Stay);
+                }
+                if self.prev_page_button.rect.contains(touch.x, touch.y) {
+                    if self.page_index > 0 {
+                        self.page_index -= 1;
+                        self.set_rows();
+                        return Ok(Transition::Redraw);
+                    }
+                    return Ok(Transition::Stay);
+                }
+
                 // Resolve the tapped row to (challenge id, action) first, so
                 // the immutable button borrows end before `kick_action` borrows
-                // `self` mutably.
+                // `self` mutably. Empty slots are inert (not rendered, no hit).
                 let mut pending: Option<(String, Action)> = None;
-                for (k, btn) in [&self.incoming_accept_0, &self.incoming_accept_1]
-                    .into_iter()
-                    .enumerate()
-                {
+                for (k, btn) in self.incoming_accept.iter().enumerate() {
                     if btn.rect.contains(touch.x, touch.y) {
                         pending = self.incoming_at(k).map(|c| (c.id.clone(), Action::Accept));
                         break;
                     }
                 }
                 if pending.is_none() {
-                    for (k, btn) in [&self.incoming_decline_0, &self.incoming_decline_1]
-                        .into_iter()
-                        .enumerate()
-                    {
+                    for (k, btn) in self.incoming_decline.iter().enumerate() {
                         if btn.rect.contains(touch.x, touch.y) {
                             pending = self.incoming_at(k).map(|c| (c.id.clone(), Action::Decline));
                             break;
@@ -1227,10 +1299,7 @@ impl Screen for InvitesScreen {
                     }
                 }
                 if pending.is_none() {
-                    for (k, btn) in [&self.outgoing_cancel_0, &self.outgoing_cancel_1]
-                        .into_iter()
-                        .enumerate()
-                    {
+                    for (k, btn) in self.outgoing_cancel.iter().enumerate() {
                         if btn.rect.contains(touch.x, touch.y) {
                             pending = self.outgoing_at(k).map(|c| (c.id.clone(), Action::Cancel));
                             break;
@@ -1299,7 +1368,7 @@ mod invites_tests {
     }
 
     #[test]
-    fn rows_split_incoming_outgoing() {
+    fn rows_split_incoming_outgoing_and_hide_empty_slots() {
         let mut s = InvitesScreen::new(ChessApp::new_offline());
         s.challenges = Some(Arc::new(vec![
             ch("in1", "created", "u", true),
@@ -1307,13 +1376,33 @@ mod invites_tests {
             ch("in2", "created", "u", true),
         ]));
         s.set_rows();
-        assert_eq!(s.incoming_name_0.label, "X (created)");
-        assert_eq!(s.incoming_name_1.label, "X (created)");
-        assert_eq!(s.outgoing_name_0.label, "X (created)");
-        assert_eq!(s.outgoing_name_1.label, "-");
+        assert_eq!(s.incoming_name[0].label, "X (created)");
+        assert_eq!(s.incoming_name[1].label, "X (created)");
+        assert!(s.incoming_visible(0));
+        assert!(s.incoming_visible(1));
+        assert!(!s.incoming_visible(2)); // not rendered
+        assert!(s.outgoing_visible(0));
+        assert!(!s.outgoing_visible(1));
         assert_eq!(s.incoming_at(0).unwrap().id, "in1");
         assert_eq!(s.incoming_at(2), None);
         assert_eq!(s.outgoing_at(0).unwrap().id, "out1");
+        assert_eq!(s.page_count(), 1);
+    }
+
+    #[test]
+    fn pagination_when_more_than_four_per_section() {
+        let mut s = InvitesScreen::new(ChessApp::new_offline());
+        let mut list = Vec::new();
+        for i in 0..5 {
+            list.push(ch(&format!("in{i}"), "created", "u", true));
+        }
+        s.challenges = Some(Arc::new(list));
+        assert_eq!(s.page_count(), 2);
+        s.page_index = 1;
+        s.set_rows();
+        assert!(s.incoming_visible(0)); // 5th invite
+        assert!(!s.incoming_visible(1));
+        assert_eq!(s.incoming_at(0).unwrap().id, "in4");
     }
 }
 
@@ -1346,6 +1435,29 @@ mod play_screen_tests {
         assert_eq!(s.mode(), ChallengeMode::Correspondence(4));
         s.selected_mode = ChallengeMode::RealTime;
         assert_eq!(s.mode(), ChallengeMode::RealTime);
+    }
+
+    #[test]
+    fn spinner_only_visible_in_correspondence_mode() {
+        let mut s = PlayScreen::new(ChessApp::new_offline());
+        s.selected_mode = ChallengeMode::RealTime;
+        assert!(!s.spinner_visible());
+        s.selected_mode = ChallengeMode::Correspondence(3);
+        assert!(s.spinner_visible());
+        s.selected_mode = ChallengeMode::Unlimited;
+        assert!(!s.spinner_visible());
+    }
+
+    #[test]
+    fn selected_mode_button_tracks_selection() {
+        let mut s = PlayScreen::new(ChessApp::new_offline());
+        s.selected_mode = ChallengeMode::Unlimited;
+        assert!(std::ptr::eq(s.selected_mode_button(), &s.mode_button_unlimited));
+        s.selected_mode = ChallengeMode::Correspondence(3);
+        assert!(std::ptr::eq(
+            s.selected_mode_button(),
+            &s.mode_button_correspondence
+        ));
     }
 }
 

@@ -90,6 +90,9 @@ impl Default for AuthConfig {
             scopes: vec![
                 "challenge:read".to_string(),
                 "challenge:write".to_string(),
+                // Needed for GET /api/rel/following (FriendlistScreen) — without
+                // it the endpoint 403s.
+                "follow:read".to_string(),
                 "bot:play".to_string(),
                 "board:play".to_string(),
                 // Lets /api/puzzle/next tailor puzzles to the user's rating.
@@ -115,4 +118,18 @@ pub struct AuthCallbackQuery {
     pub state: Option<String>,
     pub error: Option<String>,
     pub error_description: Option<String>,
+}
+
+#[cfg(test)]
+mod scope_tests {
+    use super::*;
+
+    #[test]
+    fn default_scopes_include_follow_read_for_friendlist() {
+        let scopes = AuthConfig::default().scopes;
+        assert!(
+            scopes.iter().any(|s| s == "follow:read"),
+            "follow:read missing — /api/rel/following would 403"
+        );
+    }
 }
