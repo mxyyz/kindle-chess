@@ -42,7 +42,7 @@ are visible in the binary with `strings`.
 
 | Constant | Source | Debug value | Release value |
 |---|---|---|---|
-| `ROOT_DIR` | `.env.*` | local checkout path | `/mnt/us/hellokindle/` |
+| `ROOT_DIR` | `.env.*` | local checkout path | `/mnt/us/kindlichess/` |
 | `LOG_FILE_DIR` | derived | `<ROOT_DIR>log/` | ″ |
 | `ASSETS_DIR` | derived | `<ROOT_DIR>assets/` | ″ |
 | `AUTH_TOKEN` | derived | `<ROOT_DIR>secrets/token.json` | ″ |
