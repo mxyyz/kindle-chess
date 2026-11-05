@@ -1,5 +1,5 @@
 #!/bin/sh
-sudo mount /dev/sdb1 /mnt/tmp
+sudo mount /dev/sdc1 /mnt/tmp
 cd kindle_chess
 
 echo "Building Binaries"

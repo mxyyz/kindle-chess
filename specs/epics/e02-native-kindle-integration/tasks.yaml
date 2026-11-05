@@ -81,18 +81,27 @@
     emitted as AppEvent::DeviceLock / AppEvent::DeviceWake. App loop passes both
     events through to the top screen; on DeviceWake it also does a global redraw
     AND ChessGameScreen re-kicks the game stream with a cancel flag for the old
-    task — the SSE stream stalls/dies while the display is locked, and Lichess
-    sends the full GameFull state on every new connection, so this is the
-    explicit refetch of the latest position after unlock. DeviceLock is logged,
+    task — Lichess sends the full GameFull state on every new connection, so
+    this is the explicit refetch of the latest position after unlock.
+    ROOT CAUSE found via device logs (2026-11-05): the debounce was NOT the
+    problem — Wake fired and both handlers ran. The re-kicked stream failed
+    ONCE with "HTTP transport error" ~5s after wake (wifi not re-associated
+    yet) and the one-shot kick gave up. Fix: kick_game_stream is now a
+    resilient reconnect loop (backoff 2s->30s, cancel-flag aware, stops when
+    the game is terminal via StreamEnd) — this also self-heals streams that
+    die mid-lock (observed: stream kept delivering during lock, then died
+    with transport error while still locked). DeviceLock is logged,
     hook point for the custom screensaver (t08). While locked the panel simply
     freezes (pillow disabled, no Amazon screensaver). Off-device (no lipc tools)
     the watcher logs once and exits — no-op.
   acceptance_criteria:
     - classify_powerd_event + should_emit unit tests green
     - AppEvent::DeviceLock and DeviceWake both routed in the app loop and to the top screen
-    - stream_game_event takes a cancel flag; stale stream stops forwarding after wake
+    - stream_game_event takes a cancel flag and returns StreamEnd; kick_game_stream
+      reconnects with backoff on error/end, stops on terminal game
     - off-device: no-op with a single log line; cargo build + cargo test green
-    - on-device UAT: lock/unlock observed in log; after unlock the board shows the LATEST game state (stream refetched), not the pre-lock snapshot
+    - on-device UAT: after unlock the board shows the LATEST game state — the
+      reconnect loop survives the initial post-wake transport error and refetches
   files_created:
     - kindle_chess/src/system/mod.rs
     - kindle_chess/src/system/powerd.rs

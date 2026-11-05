@@ -377,8 +377,46 @@ fn kick_game_stream(
         return;
     };
     tokio::spawn(async move {
-        if let Err(e) = api.stream_game_event(tx, cancel).await {
-            warn!("Game-state stream errored: {}", e);
+        use crate::api::board::StreamEnd;
+        use std::sync::atomic::Ordering;
+        use std::time::Duration;
+
+        // Resilient reconnect loop: the stream can die mid-session (e.g. the
+        // transport drops while the display is locked) and the network may not
+        // be back yet right at wake — so a failed/ended stream is re-established
+        // with exponential backoff instead of giving up after one attempt.
+        // Lichess sends the full GameFull state on every new connection, so a
+        // reconnect also refetches the latest position.
+        let mut backoff = Duration::from_secs(2);
+        loop {
+            if cancel.load(Ordering::SeqCst) {
+                info!("game stream task cancelled");
+                break;
+            }
+            match api.stream_game_event(tx.clone(), cancel.clone()).await {
+                Ok(StreamEnd::Events { terminal: true }) => {
+                    info!("game finished — game stream closed, not reconnecting");
+                    break;
+                }
+                Ok(_) => {
+                    // Stream delivered events then ended (e.g. died while the
+                    // display was locked) — reconnect promptly.
+                    backoff = Duration::from_secs(2);
+                    info!("game stream ended — reconnecting");
+                }
+                Err(e) => {
+                    warn!(
+                        "Game-state stream errored: {} — reconnecting in {:?}",
+                        e, backoff
+                    );
+                }
+            }
+            if cancel.load(Ordering::SeqCst) {
+                info!("game stream task cancelled");
+                break;
+            }
+            tokio::time::sleep(backoff).await;
+            backoff = std::cmp::min(backoff * 2, Duration::from_secs(30));
         }
     });
 }

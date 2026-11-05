@@ -21,8 +21,10 @@ handoff:
   # by flash scripts (appreg.db registration tried for k1, does not work there —
   # dropped for now; KUAL = fallback on k1), display-lock-aware powerd watcher
   # (DeviceLock + DeviceWake, 500ms leading-edge debounce; wake -> full redraw
-  # AND ChessGameScreen re-kicks the SSE stream with cancel-flag so the board
-  # refetches latest state after unlock; lock = hook for custom screensaver t08),
+  # AND stream re-kick; stream task is now a resilient reconnect loop with
+  # backoff + cancel flag + StreamEnd terminal stop — root-caused via device
+  # logs: post-wake one-shot kick died once on HTTP transport error (wifi not
+  # back yet) and never retried; lock = hook for custom screensaver t08),
   # --source logging in launch.log.
   # 88 lib tests green, build + fmt clean. Remaining: on-device UAT on k2
   # (scriptlet launches, lock/unlock behavior), then Phase 2: t05 PC:T title,
