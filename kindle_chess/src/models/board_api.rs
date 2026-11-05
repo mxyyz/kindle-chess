@@ -289,4 +289,17 @@ pub struct ChallengeSummary {
     pub status: String,
     pub opponent: String,
     pub incoming: bool,
+    /// Challenge URL (`https://lichess.org/{gameId}` once accepted).
+    pub url: String,
+}
+
+impl ChallengeSummary {
+    /// Game id of an accepted challenge, taken from the challenge URL
+    /// (`https://lichess.org/{gameId}`) — `None` until accepted.
+    pub fn game_id(&self) -> Option<&str> {
+        if self.status != "accepted" {
+            return None;
+        }
+        self.url.rsplit('/').next().filter(|s| !s.is_empty())
+    }
 }
