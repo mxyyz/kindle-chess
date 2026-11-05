@@ -26,7 +26,7 @@ cd kindle_chess && RUSTFLAGS="-C target-feature=+crt-static" \
 ./flash_display.sh                 # alternate path: builds via podman musl image, deploys test_ui
 ```
 
-The flash scripts intentionally `mv` `kindle_KUAL/hellokindle/secrets/token.json` aside before scp/cp and restore it after — this preserves the device's stored OAuth token across deploys. Don't break this dance when editing those scripts.
+The flash scripts intentionally `mv` `kindle_KUAL/kindlichess/secrets/token.json` aside before scp/cp and restore it after — this preserves the device's stored OAuth token across deploys. Don't break this dance when editing those scripts.
 
 There is no test suite, no linter config beyond `cargo`, and no formatter config beyond `rustfmt` defaults.
 
@@ -34,7 +34,7 @@ There is no test suite, no linter config beyond `cargo`, and no formatter config
 
 `build.rs` loads `.env.debug` (debug profile) or `.env.release` (release profile) and bakes the values in via `cargo:rustc-env=...`. The Rust code reads them with `env!()`, not `std::env::var()` — they are compile-time constants.
 
-- `ROOT_DIR` — base path for `log/`, `assets/`, `secrets/`. Debug points at the absolute path of the local checkout (`/home/mxy/Repos/kindle-chess/kindle_KUAL/hellokindle/`); release points at `/mnt/us/kindlichess/` (the Kindle filesystem). **If you check out the repo elsewhere, edit `.env.debug` or debug builds will write to a missing path.**
+- `ROOT_DIR` — base path for `log/`, `assets/`, `secrets/`. Debug points at the absolute path of the local checkout (`/home/mxy/Repos/kindle-chess/kindle_KUAL/kindlichess/`); release points at `/mnt/us/kindlichess/` (the Kindle filesystem). **If you check out the repo elsewhere, edit `.env.debug` or debug builds will write to a missing path.**
 - `LICHESS_API_BASE` — `https://lichess.org/api`
 - Derived: `LOG_FILE_DIR`, `ASSETS_DIR`, `AUTH_TOKEN` (path to `secrets/token.json`)
 
@@ -73,7 +73,7 @@ PKCE against `https://lichess.org/oauth`. On auth, the app:
 - `src/ui/` — `Renderer` (x11rb GCs + double-buffering), `Screen` impls, `widgets/` (board, sidebar), event types
 - `src/ui/bin/test_ui.rs` — secondary binary used by `flash_display.sh` for UI iteration on-device
 - `kindle_KUAL/extensions/hellokindle/menu.json` — KUAL menu wiring; entries shell out to scripts in `/mnt/us/kindlichess/`
-- `kindle_KUAL/hellokindle/chess_app.sh` — on-device launcher, currently runs `kindle-hello` under a 180 s `timeout` for safety. The lipc / `disableEnablePillow` block that hands the display from the Kindle UI to X11 is commented out — re-enable it when you actually want X11 to own the framebuffer instead of running over the Kindle home screen.
+- `kindle_KUAL/kindlichess/chess_app.sh` — on-device launcher, currently runs `kindle-hello` under a 180 s `timeout` for safety. The lipc / `disableEnablePillow` block that hands the display from the Kindle UI to X11 is commented out — re-enable it when you actually want X11 to own the framebuffer instead of running over the Kindle home screen.
 
 ### Coordinate system / display
 

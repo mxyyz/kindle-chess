@@ -186,7 +186,7 @@ tag-vs-manifest check matters.
 **It deliberately does not rename over the running binary.** `/mnt/us` is VFAT, which lacks
 the inode-based open-file semantics that make replace-a-running-executable work on ext4.
 
-### Installing — `kindle_KUAL/hellokindle/chess_app.sh`
+### Installing — `kindle_KUAL/kindlichess/chess_app.sh`
 
 The launcher does the swap at startup, when no instance is running:
 

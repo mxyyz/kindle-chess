@@ -1,7 +1,7 @@
 target/
-kindle_KUAL/hellokindle/bin
-kindle_KUAL/hellokindle/secrets/
-kindle_KUAL/hellokindle/log/
+kindle_KUAL/kindlichess/bin
+kindle_KUAL/kindlichess/secrets/
+kindle_KUAL/kindlichess/log/
 .aider*
 .zed/
 /docs/dev/

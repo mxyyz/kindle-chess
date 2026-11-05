@@ -137,7 +137,7 @@ pub const SHA_NAME:   &str = "kindle-chess-armv7-musl.sha256";
 sidecar, and on mismatch deletes the partial file leaving the running binary untouched.
 On success it leaves the verified file at **`<current_exe>.new`** and stops there — it
 does *not* rename over the running binary, because `/mnt/us` is VFAT and replacing a busy
-executable in place is unreliable there. `kindle_KUAL/hellokindle/chess_app.sh` does the
+executable in place is unreliable there. `kindle_KUAL/kindlichess/chess_app.sh` does the
 `mv` at next launch, while no instance is running.
 
 See [`docs/ci-cd.md`](../../../docs/ci-cd.md) for the full release → download → install path.
