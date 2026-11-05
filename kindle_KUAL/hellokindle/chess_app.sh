@@ -1,12 +1,12 @@
 #!/bin/sh
 
 # ─── Chess App Launcher ───────────────────────────────────────────────────────
-# Deploys from /mnt/us/hellokindle/
+# Deploys from /mnt/us/kindlichess/
 # Binary:  bin/kindle-hello
 # Logs:    log/app.log (written by the binary itself via log4rs)
 # Secrets: secrets/token.json
 
-APP_DIR="/mnt/us/hellokindle"
+APP_DIR="/mnt/us/kindlichess"
 BINARY="$APP_DIR/bin/kindle-hello"
 SCRIPT_LOG="$APP_DIR/log/launch.log"
 PID_FILE="/tmp/chess_app.pid"
@@ -101,7 +101,7 @@ echo "Test ended with code: $EXIT_CODE" >> "$SCRIPT_LOG"
 if [ $EXIT_CODE -ne 0 ] && [ $EXIT_CODE -ne 124 ]; then
     echo "ERROR in running test app!" >> "$SCRIPT_LOG"
     eips -c
-    eips "Error! Check logs: /mnt/us/hellokindle/log/app.log and launch.log"
+    eips "Error! Check logs: /mnt/us/kindlichess/log/app.log and launch.log"
     sleep 3
 elif [ $EXIT_CODE -eq 124 ]; then
     echo "Timeout - App has been shutdown automatically" >> "$SCRIPT_LOG"
