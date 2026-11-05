@@ -30,9 +30,10 @@ handoff:
   # PC:T toggle (status bar ONLY, overlays top strip — no layout shift, no home
   # buttons; window recreated on override_redirect change; pillow handoff via
   # system/pillow.rs, no-op off-device; chrome_on_start config flag) + top.png
-  # sidebar button above Back emitting ToggleTopBar. Remaining: t07 on-device
-  # UAT on k2 (scriptlet launch, lock/unlock refetch, top-bar toggle), t08
-  # custom screensaver on DeviceLock.
+  # sidebar button above Back emitting ToggleTopBar. t08 done: logo.png
+  # screensaver on DeviceLock (App.locked suppresses redraws until wake).
+  # Remaining: t07 on-device UAT on k2 (scriptlet launch, lock->logo screensaver
+  # -> wake refetch, top-bar toggle), then land branch.
 
 notes:
   phase1: ready_to_land

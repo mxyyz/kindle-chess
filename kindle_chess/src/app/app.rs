@@ -39,6 +39,7 @@ impl App {
             display,
             screen_stack: vec![home],
             config,
+            locked: false,
         })
     }
 
@@ -83,6 +84,7 @@ impl App {
                 Ok(e) => e,
                 Err(std::sync::mpsc::RecvTimeoutError::Timeout) => {
                     if !x11_alive
+                        && !self.locked
                         && Instant::now() < bootstrap_deadline
                         && last_redraw.elapsed() >= redraw_period
                     {
@@ -118,11 +120,18 @@ impl App {
                 break;
             }
 
-            // Display lock: powerd goingToScreenSaver. Hook point for a custom
-            // screensaver (future task); for now just log — the panel freezes
-            // on its own while locked. The event still flows to the top screen.
+            // Display lock: powerd goingToScreenSaver. Pillow is disabled, so
+            // no Amazon screensaver appears — draw our own (logo) instead, and
+            // suppress app redraws until wake.
             if matches!(event, AppEvent::DeviceLock) {
-                info!("Device lock (screensaver) — display frozen");
+                info!("Device lock — drawing custom screensaver");
+                self.locked = true;
+                if let Err(e) =
+                    crate::ui::screensaver::render_screensaver(&mut self.display.renderer)
+                {
+                    error!("Screensaver render error: {}", e);
+                }
+                continue;
             }
 
             // Device wake/unlock: full redraw of the top screen so the e-ink
@@ -131,6 +140,7 @@ impl App {
             // stream so the board refetches its latest state.
             if matches!(event, AppEvent::DeviceWake) {
                 info!("Device wake — full redraw");
+                self.locked = false;
                 if let Some(screen) = self.screen_stack.last_mut()
                     && let Err(e) = screen.render(&mut self.display)
                 {
@@ -156,8 +166,10 @@ impl App {
             match transition {
                 Transition::Stay => {}
 
+                // While locked the screensaver owns the panel — skip app redraws.
                 Transition::Redraw => {
-                    if let Some(screen) = self.screen_stack.last_mut()
+                    if !self.locked
+                        && let Some(screen) = self.screen_stack.last_mut()
                         && let Err(e) = screen.render(&mut self.display)
                     {
                         error!("Render error: {}", e);
@@ -166,7 +178,8 @@ impl App {
 
                 Transition::Push(new_screen) => {
                     self.screen_stack.push(new_screen);
-                    if let Some(screen) = self.screen_stack.last_mut()
+                    if !self.locked
+                        && let Some(screen) = self.screen_stack.last_mut()
                         && let Err(e) = screen.render(&mut self.display)
                     {
                         error!("Render error after push: {}", e);
@@ -183,7 +196,9 @@ impl App {
                         // The revealed screen was drawn over while covered —
                         // let it invalidate cached render state / refresh.
                         screen.on_reveal();
-                        if let Err(e) = screen.render(&mut self.display) {
+                        if !self.locked
+                            && let Err(e) = screen.render(&mut self.display)
+                        {
                             error!("Render error after pop: {}", e);
                         }
                     }

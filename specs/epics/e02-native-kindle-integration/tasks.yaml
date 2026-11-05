@@ -223,24 +223,30 @@
   blocker: false
 
 - id: t08-custom-screensaver
-  title: Custom screensaver on DeviceLock (instead of frozen panel / Amazon SS)
+  title: Custom screensaver (logo.png) on DeviceLock
   phase: 2
   priority: P3
   estimate_hours: 4
-  status: pending
+  status: complete
   description: |
-    Hook AppEvent::DeviceLock to draw a custom screensaver (e.g. clock + last
-    position mini-board) over the current screen; DeviceWake already triggers the
-    full redraw. User is not keen on the default Amazon screensaver; while pillow
-    is disabled the panel currently just freezes on lock. Decide whether the SS
-    is drawn via our X11 window or by re-enabling pillow for the SS only.
+    While pillow is disabled no Amazon screensaver appears on lock — the panel
+    just froze. Now AppEvent::DeviceLock draws our own screensaver via
+    ui/screensaver.rs: clear white + assets/logo.png (the home-screen logo)
+    pre-scaled to max 800px wide, centred on the 1072x1448 canvas. App gains a
+    `locked` flag: lock sets it and draws the screensaver, wake clears it and
+    does the existing full redraw + stream re-kick; all app redraws (bootstrap,
+    Redraw/Push/Pop transitions) are suppressed while locked so stream events
+    arriving mid-lock don't paint over the screensaver.
   acceptance_criteria:
-    - on lock, a custom screensaver is drawn; on unlock, the app screen is restored cleanly
     - cargo build + cargo test green
-  files_created: []
+    - on-device UAT (t07): lock shows the logo screensaver; unlock restores the
+      app screen cleanly and the game refetches (t03 behavior)
+  files_created:
+    - kindle_chess/src/ui/screensaver.rs
   files_modified:
+    - kindle_chess/src/ui/mod.rs
+    - kindle_chess/src/models/app.rs
     - kindle_chess/src/app/app.rs
-    - kindle_chess/src/ui/screens.rs (new screensaver screen)
   dependencies:
     - t03-powerd-lock-aware-watcher
   blocker: false
