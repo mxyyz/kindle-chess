@@ -26,9 +26,13 @@ handoff:
   # logs: post-wake one-shot kick died once on HTTP transport error (wifi not
   # back yet) and never retried; lock = hook for custom screensaver t08),
   # --source logging in launch.log.
-  # 88 lib tests green, build + fmt clean. Remaining: on-device UAT on k2
-  # (scriptlet launches, lock/unlock behavior), then Phase 2: t05 PC:T title,
-  # t06 top.png sidebar button above Back, t07 UAT, t08 custom screensaver.
+  # 89 lib tests green, build + fmt clean. Phase 2 t05+t06 done: runtime
+  # PC:T toggle (status bar ONLY, overlays top strip — no layout shift, no home
+  # buttons; window recreated on override_redirect change; pillow handoff via
+  # system/pillow.rs, no-op off-device; chrome_on_start config flag) + top.png
+  # sidebar button above Back emitting ToggleTopBar. Remaining: t07 on-device
+  # UAT on k2 (scriptlet launch, lock/unlock refetch, top-bar toggle), t08
+  # custom screensaver on DeviceLock.
 
 notes:
   phase1: ready_to_land

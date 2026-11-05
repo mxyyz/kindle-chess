@@ -17,6 +17,13 @@ pub struct Renderer {
     gcs: HashMap<DrawColor, Gcontext>,
     font: Font,
     dirty: bool,
+    /// Chrome mode: when true the window is AWM-managed with a `PC:T` title so
+    /// the Kindle status bar is drawn OVER the app (no layout shift); when
+    /// false the window is override-redirect fullscreen with a `PC:N` title.
+    chrome_mode: bool,
+    /// Current override-redirect state of `window` (create-time-only attribute
+    /// in X11 — toggling it requires recreating the window, see set_chrome_mode).
+    override_redirect: bool,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
@@ -42,52 +49,12 @@ impl Renderer {
 
         let screen = &conn.setup().roots[screen_num];
 
-        // Create window
-        let window = conn.generate_id()?;
+        // Create window. Release builds (Kindle) default to override_redirect
+        // so the WM ignores the window until chrome mode is toggled on.
+        let override_redirect = !cfg!(debug_assertions);
+        let window = Self::create_window(&conn, screen_num, override_redirect)?;
 
-        let win_aux = CreateWindowAux::new().background_pixel(screen.white_pixel);
-
-        // Build event mask - add pointer events only for debug builds
-        let event_mask = EventMask::EXPOSURE
-            | EventMask::BUTTON_PRESS
-            | EventMask::BUTTON_RELEASE
-            | EventMask::KEY_PRESS
-            | EventMask::STRUCTURE_NOTIFY;
-
-        let event_mask = if cfg!(debug_assertions) {
-            event_mask
-                | EventMask::POINTER_MOTION
-                | EventMask::ENTER_WINDOW
-                | EventMask::LEAVE_WINDOW
-        } else {
-            event_mask
-        };
-
-        let win_aux = win_aux.event_mask(event_mask);
-
-        // For release builds (Kindle), use override_redirect to avoid window manager interference
-        // For debug builds, we want the window manager to handle the cursor
-        let win_aux = if !cfg!(debug_assertions) {
-            win_aux.override_redirect(1)
-        } else {
-            win_aux
-        };
-
-        conn.create_window(
-            COPY_DEPTH_FROM_PARENT,
-            window,
-            screen.root,
-            0,
-            0,
-            1072,
-            1448,
-            0,
-            WindowClass::INPUT_OUTPUT,
-            0,
-            &win_aux,
-        )?;
-
-        // Create GCs
+        // Create GCs (GCs are screen resources — reusable across windows)
         let mut gcs = HashMap::new();
 
         for (color, pixel_value) in [
@@ -108,15 +75,8 @@ impl Renderer {
             gcs.insert(color, gc);
         }
 
-        // Map window
-        conn.map_window(window)?;
-        conn.configure_window(
-            window,
-            &ConfigureWindowAux::new().stack_mode(StackMode::ABOVE),
-        )?;
-
         // Declare our role to the Kindle's Awesome Window Manager via WM_NAME
-        // (fullscreen PC:N in Phase 1; PC:T chrome mode is a Phase 2 variant).
+        // (fullscreen PC:N by default; PC:T chrome mode when toggled).
         // Harmless on a plain X server: the property is set, nothing reads it.
         if let Err(e) = crate::ui::awm::WindowTitle::fullscreen_app().apply(&conn, window) {
             info!("AWM window title not set (non-Kindle X server?): {}", e);
@@ -143,6 +103,8 @@ impl Renderer {
             gcs,
             font,
             dirty: true,
+            chrome_mode: false,
+            override_redirect,
         };
 
         Ok((renderer, conn)) // Return both renderer and connection Arc
@@ -418,6 +380,107 @@ impl Renderer {
             self.conn.flush()?;
             self.dirty = false;
         }
+        Ok(())
+    }
+
+    pub fn chrome_mode(&self) -> bool {
+        self.chrome_mode
+    }
+
+    /// Create + map the fullscreen app window. `override_redirect` selects
+    /// fullscreen (WM ignores the window) vs AWM-managed (chrome can overlay).
+    fn create_window(
+        conn: &x11rb::rust_connection::RustConnection,
+        screen_num: usize,
+        override_redirect: bool,
+    ) -> Result<Window, Box<dyn std::error::Error>> {
+        let screen = &conn.setup().roots[screen_num];
+
+        let window = conn.generate_id()?;
+
+        // Build event mask - add pointer events only for debug builds
+        let event_mask = EventMask::EXPOSURE
+            | EventMask::BUTTON_PRESS
+            | EventMask::BUTTON_RELEASE
+            | EventMask::KEY_PRESS
+            | EventMask::STRUCTURE_NOTIFY;
+
+        let event_mask = if cfg!(debug_assertions) {
+            event_mask
+                | EventMask::POINTER_MOTION
+                | EventMask::ENTER_WINDOW
+                | EventMask::LEAVE_WINDOW
+        } else {
+            event_mask
+        };
+
+        let win_aux = CreateWindowAux::new()
+            .background_pixel(screen.white_pixel)
+            .event_mask(event_mask);
+
+        // Release builds (Kindle) use override_redirect by default to avoid
+        // window manager interference; debug builds let the WM handle the cursor.
+        let win_aux = if override_redirect {
+            win_aux.override_redirect(1)
+        } else {
+            win_aux
+        };
+
+        conn.create_window(
+            COPY_DEPTH_FROM_PARENT,
+            window,
+            screen.root,
+            0,
+            0,
+            1072,
+            1448,
+            0,
+            WindowClass::INPUT_OUTPUT,
+            0,
+            &win_aux,
+        )?;
+
+        conn.map_window(window)?;
+        conn.configure_window(
+            window,
+            &ConfigureWindowAux::new().stack_mode(StackMode::ABOVE),
+        )?;
+        Ok(window)
+    }
+
+    /// Switch between fullscreen (`PC:N`, override-redirect) and chrome mode
+    /// (`PC:T`, AWM-managed so the Kindle status bar is drawn OVER the window —
+    /// no layout shift). The AWM title is just `WM_NAME` and can be updated
+    /// live; override-redirect is a create-time-only X11 attribute, so when it
+    /// changes the window is destroyed and recreated (GCs are screen resources
+    /// and carry over).
+    pub fn set_chrome_mode(&mut self, chrome: bool) -> Result<(), Box<dyn std::error::Error>> {
+        if chrome == self.chrome_mode {
+            return Ok(());
+        }
+        self.chrome_mode = chrome;
+        let want_override = !chrome;
+        if want_override != self.override_redirect {
+            self.conn.destroy_window(self.window)?;
+            self.window = Self::create_window(&self.conn, self.screen_num, want_override)?;
+            self.override_redirect = want_override;
+            if cfg!(debug_assertions) {
+                let _ = self.conn.set_input_focus(
+                    xproto::InputFocus::POINTER_ROOT,
+                    self.window,
+                    xproto::Time::CURRENT_TIME,
+                );
+            }
+        }
+        let title = if chrome {
+            crate::ui::awm::WindowTitle::chrome_app()
+        } else {
+            crate::ui::awm::WindowTitle::fullscreen_app()
+        };
+        title.apply(&self.conn, self.window)?;
+        self.conn.flush()?;
+        self.dirty = true;
+        info!("chrome mode set to {}", chrome);
         Ok(())
     }
 

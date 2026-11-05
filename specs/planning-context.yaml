@@ -24,7 +24,8 @@ constraints:
   - run-dev.sh / Xephyr dev harness must keep working: all AWM/lipc calls degrade to no-ops off-device
   - 1072x1448 absolute canvas unchanged
   - flash.sh / flash_usb.sh token.json mv-aside dance must not break
-  - Phase 2 window title uses PC:T (top bar) — not PC:TS; TSB resizing is broken per wiki
+  - Phase 2 window title uses PC:T (status bar ONLY — no home/search buttons, not PC:TS);
+    the status bar OVERLAYS the app's top strip — no layout shift, 1072x1448 canvas untouched
 out_of_scope:
   - KPM .kpkg packaging and kpm launch flow
   - WAF config.xml / kindle.* JavaScript object APIs
@@ -61,4 +62,4 @@ success_criteria:
   - Phase 1 on-device k1: KUAL ChessApp entry launches the app (fallback path)
   - Both: after lock/unlock the board redraws cleanly on wake (powerd outOfScreenSaver -> full redraw); DeviceLock is observed in logs
   - Phase 1 automated: WM_NAME/title-builder + powerd classify/debounce unit tests green; scriptlet + flash scripts syntax-checked; cargo build + cargo test green
-  - Phase 2 on-device: window title carries PC:T, Kindle top bar reachable via the top.png sidebar button, brightness adjustable, home button exits to home, layout accounts for top-bar height
+  - Phase 2 on-device: top.png sidebar button (above Back) toggles the PC:T status bar over the app (overlay, no layout shift, no home buttons); brightness adjustable from it

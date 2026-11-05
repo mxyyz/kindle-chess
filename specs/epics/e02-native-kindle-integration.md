@@ -18,10 +18,11 @@ fullscreen hack. Two phases (hybrid approach, confirmed in elaborate-spec):
   `WM_NAME` title, and a display-lock-aware powerd watcher (lock + wake via lipc)
   redraws the panel cleanly on unlock; the lock event is the hook for a custom
   screensaver (t08).
-- **Phase 2 — chrome**: window title switches to the `PC:T` variant so the Kindle
-  top bar is available; a dedicated sidebar button (`assets/top.png`, above the
-  Back button) opens the top bar so the user can reach brightness settings;
-  pillow handoff reworked so AWM composites; layout reserves top-bar height.
+- **Phase 2 — chrome**: a runtime toggle switches the window title to the `PC:T`
+  variant so the Kindle **status bar only** (no home/search buttons) is drawn by
+  AWM **over** the app's top strip — no layout shift, the 1072×1448 canvas is
+  untouched. A dedicated sidebar button (`assets/top.png`, above the Back button)
+  toggles it, so the user can reach brightness/quick settings on demand.
 
 ## Background
 
@@ -53,7 +54,7 @@ scratchpad `kindle-dev/`):
 - [ ] Phase 1 on-device: lock/unlock observed in logs; board cleanly redrawn on wake
 - [ ] KUAL menu entry still works on k1 (fallback preserved)
 - [ ] `cargo build` + `cargo test` green; AWM title-builder unit tests exist
-- [ ] Phase 2: `PC:T` title, top.png sidebar button above Back opens the Kindle top bar (brightness reachable), layout accounts for top-bar height, home button exits to home
+- [ ] Phase 2 on-device: top.png button toggles ONLY the Kindle status bar (PC:T) drawn over the app's top strip — no layout shift, no home buttons; brightness reachable from it; toggle back restores clean fullscreen
 - [ ] `run-dev.sh` (Xephyr) unaffected — AWM/lipc calls are no-ops off-device
 
 ## Tasks

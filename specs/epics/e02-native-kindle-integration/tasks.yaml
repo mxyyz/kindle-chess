@@ -139,55 +139,65 @@
 # Phase 2: Chrome (PC:T top bar + sidebar button)
 
 - id: t05-pc-t-title
-  title: Switch window title to PC:T and rework pillow handoff
+  title: Runtime-toggleable PC:T status bar over the app (no layout shift)
   phase: 2
   priority: P1
   estimate_hours: 5
-  status: pending
+  status: complete
   description: |
-    Window title becomes L:A_N:application_PC:T_ID:org.kindlemodding.kindlechess_O:U.
-    Launcher stops disabling pillow (or only for fullscreen fallback); AWM
-    composites the Kindle top bar over the app window. Add a LAYOUT constant for
-    top-bar height and shift the 1072x1448 content area down. Home button exits
-    to the home screen via AWM. Config flag (env in .env.release) to fall back to
-    PC:N fullscreen mode.
+    REVISED per user correction: PC:T only — NO home/search buttons come up, just
+    the status bar; and the status bar OVERLAYS the app's top strip — the
+    1072x1448 canvas is NOT shifted/pushed down (no LAYOUT offset).
+    Implementation: Renderer::set_chrome_mode(chrome) applies the AWM title
+    (PC:T vs PC:N — live WM_NAME update) and recreates the window when the
+    override-redirect value changes (it is a create-time-only X11 attribute;
+    GCs carry over). Display::set_chrome_mode wraps it with the pillow handoff
+    via system/pillow.rs (lipc-set-prop com.lab126.pillow disableEnablePillow
+    enable/disable, eips -c on return to fullscreen) — all no-ops off-device.
+    AppConfig.chrome_on_start (default false) starts directly in chrome mode.
+    chess_app.sh unchanged: still disables pillow at launch (fullscreen start).
   acceptance_criteria:
-    - on-device: Kindle top bar visible above app content, brightness reachable
-    - home button exits to home screen
-    - fallback flag restores Phase 1 behavior
-    - cargo build + cargo test green
-  files_created: []
+    - awm title unit tests green; cargo build + cargo test green
+    - off-device: toggle is a safe no-op for pillow/eips, title/override logic exercised
+    - on-device UAT (t07): toggling shows ONLY the Kindle status bar drawn over
+      the app's top strip (no layout shift, no home buttons), brightness
+      reachable from it; toggling back restores clean fullscreen
+  files_created:
+    - kindle_chess/src/system/pillow.rs
   files_modified:
     - kindle_chess/src/ui/awm.rs
     - kindle_chess/src/ui/renderer.rs
-    - kindle_KUAL/hellokindle/chess_app.sh
-    - kindle_chess/.env.release
+    - kindle_chess/src/ui/display.rs
+    - kindle_chess/src/ui/events.rs
+    - kindle_chess/src/app/app.rs
+    - kindle_chess/src/utils/config.rs
   dependencies:
     - t01-awm-window-title
   blocker: false
 
 - id: t06-topbar-sidebar-button
-  title: Sidebar top-bar button (top.png) above Back
+  title: Sidebar status-bar button (top.png) above Back
   phase: 2
   priority: P1
   estimate_hours: 3
-  status: pending
+  status: complete
   description: |
-    Add an IconButton using assets/top.png placed above the back-nav button in
-    sidebar.rs (and puzzle_sidebar.rs if it has its own back button). Pressing
-    it requests the Kindle top bar / quick settings (lipc to com.lab126.chromebar,
-    no-op off-device) so the user reaches brightness. Touch handling + redraw
-    covered by existing sidebar event flow.
+    REVISED per user correction — the button TOGGLES the PC:T status bar (t05),
+    it does not call chromebar directly. IconButton with assets/top.png placed
+    in the left button column of SidebarWidget directly ABOVE the back-nav
+    button (back button moved down to make room; text bands are centred and
+    unaffected). Tap emits AppEvent::ToggleTopBar, handled in the app loop
+    (chrome toggle + full redraw). Game sidebar only for now; puzzle sidebar
+    can get the same button later.
   acceptance_criteria:
-    - button renders from assets/top.png above Back on the sidebar
-    - tap emits the top-bar request; off-device it logs and is a no-op
+    - button renders from assets/top.png above Back on the game sidebar
+    - tap emits ToggleTopBar; app loop toggles chrome mode and redraws
     - cargo build + cargo test green
   files_created: []
   files_modified:
     - kindle_chess/src/ui/widgets/sidebar.rs
-    - kindle_chess/src/ui/widgets/puzzle_sidebar.rs
-    - kindle_chess/src/ui/events.rs (new event variant)
-    - kindle_chess/src/app/ (event routing)
+    - kindle_chess/src/ui/events.rs
+    - kindle_chess/src/app/app.rs
   dependencies:
     - t05-pc-t-title
   blocker: false

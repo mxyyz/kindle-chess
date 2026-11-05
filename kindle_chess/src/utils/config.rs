@@ -33,6 +33,10 @@ pub struct AppConfig {
     /// Defaults for the puzzle screens. Confirmed user choices replace these
     /// in the in-memory store for the app's lifetime.
     pub puzzle: PuzzleParams,
+    /// Start in chrome mode (Kindle status bar PC:T overlaid on the app)
+    /// instead of fullscreen. Default false = current fullscreen behavior;
+    /// the top.png sidebar button toggles it at runtime either way.
+    pub chrome_on_start: bool,
 }
 
 impl AppConfig {
@@ -155,6 +159,7 @@ mod tests {
                 phase: PuzzlePhase::RookEndgame,
                 color: PuzzleColor::White,
             },
+            ..Default::default()
         };
         let json = serde_json::to_string(&config).unwrap();
         assert_eq!(AppConfig::from_json(&json).unwrap(), config);

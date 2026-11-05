@@ -95,6 +95,11 @@ pub enum AppEvent {
     ChessReady(Box<ChessApp>),
     Quit,
 
+    // Toggle the Kindle status bar (PC:T chrome) over the app window — the
+    // top.png sidebar button. Lets the user reach brightness/quick settings
+    // without the bar permanently covering the board's top strip.
+    ToggleTopBar,
+
     // X11 Events
     Expose,
     WindowUnmapped,
