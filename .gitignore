@@ -5,3 +5,5 @@ kindle_KUAL/hellokindle/log/
 .aider*
 .zed/
 /docs/dev/
+flash_usb.sh
+flash.sh
