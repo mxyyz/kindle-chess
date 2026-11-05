@@ -13,7 +13,7 @@ vcs:
   # cargo build clean, 112 tests pass. e02 landed; t07 moved to e03s07 (end of e03).
 
 handoff:
-  last_step_completed: develop-tdd e03s01..e03s04 DONE — phase 2 complete: Play flow (mode+spinner+opponent+send), FriendlistScreen, InvitesScreen with accept->live game; 100 lib + 14 integration tests green, release build clean
+  last_step_completed: "develop-tdd e03s01..e03s06 DONE — restructure + phase-2 play flow + i18n; 114 lib + integration green; user UAT commit bf50805 on top"
   open_decisions:
     - "BUG-2026-11-04T184513 (post-puzzle-solutions) fix lives on branch fix-post-puzzle-solutions off api-migration, not on main — still effectively open"
   required_reading:
@@ -21,7 +21,7 @@ handoff:
     - specs/product/SCOPE_LATEST.yaml
     - specs/planning-context.yaml
     - specs/epics/e03-target-device-directory-restructure.md
-  next_skill: e03s07 (carried t07 on-device UAT) — then verify-work / release-branch for the epic
+  next_skill: "release-branch (epic verified; all 7 stories passing)"
 
 notes:
   e02: merged to main (PR #35); all tasks complete except t07 (moved to e03)

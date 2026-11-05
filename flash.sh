@@ -23,7 +23,7 @@ echo "Flashing local KUAL-App to Kindle"
 scp -r ./kindle_KUAL/* root@kindle:/mnt/us
 
 echo "Deploying scriptlet to /mnt/us/documents (SH_Integration auto-registers it)"
-scp ./scriptlet/kindle-chess.sh root@kindle:/mnt/us/documents/
+scp ./scriptlet/kindlichess.sh root@kindle:/mnt/us/documents/
 
 echo "Moving token back.."
 mv ./token.json ./kindle_KUAL/kindlichess/secrets/

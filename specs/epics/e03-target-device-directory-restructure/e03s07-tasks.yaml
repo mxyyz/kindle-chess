@@ -1,7 +1,7 @@
 # Story e03s07 — carried from e02, sits at the END of epic e03 per user decision
 story_id: e03s07
 title: "t07-phase2-uat — on-device UAT of e02 chrome mode on k2 (moved from e02-native-kindle-integration)"
-status: pending
+status: passing
 bcps: 2
 delta: ADDED
 tasks:
@@ -23,4 +23,4 @@ tasks:
       - e02/t06-topbar-sidebar-button
     verify: "verify-script: on-device UAT on k2 via flash.sh deploy; record results in specs/verifications/e02-phase2-uat.md"
     blocker: false
-    status: pending
+    status: passing

@@ -1,0 +1,48 @@
+# Verification evidence for epic e03-target-device-directory-restructure
+story_id: e03 (all stories e03s01..e03s07)
+verified_at: "2026-11-05T20:10:00Z"
+verifier: verify-work
+branch: e03-target-device-restructure
+head_at_verify: bf50805 (+ working-tree fix flash.sh scriptlet rename)
+phases:
+  branch_check:
+    passed: true
+    note: "on feature worktree branch e03-target-device-restructure, not main"
+  build:
+    passed: true
+    command: "cargo build"
+    note: "dev profile clean"
+  release_build:
+    passed: true
+    command: "cargo build --release"
+    note: "host release clean; release binary bakes ROOT_DIR=/mnt/us/kindlichess (grep-verified earlier)"
+  scripts:
+    passed: true
+    command: "sh -n flash.sh flash_usb.sh kindle_KUAL/kindlichess/chess_app.sh scriptlet/kindlichess.sh"
+    note: "gap found+fixed during verify: flash.sh still referenced renamed scriptlet/kindle-chess.sh -> kindlichess.sh"
+  yaml:
+    passed: true
+    command: "python3 yaml.safe_load_all over specs/**/*.yaml"
+    note: "15 files OK; state.yaml fixed during verify (unquoted colons from sed edit)"
+  stale_refs:
+    passed: true
+    command: "grep -rn 'kindle-chess.sh|mnt/us/hellokindle|kindle_KUAL/hellokindle' --exclude specs/"
+    note: "only intentional comment remains (old installs left untouched)"
+  tests:
+    passed: true
+    command: "cargo test"
+    total_passed: 150
+  terminal_verdict:
+    command: "cargo test"
+    exit_code: 0
+    captured_at: "2026-11-05T20:10:00Z"
+    note: "Single contiguous run, exit 0, 150 passed 0 failed across all suites (114 lib + 36 integration/doc)"
+  manual:
+    steps:
+      - step: "e03s07 t07-phase2-uat on-device on k2 (user-run, commit bf50805 on top)"
+        expected: "scriptlet launch, top bar via top.png, brightness, lock/unlock redraw, PC:N fallback"
+        actual: "user confirmed everything working except unclear 'home button exits' item (PC:T chrome home button semantics) — recorded as open clarification, not a failure"
+        passed: true
+  gaps:
+    closed: true
+    notes: "flash.sh scriptlet path gap fixed in verify; state.yaml quoting fixed"
