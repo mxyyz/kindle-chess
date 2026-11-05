@@ -6,12 +6,11 @@ session:
 
 vcs:
   kind: git
-  branch: main
-  head: a36f046
-  # RECONCILED 2026-11-05: previous state.yaml pointed at the merged branch
-  # e02-native-kindle-integration @ edab5f7 (stale — PR #35 merged via ddf74cf,
-  # main is now a36f046). e02 epic is landed; its one open task t07-phase2-uat
-  # was MOVED to the end of e03-target-device-directory-restructure/tasks.yaml.
+  branch: e03-target-device-restructure
+  head: d86b90f
+  # KICKOFF 2026-11-05: worktree /home/mxy/repos/e03-target-device-restructure on
+  # branch e03-target-device-restructure (from main @ d86b90f). Preflight green:
+  # cargo build clean, 112 tests pass. e02 landed; t07 moved to e03s07 (end of e03).
 
 handoff:
   last_step_completed: slice-tasks — e03 sliced into 7 stories (e03s01 restructure -> e03s02 friendlist -> e03s03 play+send -> e03s04 invites -> e03s05/s06 i18n -> e03s07 carried t07 at END); epic.yaml + release-plan.yaml + per-story tasks.yaml written, all YAML valid
@@ -22,7 +21,7 @@ handoff:
     - specs/product/SCOPE_LATEST.yaml
     - specs/planning-context.yaml
     - specs/epics/e03-target-device-directory-restructure.md
-  next_skill: plan-work (per story, starting with e03s01) — then kickoff-branch before code
+  next_skill: develop-tdd (e03s01 phase-1 restructure; plan-work story specs can follow per story)
 
 notes:
   e02: merged to main (PR #35); all tasks complete except t07 (moved to e03)
