@@ -5,6 +5,7 @@ use litchee::{
     LichessError,
     api::gameplay::{
         board::{LichessBoardEvent, LichessGameEventPlayer, LichessGameState, LichessVariantInfo},
+        challenges::{LichessChallenge, LichessChallengeColor},
         games::LichessGameStatusName,
     },
     model::{LichessColor, LichessTitle, LichessVariantKey},
@@ -14,9 +15,9 @@ use log::warn;
 
 use crate::models::{
     board_api::{
-        ChatLineEvent, Clock, GameDataList, GameFullEvent, GameOverEvent, GameStateEvent,
-        GameStateStreamEvent, GameVariant, OpponentGoneEvent, PerfMode, PlayedBy, PlayedByAi,
-        PlayedByPlayer, Speed,
+        ChallengeMode, ChallengeSummary, ChatLineEvent, Clock, GameDataList, GameFullEvent,
+        GameOverEvent, GameStateEvent, GameStateStreamEvent, GameVariant, OpponentGoneEvent,
+        PerfMode, PlayedBy, PlayedByAi, PlayedByPlayer, Speed,
     },
     oauth::{LichessUser, UserProfile},
     puzzle::{Puzzle, PuzzleColor, PuzzleParams, PuzzleSolveRound},
@@ -315,6 +316,53 @@ impl LitcheeAdapter {
         }
         names.sort();
         Ok(names)
+    }
+
+    // Challenges
+    /// Send a friend challenge. Fixed defaults per e03 scope: standard variant,
+    /// casual (`rated=false`), random color; only the time control varies with
+    /// `mode`. Returns the created challenge mapped to our summary type.
+    pub async fn send_challenge(
+        &self,
+        username: &str,
+        mode: &ChallengeMode,
+    ) -> Result<ChallengeSummary, LichessError> {
+        if self.token.is_none() {
+            return Err(LichessError::InvalidRequest(
+                "send_challenge requires authentication".into(),
+            ));
+        }
+        let req = self
+            .client
+            .challenges()
+            .challenge(username)
+            .rated(false)
+            .color(LichessChallengeColor::Random);
+        let req = match mode {
+            ChallengeMode::Unlimited => req,
+            // 10:5 real-time default
+            ChallengeMode::RealTime => req.clock(600, 5),
+            ChallengeMode::Correspondence(days) => req.days(u32::from(*days)),
+        };
+        let challenge: LichessChallenge = req.send().await?;
+        Ok(map_challenge(&challenge, false))
+    }
+}
+
+/// Map a litchee challenge to the app's summary. `incoming` is decided by the
+/// caller (send_challenge → false; list parsing → side of the list).
+fn map_challenge(c: &LichessChallenge, incoming: bool) -> ChallengeSummary {
+    let opponent = if incoming {
+        c.challenger.as_ref().map(|u| u.name.clone())
+    } else {
+        c.dest_user.as_ref().map(|u| u.name.clone())
+    }
+    .unwrap_or_default();
+    ChallengeSummary {
+        id: c.id.clone(),
+        status: format!("{:?}", c.status).to_lowercase(),
+        opponent,
+        incoming,
     }
 }
 

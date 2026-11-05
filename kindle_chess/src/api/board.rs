@@ -2,7 +2,8 @@ use crate::api::litchee_adapter::LitcheeAdapter;
 use crate::app::game::player0_turn;
 use crate::models::bitboard::Bitboards;
 use crate::models::board_api::{
-    BoardAPI, GameDataList, GameStateStreamEvent, Idle, InGame, PlayedBy, Turn,
+    BoardAPI, ChallengeMode, ChallengeSummary, GameDataList, GameStateStreamEvent, Idle, InGame,
+    PlayedBy, Turn,
 };
 use crate::models::oauth::{LichessUser, TokenInfo};
 use crate::ui::events::AppEvent;
@@ -38,6 +39,15 @@ impl<S> BoardAPI<S> {
     /// data source for picking a challenge opponent.
     pub async fn get_following(&self) -> Result<Vec<String>, Box<dyn std::error::Error>> {
         Ok(self.adapter.get_following().await?)
+    }
+
+    /// Send a friend challenge with the given game mode.
+    pub async fn send_challenge(
+        &self,
+        username: &str,
+        mode: &ChallengeMode,
+    ) -> Result<ChallengeSummary, Box<dyn std::error::Error>> {
+        Ok(self.adapter.send_challenge(username, mode).await?)
     }
 }
 
