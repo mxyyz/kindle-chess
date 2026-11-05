@@ -268,3 +268,25 @@ pub enum Speed {
     Classical,
     Correspondence,
 }
+
+/// Game mode for a friend challenge. Fixed defaults per e03 scope: standard
+/// variant, casual (rated=false), random color — only the time control varies.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum ChallengeMode {
+    /// No clock at all.
+    Unlimited,
+    /// Real-time 10 minutes + 5 seconds increment (clock 600+5).
+    RealTime,
+    /// Correspondence, `days` per move (clamped 1..=14 by the UI spinner).
+    Correspondence(u8),
+}
+
+/// A challenge as the app needs it: id for follow-up, opponent name, and
+/// which side of the invite it is on.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct ChallengeSummary {
+    pub id: String,
+    pub status: String,
+    pub opponent: String,
+    pub incoming: bool,
+}
