@@ -214,3 +214,19 @@ impl SidebarWidget {
         Ok(())
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    /// Same contract as the board: after the screensaver drew over the sidebar,
+    /// invalidate() must make the next render a full repaint.
+    #[test]
+    fn invalidate_forces_full_repaint() {
+        let mut sidebar = SidebarWidget::new(Rectangle::new(0, 1072, 1072, 376));
+        assert!(sidebar.needs_full_repaint); // fresh widget paints fully once
+        sidebar.needs_full_repaint = false;
+        sidebar.invalidate();
+        assert!(sidebar.needs_full_repaint);
+    }
+}

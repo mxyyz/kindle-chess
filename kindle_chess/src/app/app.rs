@@ -141,10 +141,15 @@ impl App {
             if matches!(event, AppEvent::DeviceWake) {
                 info!("Device wake — full redraw");
                 self.locked = false;
-                if let Some(screen) = self.screen_stack.last_mut()
-                    && let Err(e) = screen.render(&mut self.display)
-                {
-                    error!("Wake redraw error: {}", e);
+                if let Some(screen) = self.screen_stack.last_mut() {
+                    // The screensaver drew over the whole window while locked,
+                    // so partial-render widgets have stale caches — invalidate
+                    // them (same as after a Pop) before rendering, otherwise the
+                    // wake redraw skips them and the screensaver stays visible.
+                    screen.on_reveal();
+                    if let Err(e) = screen.render(&mut self.display) {
+                        error!("Wake redraw error: {}", e);
+                    }
                 }
             }
 

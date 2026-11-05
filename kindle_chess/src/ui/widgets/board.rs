@@ -527,3 +527,20 @@ fn highlight_color(file: u8, rank: u8) -> DrawColor {
 fn square_to_index(sq: Square) -> u8 {
     sq.rank * 8 + sq.file
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::ui::events::Rectangle;
+
+    /// The wake-after-lock redraw relies on this contract: invalidate() must
+    /// force a full repaint, otherwise the board diffs against a stale
+    /// last-drawn cache and stays invisible after the screensaver.
+    #[test]
+    fn invalidate_forces_full_repaint() {
+        let mut board = BoardWidget::new(Rectangle::new(0, 0, 1072, 1072));
+        assert!(!board.force_full_repaint);
+        board.invalidate();
+        assert!(board.force_full_repaint);
+    }
+}

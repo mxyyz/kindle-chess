@@ -21,3 +21,14 @@ registry:
       residue outside the band on "Next puzzle". Fix: info changes trigger a
       full sidebar repaint; clear also happens at button-press time.
     file: specs/bugs/BUG-2026-11-04T193559-sidebar-info-clear-residue.md
+  - bug_id: BUG-2026-11-05T095333
+    date: 2026-11-05
+    severity: low
+    priority: high
+    scope: e02-lock-wake-redraw
+    summary: >-
+      Wake-after-lock redraw skipped partial-render widgets (board/sidebar):
+      the screensaver painted over the framebuffer on DeviceLock but the wake
+      path never called Screen::on_reveal(), so cached widgets repainted
+      nothing. Fix: on_reveal() before the wake redraw + widget contract tests.
+    file: specs/bugs/BUG-2026-11-05T095333-wake-redraw-skips-cached-widgets.md
