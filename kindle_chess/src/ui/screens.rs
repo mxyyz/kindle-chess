@@ -1,6 +1,6 @@
 use std::sync::Arc;
 
-use log::{debug, info, warn};
+use log::{debug, error, info, warn};
 
 use crate::{
     api::{
@@ -303,6 +303,19 @@ impl Screen for ChessGameScreen {
 
             AppEvent::SquareSelected(square) => {
                 info!("Selected square: {}", square.to_algebraic());
+                Ok(Transition::Redraw)
+            }
+
+            // Sidebar top.png button: toggle the Kindle status bar (PC:T)
+            // over the app window. Handled here (not in the app loop) because
+            // the sidebar re-emits widget events via this screen-local
+            // recursion — an app-loop handler would never see them.
+            AppEvent::ToggleTopBar => {
+                let new_mode = !display.chrome_mode();
+                info!("ToggleTopBar — chrome mode -> {}", new_mode);
+                if let Err(e) = display.set_chrome_mode(new_mode) {
+                    error!("set_chrome_mode failed: {}", e);
+                }
                 Ok(Transition::Redraw)
             }
 

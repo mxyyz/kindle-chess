@@ -138,23 +138,6 @@ impl App {
                 }
             }
 
-            // Top-bar button (top.png): toggle the Kindle status bar over the
-            // app window. The bar overlays the top strip of the 1072x1448
-            // canvas — no layout shift. Fullscreen redraw after switching back.
-            if matches!(event, AppEvent::ToggleTopBar) {
-                let new_mode = !self.display.chrome_mode();
-                info!("ToggleTopBar — chrome mode -> {}", new_mode);
-                if let Err(e) = self.display.set_chrome_mode(new_mode) {
-                    error!("set_chrome_mode failed: {}", e);
-                }
-                if let Some(screen) = self.screen_stack.last_mut()
-                    && let Err(e) = screen.render(&mut self.display)
-                {
-                    error!("Chrome-toggle redraw error: {}", e);
-                }
-                continue;
-            }
-
             // Delegate to the screen on top of the stack
             let transition = match self.screen_stack.last_mut() {
                 Some(screen) => match screen.handle_event(event, &mut self.display) {

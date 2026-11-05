@@ -47,8 +47,6 @@ impl Renderer {
 
         info!("Connected to X11, screen number: {}", screen_num);
 
-        let screen = &conn.setup().roots[screen_num];
-
         // Create window. Release builds (Kindle) default to override_redirect
         // so the WM ignores the window until chrome mode is toggled on.
         let override_redirect = !cfg!(debug_assertions);
