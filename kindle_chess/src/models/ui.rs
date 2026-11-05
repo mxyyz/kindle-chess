@@ -21,7 +21,7 @@ use crate::{
         events::{AppEvent, Rectangle, RectangleExt},
         renderer::Renderer,
         widgets::{
-            BoardWidget, Button, IconButton, PuzzleSidebarWidget, SidebarWidget, Slider,
+            BoardWidget, Button, IconButton, PuzzleSidebarWidget, SidebarWidget,
             icon_button::{ICON_BUTTON_SIZE, Icon, load_icon},
         },
     },
@@ -373,10 +373,12 @@ pub struct PlayScreen {
     pub mode_button_unlimited: Button,
     pub mode_button_realtime: Button,
     pub mode_button_correspondence: Button,
-    /// Days-per-move slider (1..=14) — only drawn in correspondence mode.
-    /// A slider, not +/- buttons, because rapid repeated taps can trigger the
-    /// global triple-tap-to-quit.
-    pub days_slider: Slider,
+    /// Days-per-move toggle group — only drawn in correspondence mode. One
+    /// button per Lichess-allowed value (ALLOWED_CORRESPONDENCE_DAYS); a
+    /// button group instead of a slider/spinner so rapid taps can't hit the
+    /// triple-tap-to-quit gesture and values can't be invalid.
+    pub days_buttons: [Button; 7],
+    pub selected_days: u8,
     pub opponent_button: Button,
     pub send_button: Button,
     pub invites_button: IconButton,
@@ -398,17 +400,29 @@ impl PlayScreen {
         const BTN_H: u16 = 96;
         let mode_x0 = (1072 - (3 * MODE_W as i16 + 2 * 16)) / 2;
         let x = (1072 - BTN_W as i16) / 2;
+        // Days toggle group: 7 buttons of 100px + 6 gaps of 16 = 796px wide,
+        // centred, on the slider's old row (y=310).
+        const DAY_W: u16 = 100;
+        let days_x0 = (1072 - (7 * DAY_W as i16 + 6 * 16)) / 2;
+        let days_labels = ["1", "2", "3", "5", "7", "10", "14"];
         let bottom = 1448 - (ICON_BUTTON_SIZE as i16 - 20) - 32;
         Self {
             app,
             mode_button_unlimited: Button::new(mode_x0, 200, MODE_W, MODE_H, "Unlimited".into(), 32.0, true),
             mode_button_realtime: Button::new(mode_x0 + MODE_W as i16 + 16, 200, MODE_W, MODE_H, "Real time 10:5".into(), 32.0, true),
             mode_button_correspondence: Button::new(mode_x0 + 2 * (MODE_W as i16 + 16), 200, MODE_W, MODE_H, "Correspondence".into(), 32.0, true),
-            // Midway between the old spinner-button width (600) and the mode
-            // button group width (992): 796 px, centred. Snaps to the day
-            // values Lichess actually accepts (else the API 400s).
-            days_slider: Slider::new((1072 - 796) / 2, 310, 796, 96, 1, 14, 3, "days/move")
-                .with_stops(ALLOWED_CORRESPONDENCE_DAYS.to_vec()),
+            days_buttons: std::array::from_fn(|i| {
+                Button::new(
+                    days_x0 + i as i16 * (DAY_W as i16 + 16),
+                    310,
+                    DAY_W,
+                    96,
+                    days_labels[i].to_string(),
+                    32.0,
+                    true,
+                )
+            }),
+            selected_days: 3,
             opponent_button: Button::new(x, 470, BTN_W, BTN_H, "Opponent: -".into(), 40.0, true),
             send_button: Button::new(x, 600, BTN_W, BTN_H, "Send challenge".into(), 40.0, true),
             invites_button: IconButton::new(1072 - ICON_BUTTON_SIZE as i16 - 24, 24, "invitation.png"),

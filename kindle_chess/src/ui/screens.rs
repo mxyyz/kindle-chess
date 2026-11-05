@@ -11,7 +11,7 @@ use crate::{
         update::apply_update,
     },
     models::{
-        board_api::{ChallengeMode, ChallengeSummary, PlayedBy},
+        board_api::{ALLOWED_CORRESPONDENCE_DAYS, ChallengeMode, ChallengeSummary, PlayedBy},
         chess::ChessApp,
         oauth::TokenInfo,
         puzzle::{PuzzleParams, PuzzleSession, PuzzleStatus},
@@ -762,11 +762,17 @@ impl Screen for OngoingChessGamesScreen {
 impl PlayScreen {
     fn mode(&self) -> ChallengeMode {
         match self.selected_mode {
-            ChallengeMode::Correspondence(_) => {
-                ChallengeMode::Correspondence(self.days_slider.value())
-            }
+            ChallengeMode::Correspondence(_) => ChallengeMode::Correspondence(self.selected_days),
             other => other,
         }
+    }
+
+    /// Index of the currently selected days button.
+    fn selected_days_index(&self) -> usize {
+        ALLOWED_CORRESPONDENCE_DAYS
+            .iter()
+            .position(|&d| d == self.selected_days)
+            .unwrap_or(0)
     }
 
     /// Spawn the challenge send. Result arrives as `ChallengeSent` /
@@ -857,10 +863,16 @@ impl Screen for PlayScreen {
         // Selection marker on the active mode button (selected-file style).
         draw_selection_marker(&mut display.renderer, &self.selected_mode_button().rect)?;
 
-        // Slider row — only in correspondence mode; the row stays blank
-        // otherwise so nothing below shifts.
+        // Days toggle group — only in correspondence mode; the row stays
+        // blank otherwise so nothing below shifts.
         if self.spinner_visible() {
-            self.days_slider.draw(&mut display.renderer)?;
+            for btn in &self.days_buttons {
+                btn.draw(&mut display.renderer)?;
+            }
+            draw_selection_marker(
+                &mut display.renderer,
+                &self.days_buttons[self.selected_days_index()].rect,
+            )?;
         }
 
         self.opponent_button.label = self.opponent_label();
@@ -931,20 +943,19 @@ impl Screen for PlayScreen {
                     return Ok(Transition::Redraw);
                 }
                 if self.mode_button_correspondence.rect.contains(touch.x, touch.y) {
-                    self.selected_mode =
-                        ChallengeMode::Correspondence(self.days_slider.value());
+                    self.selected_mode = ChallengeMode::Correspondence(self.selected_days);
                     return Ok(Transition::Redraw);
                 }
 
-                // Slider tap sets the days value directly (single tap — safe
-                // against the triple-tap-to-quit gesture).
-                if self.days_slider.contains(touch.x, touch.y) {
-                    let v = self.days_slider.tap_value(touch.x);
-                    self.days_slider.set_value(v);
-                    if matches!(self.selected_mode, ChallengeMode::Correspondence(_)) {
-                        self.selected_mode = ChallengeMode::Correspondence(v);
+                // Days toggle group: one button per Lichess-allowed value.
+                for (i, btn) in self.days_buttons.iter().enumerate() {
+                    if btn.rect.contains(touch.x, touch.y) {
+                        self.selected_days = ALLOWED_CORRESPONDENCE_DAYS[i];
+                        if matches!(self.selected_mode, ChallengeMode::Correspondence(_)) {
+                            self.selected_mode = ChallengeMode::Correspondence(self.selected_days);
+                        }
+                        return Ok(Transition::Redraw);
                     }
-                    return Ok(Transition::Redraw);
                 }
 
                 if self.opponent_button.rect.contains(touch.x, touch.y) {
@@ -1433,17 +1444,17 @@ mod play_screen_tests {
     }
 
     #[test]
-    fn mode_tracks_slider_in_correspondence() {
+    fn mode_tracks_selected_days_in_correspondence() {
         let mut s = PlayScreen::new(ChessApp::new_offline());
-        s.selected_mode = ChallengeMode::Correspondence(s.days_slider.value());
-        s.days_slider.set_value(10); // an allowed stop
+        s.selected_mode = ChallengeMode::Correspondence(s.selected_days);
+        s.selected_days = 10;
         assert_eq!(s.mode(), ChallengeMode::Correspondence(10));
         s.selected_mode = ChallengeMode::RealTime;
         assert_eq!(s.mode(), ChallengeMode::RealTime);
     }
 
     #[test]
-    fn slider_only_visible_in_correspondence_mode() {
+    fn days_group_only_visible_in_correspondence_mode() {
         let mut s = PlayScreen::new(ChessApp::new_offline());
         s.selected_mode = ChallengeMode::RealTime;
         assert!(!s.spinner_visible());
@@ -1454,19 +1465,23 @@ mod play_screen_tests {
     }
 
     #[test]
-    fn correspondence_mode_always_uses_lichess_allowed_days() {
-        use crate::models::board_api::ALLOWED_CORRESPONDENCE_DAYS;
-        let mut s = PlayScreen::new(ChessApp::new_offline());
-        s.selected_mode = ChallengeMode::Correspondence(3);
-        // Sweep the whole track: every tap must land on an allowed day value.
-        for x in (s.days_slider.rect.x..s.days_slider.rect.x + s.days_slider.rect.width as i16).step_by(7) {
-            let v = s.days_slider.tap_value(x);
-            assert!(
-                ALLOWED_CORRESPONDENCE_DAYS.contains(&v),
-                "tap at {x} produced non-allowed days={v}"
+    fn correspondence_days_are_always_lichess_allowed() {
+        let s = PlayScreen::new(ChessApp::new_offline());
+        // Default and every selectable button map to an allowed value.
+        assert!(ALLOWED_CORRESPONDENCE_DAYS.contains(&s.selected_days));
+        for (i, btn) in s.days_buttons.iter().enumerate() {
+            assert_eq!(
+                btn.label.parse::<u8>().unwrap(),
+                ALLOWED_CORRESPONDENCE_DAYS[i]
             );
         }
-        assert!(ALLOWED_CORRESPONDENCE_DAYS.contains(&s.mode().days_value()));
+        // Selected index tracks selected_days.
+        let mut s2 = PlayScreen::new(ChessApp::new_offline());
+        s2.selected_days = 14;
+        assert_eq!(s2.selected_days_index(), 6);
+        assert_eq!(s2.mode().days_value(), 0); // mode is RealTime by default
+        s2.selected_mode = ChallengeMode::Correspondence(14);
+        assert_eq!(s2.mode().days_value(), 14);
     }
 
     #[test]
