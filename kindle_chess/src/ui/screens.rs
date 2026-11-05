@@ -759,18 +759,12 @@ impl Screen for OngoingChessGamesScreen {
 
 // ─── PlayScreen ───────────────────────────────────────────────────────────────
 
-/// Days-per-move spinner bounds (correspondence challenges: 1..=14).
-fn dec_days(d: u8) -> u8 {
-    d.saturating_sub(1).max(1)
-}
-fn inc_days(d: u8) -> u8 {
-    (d + 1).min(14)
-}
-
 impl PlayScreen {
     fn mode(&self) -> ChallengeMode {
         match self.selected_mode {
-            ChallengeMode::Correspondence(_) => ChallengeMode::Correspondence(self.days),
+            ChallengeMode::Correspondence(_) => {
+                ChallengeMode::Correspondence(self.days_slider.value())
+            }
             other => other,
         }
     }
@@ -863,20 +857,10 @@ impl Screen for PlayScreen {
         // Selection marker on the active mode button (selected-file style).
         draw_selection_marker(&mut display.renderer, &self.selected_mode_button().rect)?;
 
-        // Spinner row: "-  N days/move  +" — only in correspondence mode; the
-        // row stays blank otherwise so nothing below shifts.
+        // Slider row — only in correspondence mode; the row stays blank
+        // otherwise so nothing below shifts.
         if self.spinner_visible() {
-            self.spinner_minus.draw(&mut display.renderer)?;
-            self.spinner_plus.draw(&mut display.renderer)?;
-            let days_label = format!("{} days/move", self.days);
-            let (dw, dh) = display.renderer.measure_text(&days_label, 28.0);
-            display.renderer.draw_text(
-                (1072 - dw as i16) / 2,
-                310 + (96 - dh as i16) / 2 + dh as i16 - 8,
-                &days_label,
-                28.0,
-                DrawColor::Black,
-            )?;
+            self.days_slider.draw(&mut display.renderer)?;
         }
 
         self.opponent_button.label = self.opponent_label();
@@ -947,21 +931,18 @@ impl Screen for PlayScreen {
                     return Ok(Transition::Redraw);
                 }
                 if self.mode_button_correspondence.rect.contains(touch.x, touch.y) {
-                    self.selected_mode = ChallengeMode::Correspondence(self.days);
+                    self.selected_mode =
+                        ChallengeMode::Correspondence(self.days_slider.value());
                     return Ok(Transition::Redraw);
                 }
 
-                if self.spinner_minus.rect.contains(touch.x, touch.y) {
-                    self.days = dec_days(self.days);
+                // Slider tap sets the days value directly (single tap — safe
+                // against the triple-tap-to-quit gesture).
+                if self.days_slider.contains(touch.x, touch.y) {
+                    let v = self.days_slider.tap_value(touch.x);
+                    self.days_slider.set_value(v);
                     if matches!(self.selected_mode, ChallengeMode::Correspondence(_)) {
-                        self.selected_mode = ChallengeMode::Correspondence(self.days);
-                    }
-                    return Ok(Transition::Redraw);
-                }
-                if self.spinner_plus.rect.contains(touch.x, touch.y) {
-                    self.days = inc_days(self.days);
-                    if matches!(self.selected_mode, ChallengeMode::Correspondence(_)) {
-                        self.selected_mode = ChallengeMode::Correspondence(self.days);
+                        self.selected_mode = ChallengeMode::Correspondence(v);
                     }
                     return Ok(Transition::Redraw);
                 }
@@ -1086,41 +1067,42 @@ impl InvitesScreen {
         });
     }
 
-    fn page_count(&self) -> usize {
-        let Some(list) = self.challenges.as_ref() else {
-            return 0;
-        };
-        let n = list
-            .iter()
-            .filter(|c| c.incoming)
-            .count()
-            .max(list.iter().filter(|c| !c.incoming).count());
-        n.div_ceil(INVITES_PER_PAGE)
+    fn incoming_page_count(&self) -> usize {
+        match &self.challenges {
+            Some(list) => list.iter().filter(|c| c.incoming).count().div_ceil(INVITES_PER_PAGE),
+            None => 0,
+        }
     }
 
-    /// Bake the current page's challenges into the 4+4 rows. Slots past the
+    fn outgoing_page_count(&self) -> usize {
+        match &self.challenges {
+            Some(list) => list.iter().filter(|c| !c.incoming).count().div_ceil(INVITES_PER_PAGE),
+            None => 0,
+        }
+    }
+
+    /// Bake the current pages' challenges into the 4+4 rows. Slots past the
     /// list end keep a "-" label and are simply not drawn.
     fn set_rows(&mut self) {
         let Some(list) = self.challenges.as_ref() else {
             return;
         };
-        let start = self.page_index * INVITES_PER_PAGE;
         let incoming: Vec<&ChallengeSummary> = list.iter().filter(|c| c.incoming).collect();
         let outgoing: Vec<&ChallengeSummary> = list.iter().filter(|c| !c.incoming).collect();
-        let label = |src: &[&ChallengeSummary], k: usize| {
-            match src.get(start + k) {
+        let label = |src: &[&ChallengeSummary], page: usize, k: usize| {
+            match src.get(page * INVITES_PER_PAGE + k) {
                 Some(c) => format!("{} ({})", c.opponent, c.status),
                 None => "-".to_string(),
             }
         };
         for k in 0..INVITES_PER_PAGE {
-            self.incoming_name[k].label = label(&incoming, k);
-            self.outgoing_name[k].label = label(&outgoing, k);
+            self.incoming_name[k].label = label(&incoming, self.incoming_page, k);
+            self.outgoing_name[k].label = label(&outgoing, self.outgoing_page, k);
         }
     }
 
-    /// Whether row `k` of the current page has a backing challenge — empty
-    /// rows are not rendered at all.
+    /// Whether row `k` of the section's current page has a backing challenge —
+    /// empty rows are not rendered at all.
     fn incoming_visible(&self, k: usize) -> bool {
         self.incoming_at(k).is_some()
     }
@@ -1133,7 +1115,7 @@ impl InvitesScreen {
             .as_ref()?
             .iter()
             .filter(|c| c.incoming)
-            .nth(self.page_index * INVITES_PER_PAGE + k)
+            .nth(self.incoming_page * INVITES_PER_PAGE + k)
     }
 
     fn outgoing_at(&self, k: usize) -> Option<&ChallengeSummary> {
@@ -1141,7 +1123,7 @@ impl InvitesScreen {
             .as_ref()?
             .iter()
             .filter(|c| !c.incoming)
-            .nth(self.page_index * INVITES_PER_PAGE + k)
+            .nth(self.outgoing_page * INVITES_PER_PAGE + k)
     }
 }
 
@@ -1192,8 +1174,10 @@ impl Screen for InvitesScreen {
                     self.outgoing_cancel[k].draw(&mut display.renderer)?;
                 }
             }
-            self.prev_page_button.draw(&mut display.renderer)?;
-            self.next_page_button.draw(&mut display.renderer)?;
+            self.incoming_prev.draw(&mut display.renderer)?;
+            self.incoming_next.draw(&mut display.renderer)?;
+            self.outgoing_prev.draw(&mut display.renderer)?;
+            self.outgoing_next.draw(&mut display.renderer)?;
         } else {
             let label = "Loading…";
             let (w, h) = display.renderer.measure_text(label, 24.0);
@@ -1262,18 +1246,36 @@ impl Screen for InvitesScreen {
                     return Ok(Transition::Pop);
                 }
 
-                if self.next_page_button.rect.contains(touch.x, touch.y) {
-                    let last = self.page_count().saturating_sub(1);
-                    if self.page_index < last {
-                        self.page_index += 1;
+                // Per-section pagination: each section pages independently.
+                if self.incoming_next.rect.contains(touch.x, touch.y) {
+                    let last = self.incoming_page_count().saturating_sub(1);
+                    if self.incoming_page < last {
+                        self.incoming_page += 1;
                         self.set_rows();
                         return Ok(Transition::Redraw);
                     }
                     return Ok(Transition::Stay);
                 }
-                if self.prev_page_button.rect.contains(touch.x, touch.y) {
-                    if self.page_index > 0 {
-                        self.page_index -= 1;
+                if self.incoming_prev.rect.contains(touch.x, touch.y) {
+                    if self.incoming_page > 0 {
+                        self.incoming_page -= 1;
+                        self.set_rows();
+                        return Ok(Transition::Redraw);
+                    }
+                    return Ok(Transition::Stay);
+                }
+                if self.outgoing_next.rect.contains(touch.x, touch.y) {
+                    let last = self.outgoing_page_count().saturating_sub(1);
+                    if self.outgoing_page < last {
+                        self.outgoing_page += 1;
+                        self.set_rows();
+                        return Ok(Transition::Redraw);
+                    }
+                    return Ok(Transition::Stay);
+                }
+                if self.outgoing_prev.rect.contains(touch.x, touch.y) {
+                    if self.outgoing_page > 0 {
+                        self.outgoing_page -= 1;
                         self.set_rows();
                         return Ok(Transition::Redraw);
                     }
@@ -1386,23 +1388,34 @@ mod invites_tests {
         assert_eq!(s.incoming_at(0).unwrap().id, "in1");
         assert_eq!(s.incoming_at(2), None);
         assert_eq!(s.outgoing_at(0).unwrap().id, "out1");
-        assert_eq!(s.page_count(), 1);
+        assert_eq!(s.incoming_page_count(), 1);
+        assert_eq!(s.outgoing_page_count(), 1);
     }
 
     #[test]
-    fn pagination_when_more_than_four_per_section() {
+    fn pagination_is_separate_per_section() {
         let mut s = InvitesScreen::new(ChessApp::new_offline());
         let mut list = Vec::new();
         for i in 0..5 {
             list.push(ch(&format!("in{i}"), "created", "u", true));
         }
+        for i in 0..2 {
+            list.push(ch(&format!("out{i}"), "created", "u", false));
+        }
         s.challenges = Some(Arc::new(list));
-        assert_eq!(s.page_count(), 2);
-        s.page_index = 1;
+        // Incoming has 5 -> 2 pages; outgoing has 2 -> 1 page.
+        assert_eq!(s.incoming_page_count(), 2);
+        assert_eq!(s.outgoing_page_count(), 1);
+        // Paging incoming does not touch outgoing's page.
+        s.incoming_page = 1;
         s.set_rows();
         assert!(s.incoming_visible(0)); // 5th invite
         assert!(!s.incoming_visible(1));
         assert_eq!(s.incoming_at(0).unwrap().id, "in4");
+        assert_eq!(s.outgoing_page, 0);
+        assert!(s.outgoing_visible(0));
+        assert!(s.outgoing_visible(1));
+        assert!(!s.outgoing_visible(2));
     }
 }
 
@@ -1410,14 +1423,6 @@ mod invites_tests {
 mod play_screen_tests {
     use super::*;
     use crate::models::chess::ChessApp;
-
-    #[test]
-    fn spinner_clamps_to_1_14() {
-        assert_eq!(dec_days(1), 1);
-        assert_eq!(dec_days(5), 4);
-        assert_eq!(inc_days(14), 14);
-        assert_eq!(inc_days(3), 4);
-    }
 
     #[test]
     fn opponent_label_reflects_selection() {
@@ -1428,17 +1433,17 @@ mod play_screen_tests {
     }
 
     #[test]
-    fn mode_tracks_spinner_in_correspondence() {
+    fn mode_tracks_slider_in_correspondence() {
         let mut s = PlayScreen::new(ChessApp::new_offline());
-        s.selected_mode = ChallengeMode::Correspondence(s.days);
-        s.days = inc_days(s.days);
+        s.selected_mode = ChallengeMode::Correspondence(s.days_slider.value());
+        s.days_slider.set_value(4);
         assert_eq!(s.mode(), ChallengeMode::Correspondence(4));
         s.selected_mode = ChallengeMode::RealTime;
         assert_eq!(s.mode(), ChallengeMode::RealTime);
     }
 
     #[test]
-    fn spinner_only_visible_in_correspondence_mode() {
+    fn slider_only_visible_in_correspondence_mode() {
         let mut s = PlayScreen::new(ChessApp::new_offline());
         s.selected_mode = ChallengeMode::RealTime;
         assert!(!s.spinner_visible());

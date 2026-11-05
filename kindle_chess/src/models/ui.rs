@@ -21,7 +21,7 @@ use crate::{
         events::{AppEvent, Rectangle, RectangleExt},
         renderer::Renderer,
         widgets::{
-            BoardWidget, Button, IconButton, PuzzleSidebarWidget, SidebarWidget,
+            BoardWidget, Button, IconButton, PuzzleSidebarWidget, SidebarWidget, Slider,
             icon_button::{ICON_BUTTON_SIZE, Icon, load_icon},
         },
     },
@@ -302,8 +302,12 @@ pub struct InvitesScreen {
     pub incoming_decline: [Button; 4],
     pub outgoing_name: [Button; 4],
     pub outgoing_cancel: [Button; 4],
-    pub prev_page_button: IconButton,
-    pub next_page_button: IconButton,
+    // Separate pagination per section; each section's page icons sit on its
+    // label row, so incoming's controls are above the "Outgoing" label.
+    pub incoming_prev: IconButton,
+    pub incoming_next: IconButton,
+    pub outgoing_prev: IconButton,
+    pub outgoing_next: IconButton,
     pub back_button: IconButton,
 
     pub challenges: Option<Arc<Vec<ChallengeSummary>>>,
@@ -311,7 +315,8 @@ pub struct InvitesScreen {
     pub loading: bool,
     pub last_fetch: Option<Instant>,
     pub status: Option<String>,
-    pub page_index: usize,
+    pub incoming_page: usize,
+    pub outgoing_page: usize,
 }
 
 impl InvitesScreen {
@@ -332,6 +337,10 @@ impl InvitesScreen {
             Button::new(x, y, w, ROW_H, label.to_string(), 32.0, true)
         };
         let bottom = 1448 - (ICON_BUTTON_SIZE as i16 - 20) - 32;
+        // Section label rows: incoming label y=200 (icons y=176), outgoing
+        // label y=680 (icons y=656) — icons at the right edge of the canvas.
+        let icon_next_x = 1072 - ICON_BUTTON_SIZE as i16 - 24;
+        let icon_prev_x = icon_next_x - ICON_BUTTON_SIZE as i16 - 16;
         Self {
             app,
             incoming_name: std::array::from_fn(|i| btn(name_x, irow(i), NAME_W, "-")),
@@ -339,15 +348,18 @@ impl InvitesScreen {
             incoming_decline: std::array::from_fn(|i| btn(dec_x, irow(i), ACT_W, "Decline")),
             outgoing_name: std::array::from_fn(|i| btn(name_x, orow(i), NAME_W, "-")),
             outgoing_cancel: std::array::from_fn(|i| btn(acc_x, orow(i), ACT_W, "Cancel")),
-            prev_page_button: IconButton::new(1072 / 2 - (ICON_BUTTON_SIZE as i16 + 8), bottom, "back-page.png"),
-            next_page_button: IconButton::new(1072 / 2 + 8, bottom, "next-page.png"),
+            incoming_prev: IconButton::new(icon_prev_x, 176, "back-page.png"),
+            incoming_next: IconButton::new(icon_next_x, 176, "next-page.png"),
+            outgoing_prev: IconButton::new(icon_prev_x, 656, "back-page.png"),
+            outgoing_next: IconButton::new(icon_next_x, 656, "next-page.png"),
             back_button: IconButton::new(32 + ICON_BUTTON_SIZE as i16 / 2, bottom, "back-nav.png"),
             challenges: None,
             error: None,
             loading: false,
             last_fetch: None,
             status: None,
-            page_index: 0,
+            incoming_page: 0,
+            outgoing_page: 0,
         }
     }
 }
@@ -361,15 +373,16 @@ pub struct PlayScreen {
     pub mode_button_unlimited: Button,
     pub mode_button_realtime: Button,
     pub mode_button_correspondence: Button,
-    pub spinner_minus: Button,
-    pub spinner_plus: Button,
+    /// Days-per-move slider (1..=14) — only drawn in correspondence mode.
+    /// A slider, not +/- buttons, because rapid repeated taps can trigger the
+    /// global triple-tap-to-quit.
+    pub days_slider: Slider,
     pub opponent_button: Button,
     pub send_button: Button,
     pub invites_button: IconButton,
     pub back_button: IconButton,
 
     pub selected_mode: ChallengeMode,
-    pub days: u8,
     pub opponent: Option<String>,
     pub status: Option<String>,
     pub sending: bool,
@@ -391,14 +404,12 @@ impl PlayScreen {
             mode_button_unlimited: Button::new(mode_x0, 200, MODE_W, MODE_H, "Unlimited".into(), 32.0, true),
             mode_button_realtime: Button::new(mode_x0 + MODE_W as i16 + 16, 200, MODE_W, MODE_H, "Real time 10:5".into(), 32.0, true),
             mode_button_correspondence: Button::new(mode_x0 + 2 * (MODE_W as i16 + 16), 200, MODE_W, MODE_H, "Correspondence".into(), 32.0, true),
-            spinner_minus: Button::new(316, 310, 96, 96, "-".into(), 45.0, true),
-            spinner_plus: Button::new(660, 310, 96, 96, "+".into(), 45.0, true),
+            days_slider: Slider::new(x, 310, BTN_W, 96, 1, 14, 3, "days/move"),
             opponent_button: Button::new(x, 470, BTN_W, BTN_H, "Opponent: -".into(), 40.0, true),
             send_button: Button::new(x, 600, BTN_W, BTN_H, "Send challenge".into(), 40.0, true),
             invites_button: IconButton::new(1072 - ICON_BUTTON_SIZE as i16 - 24, 24, "invitation.png"),
             back_button: IconButton::new(32 + ICON_BUTTON_SIZE as i16 / 2, bottom, "back-nav.png"),
             selected_mode: ChallengeMode::RealTime,
-            days: 3,
             opponent: None,
             status: None,
             sending: false,
