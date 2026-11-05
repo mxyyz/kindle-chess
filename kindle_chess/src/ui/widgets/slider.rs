@@ -129,3 +129,32 @@ mod slider_tests {
         assert_eq!(s.value(), 14);
     }
 }
+
+#[cfg(test)]
+mod slider_stops_tests {
+    use super::*;
+
+    const DAYS: [u8; 7] = [1, 2, 3, 5, 7, 10, 14];
+
+    #[test]
+    fn taps_snap_to_nearest_allowed_stop() {
+        // track 100..700 (w=600); stops at 1,2,3,5,7,10,14
+        let s = Slider::new(100, 300, 600, 96, 1, 14, 3, "days/move").with_stops(DAYS.to_vec());
+        // position for raw value 4 is between stops 3 and 5 -> snaps to 3 or 5 by nearest
+        let raw4_x = 100 + ((4 - 1) as f32 / 13.0 * 600.0) as i16;
+        let v = s.tap_value(raw4_x);
+        assert!(DAYS.contains(&v), "snapped to non-allowed value {v}");
+        assert!(v == 3 || v == 5);
+        // far right snaps to 14, far left to 1
+        assert_eq!(s.tap_value(700), 14);
+        assert_eq!(s.tap_value(100), 1);
+    }
+
+    #[test]
+    fn set_value_snaps_to_stop() {
+        let mut s = Slider::new(0, 0, 100, 20, 1, 14, 3, "x").with_stops(DAYS.to_vec());
+        s.set_value(9);
+        assert!(DAYS.contains(&s.value()));
+        assert!(s.value() == 7 || s.value() == 10);
+    }
+}
