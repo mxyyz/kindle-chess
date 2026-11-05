@@ -32,3 +32,13 @@ registry:
       path never called Screen::on_reveal(), so cached widgets repainted
       nothing. Fix: on_reveal() before the wake redraw + widget contract tests.
     file: specs/bugs/BUG-2026-11-05T095333-wake-redraw-skips-cached-widgets.md
+  - bug_id: BUG-2026-11-05T135402
+    date: 2026-11-05
+    severity: medium
+    priority: high
+    scope: e03-phase2-challenge-send
+    summary: >-
+      Correspondence friend challenges fail with 400: Lichess only accepts
+      days in {1,2,3,5,7,10,14}, but the days slider emitted any integer 1-14.
+      Fix: slider snaps to the allowed set.
+    file: specs/bugs/BUG-2026-11-05T135402-correspondence-challenge-400.md

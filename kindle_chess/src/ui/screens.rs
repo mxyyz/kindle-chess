@@ -1436,8 +1436,8 @@ mod play_screen_tests {
     fn mode_tracks_slider_in_correspondence() {
         let mut s = PlayScreen::new(ChessApp::new_offline());
         s.selected_mode = ChallengeMode::Correspondence(s.days_slider.value());
-        s.days_slider.set_value(4);
-        assert_eq!(s.mode(), ChallengeMode::Correspondence(4));
+        s.days_slider.set_value(10); // an allowed stop
+        assert_eq!(s.mode(), ChallengeMode::Correspondence(10));
         s.selected_mode = ChallengeMode::RealTime;
         assert_eq!(s.mode(), ChallengeMode::RealTime);
     }
@@ -1451,6 +1451,22 @@ mod play_screen_tests {
         assert!(s.spinner_visible());
         s.selected_mode = ChallengeMode::Unlimited;
         assert!(!s.spinner_visible());
+    }
+
+    #[test]
+    fn correspondence_mode_always_uses_lichess_allowed_days() {
+        use crate::models::board_api::ALLOWED_CORRESPONDENCE_DAYS;
+        let mut s = PlayScreen::new(ChessApp::new_offline());
+        s.selected_mode = ChallengeMode::Correspondence(3);
+        // Sweep the whole track: every tap must land on an allowed day value.
+        for x in (s.days_slider.rect.x..s.days_slider.rect.x + s.days_slider.rect.width as i16).step_by(7) {
+            let v = s.days_slider.tap_value(x);
+            assert!(
+                ALLOWED_CORRESPONDENCE_DAYS.contains(&v),
+                "tap at {x} produced non-allowed days={v}"
+            );
+        }
+        assert!(ALLOWED_CORRESPONDENCE_DAYS.contains(&s.mode().days_value()));
     }
 
     #[test]

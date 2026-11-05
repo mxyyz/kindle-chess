@@ -15,6 +15,9 @@ pub struct Slider {
     pub max: u8,
     value: u8,
     label: String,
+    /// Optional discrete stops. When non-empty, values snap to the nearest
+    /// stop (e.g. Lichess correspondence days only allow 1,2,3,5,7,10,14).
+    stops: Vec<u8>,
 }
 
 impl Slider {
@@ -26,7 +29,32 @@ impl Slider {
             max,
             value: initial.clamp(min, max),
             label: label.to_string(),
+            stops: Vec::new(),
         }
+    }
+
+    /// Restrict the slider to discrete allowed values (sorted, clamped to
+    /// the range). Empty = continuous.
+    pub fn with_stops(mut self, mut stops: Vec<u8>) -> Self {
+        stops.retain(|&s| s >= self.min && s <= self.max);
+        stops.sort_unstable();
+        stops.dedup();
+        self.stops = stops;
+        self.value = self.snap(self.value);
+        self
+    }
+
+    /// Snap a raw value to the range, then to the nearest stop if any.
+    fn snap(&self, v: u8) -> u8 {
+        let v = v.clamp(self.min, self.max);
+        if self.stops.is_empty() {
+            return v;
+        }
+        *self
+            .stops
+            .iter()
+            .min_by_key(|&&s| (s as i16 - v as i16).abs())
+            .unwrap_or(&v)
     }
 
     pub fn value(&self) -> u8 {
@@ -34,16 +62,16 @@ impl Slider {
     }
 
     pub fn set_value(&mut self, v: u8) {
-        self.value = v.clamp(self.min, self.max);
+        self.value = self.snap(v);
     }
 
-    /// Value corresponding to a tap at pixel x on the track.
+    /// Value corresponding to a tap at pixel x on the track (snapped to stops).
     pub fn tap_value(&self, px: i16) -> u8 {
         let w = self.rect.width as i16;
         let rel = (px - self.rect.x).clamp(0, w);
         let frac = if w > 0 { rel as f32 / w as f32 } else { 0.0 };
         let v = self.min as f32 + frac * (self.max - self.min) as f32;
-        (v.round() as i16).clamp(self.min as i16, self.max as i16) as u8
+        self.snap((v.round() as i16).clamp(self.min as i16, self.max as i16) as u8)
     }
 
     pub fn contains(&self, px: i16, py: i16) -> bool {

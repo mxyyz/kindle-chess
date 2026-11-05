@@ -277,8 +277,19 @@ pub enum ChallengeMode {
     Unlimited,
     /// Real-time 10 minutes + 5 seconds increment (clock 600+5).
     RealTime,
-    /// Correspondence, `days` per move (clamped 1..=14 by the UI spinner).
+    /// Correspondence, `days` per move (snapped to
+    /// `ALLOWED_CORRESPONDENCE_DAYS` by the UI slider).
     Correspondence(u8),
+}
+
+impl ChallengeMode {
+    /// The days value for correspondence modes.
+    pub fn days_value(self) -> u8 {
+        match self {
+            ChallengeMode::Correspondence(d) => d,
+            _ => 0,
+        }
+    }
 }
 
 /// A challenge as the app needs it: id for follow-up, opponent name, and
@@ -292,6 +303,11 @@ pub struct ChallengeSummary {
     /// Challenge URL (`https://lichess.org/{gameId}` once accepted).
     pub url: String,
 }
+
+/// Day values Lichess accepts for correspondence challenges
+/// (`days: Literal[1, 2, 3, 5, 7, 10, 14]` in the API contract) — anything else
+/// is rejected with 400 (see BUG-2026-11-05T135402).
+pub const ALLOWED_CORRESPONDENCE_DAYS: [u8; 7] = [1, 2, 3, 5, 7, 10, 14];
 
 impl ChallengeSummary {
     /// Game id of an accepted challenge, taken from the challenge URL

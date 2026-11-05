@@ -108,3 +108,29 @@ async fn send_challenge_requires_authentication() {
 
     assert!(err.to_string().contains("authentication"));
 }
+
+#[tokio::test]
+async fn every_lichess_allowed_days_value_is_sent_verbatim() {
+    use kindli_chess::models::board_api::ALLOWED_CORRESPONDENCE_DAYS;
+    let server = MockServer::start().await;
+    Mock::given(method("POST"))
+        .and(path("/api/challenge/Alice"))
+        .respond_with(ResponseTemplate::new(200).set_body_string(challenge_body("ch1")))
+        .mount(&server)
+        .await;
+    let api = adapter(&server);
+    for d in ALLOWED_CORRESPONDENCE_DAYS {
+        api.send_challenge("Alice", &ChallengeMode::Correspondence(d))
+            .await
+            .unwrap();
+    }
+    let reqs = server.received_requests().await.unwrap();
+    let bodies: Vec<String> = reqs
+        .iter()
+        .map(|r| String::from_utf8_lossy(&r.body).to_string())
+        .collect();
+    for (d, body) in ALLOWED_CORRESPONDENCE_DAYS.iter().zip(bodies.iter()) {
+        assert!(body.contains(&format!("days={d}")), "days={d} missing in {body}");
+        assert!(!body.contains("clock"), "clock leaked into correspondence body: {body}");
+    }
+}

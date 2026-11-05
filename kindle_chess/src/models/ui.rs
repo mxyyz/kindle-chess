@@ -12,7 +12,7 @@ use image::{ImageBuffer, Luma};
 use crate::{
     api::github::UpdateInfo,
     models::{
-        board_api::{ChallengeMode, ChallengeSummary, GameDataList},
+        board_api::{ALLOWED_CORRESPONDENCE_DAYS, ChallengeMode, ChallengeSummary, GameDataList},
         chess::ChessApp,
         oauth::TokenInfo,
         puzzle::{PuzzleParams, PuzzleSession},
@@ -405,8 +405,10 @@ impl PlayScreen {
             mode_button_realtime: Button::new(mode_x0 + MODE_W as i16 + 16, 200, MODE_W, MODE_H, "Real time 10:5".into(), 32.0, true),
             mode_button_correspondence: Button::new(mode_x0 + 2 * (MODE_W as i16 + 16), 200, MODE_W, MODE_H, "Correspondence".into(), 32.0, true),
             // Midway between the old spinner-button width (600) and the mode
-            // button group width (992): 796 px, centred.
-            days_slider: Slider::new((1072 - 796) / 2, 310, 796, 96, 1, 14, 3, "days/move"),
+            // button group width (992): 796 px, centred. Snaps to the day
+            // values Lichess actually accepts (else the API 400s).
+            days_slider: Slider::new((1072 - 796) / 2, 310, 796, 96, 1, 14, 3, "days/move")
+                .with_stops(ALLOWED_CORRESPONDENCE_DAYS.to_vec()),
             opponent_button: Button::new(x, 470, BTN_W, BTN_H, "Opponent: -".into(), 40.0, true),
             send_button: Button::new(x, 600, BTN_W, BTN_H, "Send challenge".into(), 40.0, true),
             invites_button: IconButton::new(1072 - ICON_BUTTON_SIZE as i16 - 24, 24, "invitation.png"),
