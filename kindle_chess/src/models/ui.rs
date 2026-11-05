@@ -295,6 +295,7 @@ impl OngoingChessGamesScreen {
 /// whose status flips to "accepted" starts the live game (push ChessGameScreen).
 pub struct InvitesScreen {
     pub app: ChessApp,
+    pub config: Arc<RwLock<AppConfig>>,
     // Up to 4 incoming + 4 outgoing rows per page: opponent name + action
     // button(s). Rows past the list end are simply not drawn.
     pub incoming_name: [Button; 4],
@@ -320,7 +321,7 @@ pub struct InvitesScreen {
 }
 
 impl InvitesScreen {
-    pub fn new(app: ChessApp) -> Self {
+    pub fn new(app: ChessApp, config: Arc<RwLock<AppConfig>>) -> Self {
         // Layout: 1072 × 1448. "Incoming" section at top (4 rows), "Outgoing"
         // below (4 rows), status line near the bottom, back/page icons along
         // the bottom edge.
@@ -343,6 +344,7 @@ impl InvitesScreen {
         let icon_prev_x = icon_next_x - ICON_BUTTON_SIZE as i16 - 16;
         Self {
             app,
+            config,
             incoming_name: std::array::from_fn(|i| btn(name_x, irow(i), NAME_W, "-")),
             incoming_accept: std::array::from_fn(|i| btn(acc_x, irow(i), ACT_W, "Accept")),
             incoming_decline: std::array::from_fn(|i| btn(dec_x, irow(i), ACT_W, "Decline")),
@@ -370,6 +372,7 @@ impl InvitesScreen {
 /// FriendlistScreen, then send a casual standard challenge with random color.
 pub struct PlayScreen {
     pub app: ChessApp,
+    pub config: Arc<RwLock<AppConfig>>,
     pub mode_button_unlimited: Button,
     pub mode_button_realtime: Button,
     pub mode_button_correspondence: Button,
@@ -391,7 +394,7 @@ pub struct PlayScreen {
 }
 
 impl PlayScreen {
-    pub fn new(app: ChessApp) -> Self {
+    pub fn new(app: ChessApp, config: Arc<RwLock<AppConfig>>) -> Self {
         // Layout: 1072 × 1448. Title top, invites icon top-right, mode row,
         // spinner row, opponent + send buttons, status line, back bottom-left.
         const MODE_W: u16 = 320;
@@ -408,6 +411,7 @@ impl PlayScreen {
         let bottom = 1448 - (ICON_BUTTON_SIZE as i16 - 20) - 32;
         Self {
             app,
+            config,
             mode_button_unlimited: Button::new(mode_x0, 200, MODE_W, MODE_H, "Unlimited".into(), 32.0, true),
             mode_button_realtime: Button::new(mode_x0 + MODE_W as i16 + 16, 200, MODE_W, MODE_H, "Real time 10:5".into(), 32.0, true),
             mode_button_correspondence: Button::new(mode_x0 + 2 * (MODE_W as i16 + 16), 200, MODE_W, MODE_H, "Correspondence".into(), 32.0, true),
@@ -449,6 +453,7 @@ impl PlayScreen {
 /// and pops, handing the username back to the pushing screen (PlayScreen).
 pub struct FriendlistScreen {
     pub app: ChessApp,
+    pub config: Arc<RwLock<AppConfig>>,
     pub friend_button_0: Button,
     pub friend_button_1: Button,
     pub friend_button_2: Button,
@@ -468,7 +473,7 @@ pub struct FriendlistScreen {
 }
 
 impl FriendlistScreen {
-    pub fn new(app: ChessApp) -> Self {
+    pub fn new(app: ChessApp, config: Arc<RwLock<AppConfig>>) -> Self {
         // Layout: 1072 × 1448. Title strip at top, then 4 stacked 600×96
         // buttons starting at y=400, page icons + back along the bottom.
         const BTN_W: u16 = 600;
@@ -487,6 +492,7 @@ impl FriendlistScreen {
             prev_page_button: IconButton::new(1072 / 2 - (ICON_BUTTON_SIZE as i16 + 8), bottom, "back-page.png"),
             next_page_button: IconButton::new(1072 / 2 + 8, bottom, "next-page.png"),
             back_button: IconButton::new(32 + ICON_BUTTON_SIZE as i16 / 2, bottom, "back-nav.png"),
+            config,
             friends: None,
             error: None,
             loading: false,
@@ -530,17 +536,29 @@ impl Default for ChessAuthScreen {
 // orientation, etc.) without further restructuring HomeScreen.
 
 pub struct SettingsScreen {
+    pub config: Arc<RwLock<AppConfig>>,
+    pub language_button: Button,
     pub check_update_button: Button,
     pub back_button: Button,
 }
 
 impl SettingsScreen {
-    pub fn new() -> Self {
+    pub fn new(config: Arc<RwLock<AppConfig>>) -> Self {
         const BTN_W: u16 = 600;
         const BTN_H: u16 = 120;
         const CENTER_X: i16 = 1072 / 2;
         const CENTER_Y: i16 = 1448 / 2;
         Self {
+            config,
+            language_button: Button::new(
+                CENTER_X - BTN_W as i16 / 2,
+                CENTER_Y - BTN_H as i16 / 2 - 140,
+                BTN_W,
+                BTN_H,
+                String::from("Language"),
+                40.0,
+                true,
+            ),
             check_update_button: Button::new(
                 CENTER_X - BTN_W as i16 / 2,
                 CENTER_Y - BTN_H as i16 / 2,
@@ -565,7 +583,7 @@ impl SettingsScreen {
 
 impl Default for SettingsScreen {
     fn default() -> Self {
-        Self::new()
+        Self::new(Arc::new(RwLock::new(AppConfig::load())))
     }
 }
 

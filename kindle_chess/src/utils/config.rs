@@ -27,7 +27,7 @@ const CONFIG_FILE: &str = "default_cfg.json";
 /// container-level `#[serde(default)]` keeps deserialization tolerant in
 /// both directions: missing fields fall back to `Default`, and unknown
 /// fields (e.g. a config file written by a newer version) are ignored.
-#[derive(Debug, Clone, Default, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(default)]
 pub struct AppConfig {
     /// Defaults for the puzzle screens. Confirmed user choices replace these
@@ -37,6 +37,19 @@ pub struct AppConfig {
     /// instead of fullscreen. Default false = current fullscreen behavior;
     /// the top.png sidebar button toggles it at runtime either way.
     pub chrome_on_start: bool,
+    /// UI language (Fluent locale id), e.g. "en" / "de". Runtime choice held
+    /// in the in-memory store; defaults to English.
+    pub language: String,
+}
+
+impl Default for AppConfig {
+    fn default() -> Self {
+        Self {
+            puzzle: PuzzleParams::default(),
+            chrome_on_start: false,
+            language: crate::i18n::DEFAULT_LOCALE.to_string(),
+        }
+    }
 }
 
 impl AppConfig {
@@ -203,5 +216,29 @@ mod tests {
         // The result depends on the machine's bundle layout, but loading must
         // always succeed.
         let _ = AppConfig::load();
+    }
+}
+
+#[cfg(test)]
+mod config_tests {
+    use super::*;
+
+    #[test]
+    fn default_language_is_english() {
+        assert_eq!(AppConfig::default().language, "en");
+    }
+
+    #[test]
+    fn language_field_survives_serde_roundtrip_and_missing_field_defaults() {
+        let mut cfg = AppConfig::default();
+        cfg.language = "de".into();
+        let s = serde_json::to_string(&cfg).unwrap();
+        assert!(s.contains("\"language\":\"de\""));
+        let back: AppConfig = serde_json::from_str(&s).unwrap();
+        assert_eq!(back.language, "de");
+        // Old config files without the field still parse, defaulting to en.
+        let old = r#"{"puzzle":{"angle":"endgame"},"chrome_on_start":true}"#;
+        let parsed: AppConfig = serde_json::from_str(old).unwrap();
+        assert_eq!(parsed.language, "en");
     }
 }

@@ -1,7 +1,9 @@
-use std::sync::Arc;
+use std::sync::{Arc, RwLock};
 use std::time::{Duration, Instant};
 
 use log::{debug, error, info, warn};
+
+use crate::i18n::{self, tr};
 
 use crate::{
     api::{
@@ -44,6 +46,14 @@ impl Screen for HomeScreen {
         }
 
         display.renderer.clear(DrawColor::White)?;
+
+        // Localize button labels every render — cheap string lookups, and
+        // picks up a language change immediately.
+        let loc = i18n::locale_of(&self.config);
+        self.chess_button.label = tr(&loc, "home-play");
+        self.puzzle_button.label = tr(&loc, "home-puzzle");
+        self.ongoing_games_button.label = tr(&loc, "home-ongoing");
+        self.settings_button.label = tr(&loc, "home-settings");
 
         // Logo, centred in the upper third. It was pre-scaled to its display
         // size in HomeScreen::new, so draw it at its own dimensions.
@@ -94,7 +104,9 @@ impl Screen for HomeScreen {
                     // offline user still needs the update entry point.
                     if self.settings_button.rect.contains(touch.x, touch.y) {
                         info!("Settings button pressed");
-                        return Ok(Transition::Push(Box::new(SettingsScreen::new())));
+                        return Ok(Transition::Push(Box::new(SettingsScreen::new(
+                            self.config.clone(),
+                        ))));
                     }
 
                     // Puzzle is also auth-independent: the daily puzzle needs
@@ -115,7 +127,10 @@ impl Screen for HomeScreen {
                     };
                     if self.chess_button.rect.contains(touch.x, touch.y) {
                         info!("Play button pressed — pushing PlayScreen");
-                        return Ok(Transition::Push(Box::new(PlayScreen::new(app))));
+                        return Ok(Transition::Push(Box::new(PlayScreen::new(
+                            app,
+                            self.config.clone(),
+                        ))));
                     } else if self.ongoing_games_button.rect.contains(touch.x, touch.y) {
                         info!("Ongoing-games button pressed");
                         return Ok(Transition::Push(Box::new(OngoingChessGamesScreen::new(
@@ -778,19 +793,20 @@ impl PlayScreen {
     /// Spawn the challenge send. Result arrives as `ChallengeSent` /
     /// `ChallengeSendFailed` over the event channel.
     fn kick_send(&mut self, display: &Display) {
+        let loc = i18n::locale_of(&self.config);
         let Some(opponent) = self.opponent.clone() else {
-            self.status = Some("Select an opponent first".into());
+            self.status = Some(tr(&loc, "play-status-select-first"));
             return;
         };
         let Some(api) = self.app.online_idle_api() else {
-            self.status = Some("Offline backend cannot send challenges".into());
+            self.status = Some("offline backend".into());
             return;
         };
         if self.sending {
             return;
         }
         self.sending = true;
-        self.status = Some(format!("Sending challenge to {opponent}…"));
+        self.status = Some(i18n::t(&loc, "play-status-sending", &[("name", &opponent)]));
         let mode = self.mode();
         let tx = display.event_tx.clone();
         tokio::spawn(async move {
@@ -852,9 +868,15 @@ impl Screen for PlayScreen {
 
         display.renderer.clear(DrawColor::White)?;
 
-        let title = "Play vs friend";
-        let (tw, _) = display.renderer.measure_text(title, 36.0);
-        display.renderer.draw_text((1072 - tw as i16) / 2, 120, title, 36.0, DrawColor::Black)?;
+        let loc = i18n::locale_of(&self.config);
+        let title = tr(&loc, "play-title");
+        let (tw, _) = display.renderer.measure_text(&title, 36.0);
+        display.renderer.draw_text((1072 - tw as i16) / 2, 120, &title, 36.0, DrawColor::Black)?;
+
+        self.mode_button_unlimited.label = tr(&loc, "play-mode-unlimited");
+        self.mode_button_realtime.label = tr(&loc, "play-mode-realtime");
+        self.mode_button_correspondence.label = tr(&loc, "play-mode-correspondence");
+        self.send_button.label = tr(&loc, "play-send");
 
         self.invites_button.draw(&mut display.renderer)?;
         self.mode_button_unlimited.draw(&mut display.renderer)?;
@@ -875,7 +897,10 @@ impl Screen for PlayScreen {
             )?;
         }
 
-        self.opponent_button.label = self.opponent_label();
+        self.opponent_button.label = match &self.opponent {
+            Some(name) => i18n::t(&loc, "play-opponent", &[("name", name)]),
+            None => tr(&loc, "play-opponent-none"),
+        };
         self.opponent_button.draw(&mut display.renderer)?;
         self.send_button.draw(&mut display.renderer)?;
 
@@ -911,17 +936,20 @@ impl Screen for PlayScreen {
 
             AppEvent::ChallengeSent(opponent) => {
                 self.sending = false;
-                self.status = Some(format!("Challenge sent to {opponent}"));
+                let loc = i18n::locale_of(&self.config);
+                self.status = Some(i18n::t(&loc, "play-status-sent", &[("name", &opponent)]));
                 // Show the pending outgoing invite on the Invites screen.
                 return Ok(Transition::Push(Box::new(InvitesScreen::new(
                     self.app.clone(),
+                    self.config.clone(),
                 ))));
             }
 
             AppEvent::ChallengeSendFailed(e) => {
                 warn!("Challenge send failed: {}", e);
                 self.sending = false;
-                self.status = Some(format!("Send failed: {e}"));
+                let loc = i18n::locale_of(&self.config);
+                self.status = Some(i18n::t(&loc, "play-status-failed", &[("error", &e)]));
                 Ok(Transition::Redraw)
             }
 
@@ -962,6 +990,7 @@ impl Screen for PlayScreen {
                     info!("Opening friend list");
                     return Ok(Transition::Push(Box::new(FriendlistScreen::new(
                         self.app.clone(),
+                        self.config.clone(),
                     ))));
                 }
 
@@ -974,6 +1003,7 @@ impl Screen for PlayScreen {
                     info!("Invites button pressed — pushing InvitesScreen");
                     return Ok(Transition::Push(Box::new(InvitesScreen::new(
                         self.app.clone(),
+                        self.config.clone(),
                     ))));
                 }
 
@@ -1151,16 +1181,27 @@ impl Screen for InvitesScreen {
 
         display.renderer.clear(DrawColor::White)?;
 
-        let title = "Invites";
-        let (tw, _) = display.renderer.measure_text(title, 36.0);
-        display.renderer.draw_text((1072 - tw as i16) / 2, 120, title, 36.0, DrawColor::Black)?;
+        let loc = i18n::locale_of(&self.config);
+        let title = tr(&loc, "invites-title");
+        let (tw, _) = display.renderer.measure_text(&title, 36.0);
+        display.renderer.draw_text((1072 - tw as i16) / 2, 120, &title, 36.0, DrawColor::Black)?;
+
+        for btn in self.incoming_accept.iter_mut() {
+            btn.label = tr(&loc, "invites-accept");
+        }
+        for btn in self.incoming_decline.iter_mut() {
+            btn.label = tr(&loc, "invites-decline");
+        }
+        for btn in self.outgoing_cancel.iter_mut() {
+            btn.label = tr(&loc, "invites-cancel");
+        }
 
         let mut label = |y: i16, text: &str| -> Result<(), Box<dyn std::error::Error>> {
             display.renderer.draw_text(136, y, text, 28.0, DrawColor::Black)?;
             Ok(())
         };
-        label(200, "Incoming")?;
-        label(680, "Outgoing")?;
+        label(200, &tr(&loc, "invites-incoming"))?;
+        label(680, &tr(&loc, "invites-outgoing"))?;
 
         if let Some(err) = &self.error {
             let label = format!("Error: {}", err);
@@ -1190,12 +1231,12 @@ impl Screen for InvitesScreen {
             self.outgoing_prev.draw(&mut display.renderer)?;
             self.outgoing_next.draw(&mut display.renderer)?;
         } else {
-            let label = "Loading…";
-            let (w, h) = display.renderer.measure_text(label, 24.0);
+            let label = tr(&loc, "invites-loading");
+            let (w, h) = display.renderer.measure_text(&label, 24.0);
             display.renderer.draw_text(
                 (1072 - w as i16) / 2,
                 (1448 - h as i16) / 2,
-                label,
+                &label,
                 24.0,
                 DrawColor::Black,
             )?;
@@ -1348,6 +1389,11 @@ impl Screen for InvitesScreen {
 }
 
 #[cfg(test)]
+pub(crate) fn test_config() -> Arc<RwLock<crate::utils::config::AppConfig>> {
+    Arc::new(RwLock::new(crate::utils::config::AppConfig::default()))
+}
+
+#[cfg(test)]
 mod invites_tests {
     use super::*;
     use crate::models::board_api::ChallengeSummary;
@@ -1382,7 +1428,7 @@ mod invites_tests {
 
     #[test]
     fn rows_split_incoming_outgoing_and_hide_empty_slots() {
-        let mut s = InvitesScreen::new(ChessApp::new_offline());
+        let mut s = InvitesScreen::new(ChessApp::new_offline(), test_config());
         s.challenges = Some(Arc::new(vec![
             ch("in1", "created", "u", true),
             ch("out1", "created", "u", false),
@@ -1405,7 +1451,7 @@ mod invites_tests {
 
     #[test]
     fn pagination_is_separate_per_section() {
-        let mut s = InvitesScreen::new(ChessApp::new_offline());
+        let mut s = InvitesScreen::new(ChessApp::new_offline(), test_config());
         let mut list = Vec::new();
         for i in 0..5 {
             list.push(ch(&format!("in{i}"), "created", "u", true));
@@ -1437,7 +1483,7 @@ mod play_screen_tests {
 
     #[test]
     fn opponent_label_reflects_selection() {
-        let mut s = PlayScreen::new(ChessApp::new_offline());
+        let mut s = PlayScreen::new(ChessApp::new_offline(), test_config());
         assert_eq!(s.opponent_label(), "Opponent: -");
         s.opponent = Some("Alice42".into());
         assert_eq!(s.opponent_label(), "Opponent: Alice42");
@@ -1445,7 +1491,7 @@ mod play_screen_tests {
 
     #[test]
     fn mode_tracks_selected_days_in_correspondence() {
-        let mut s = PlayScreen::new(ChessApp::new_offline());
+        let mut s = PlayScreen::new(ChessApp::new_offline(), test_config());
         s.selected_mode = ChallengeMode::Correspondence(s.selected_days);
         s.selected_days = 10;
         assert_eq!(s.mode(), ChallengeMode::Correspondence(10));
@@ -1455,7 +1501,7 @@ mod play_screen_tests {
 
     #[test]
     fn days_group_only_visible_in_correspondence_mode() {
-        let mut s = PlayScreen::new(ChessApp::new_offline());
+        let mut s = PlayScreen::new(ChessApp::new_offline(), test_config());
         s.selected_mode = ChallengeMode::RealTime;
         assert!(!s.spinner_visible());
         s.selected_mode = ChallengeMode::Correspondence(3);
@@ -1466,7 +1512,7 @@ mod play_screen_tests {
 
     #[test]
     fn correspondence_days_are_always_lichess_allowed() {
-        let s = PlayScreen::new(ChessApp::new_offline());
+        let s = PlayScreen::new(ChessApp::new_offline(), test_config());
         // Default and every selectable button map to an allowed value.
         assert!(ALLOWED_CORRESPONDENCE_DAYS.contains(&s.selected_days));
         for (i, btn) in s.days_buttons.iter().enumerate() {
@@ -1476,7 +1522,7 @@ mod play_screen_tests {
             );
         }
         // Selected index tracks selected_days.
-        let mut s2 = PlayScreen::new(ChessApp::new_offline());
+        let mut s2 = PlayScreen::new(ChessApp::new_offline(), test_config());
         s2.selected_days = 14;
         assert_eq!(s2.selected_days_index(), 6);
         assert_eq!(s2.mode().days_value(), 0); // mode is RealTime by default
@@ -1486,7 +1532,7 @@ mod play_screen_tests {
 
     #[test]
     fn selected_mode_button_tracks_selection() {
-        let mut s = PlayScreen::new(ChessApp::new_offline());
+        let mut s = PlayScreen::new(ChessApp::new_offline(), test_config());
         s.selected_mode = ChallengeMode::Unlimited;
         assert!(std::ptr::eq(s.selected_mode_button(), &s.mode_button_unlimited));
         s.selected_mode = ChallengeMode::Correspondence(3);
@@ -1577,12 +1623,13 @@ impl Screen for FriendlistScreen {
         display.renderer.clear(DrawColor::White)?;
 
         // Title strip
-        let title = "Choose opponent";
-        let (tw, _) = display.renderer.measure_text(title, 36.0);
+        let loc = i18n::locale_of(&self.config);
+        let title = tr(&loc, "friends-title");
+        let (tw, _) = display.renderer.measure_text(&title, 36.0);
         display.renderer.draw_text(
             (1072 - tw as i16) / 2,
             120,
-            title,
+            &title,
             36.0,
             DrawColor::Black,
         )?;
@@ -1600,12 +1647,12 @@ impl Screen for FriendlistScreen {
             )?;
         } else if let Some(friends) = &self.friends {
             if friends.is_empty() {
-                let label = "No friends yet — add friends on lichess.org";
-                let (tw, th) = display.renderer.measure_text(label, size_px);
+                let label = tr(&loc, "friends-empty");
+                let (tw, th) = display.renderer.measure_text(&label, size_px);
                 display.renderer.draw_text(
                     (1072 - tw as i16) / 2,
                     (1448 - th as i16) / 2,
-                    label,
+                    &label,
                     size_px,
                     DrawColor::Black,
                 )?;
@@ -1619,12 +1666,12 @@ impl Screen for FriendlistScreen {
             self.next_page_button.draw(&mut display.renderer)?;
             self.prev_page_button.draw(&mut display.renderer)?;
         } else {
-            let label = "Loading…";
-            let (tw, th) = display.renderer.measure_text(label, size_px);
+            let label = tr(&loc, "friends-loading");
+            let (tw, th) = display.renderer.measure_text(&label, size_px);
             display.renderer.draw_text(
                 (1072 - tw as i16) / 2,
                 (1448 - th as i16) / 2,
-                label,
+                &label,
                 size_px,
                 DrawColor::Black,
             )?;
@@ -1731,7 +1778,7 @@ mod friendlist_tests {
     use crate::models::chess::ChessApp;
 
     fn screen_with_friends(names: &[&str]) -> FriendlistScreen {
-        let mut s = FriendlistScreen::new(ChessApp::new_offline());
+        let mut s = FriendlistScreen::new(ChessApp::new_offline(), test_config());
         s.friends = Some(Arc::new(names.iter().map(|n| n.to_string()).collect()));
         s.set_page(0);
         s
@@ -1768,14 +1815,18 @@ impl Screen for SettingsScreen {
     fn render(&mut self, display: &mut Display) -> Result<(), Box<dyn std::error::Error>> {
         display.renderer.clear(DrawColor::White)?;
 
-        // Title
-        let title = "Settings";
+        // Title + localized button labels
+        let loc = i18n::locale_of(&self.config);
+        self.language_button.label = i18n::t(&loc, "settings-language", &[("lang", &loc.to_uppercase())]);
+        self.check_update_button.label = tr(&loc, "settings-check-update");
+        self.back_button.label = tr(&loc, "settings-back");
+        let title = tr(&loc, "home-settings");
         let title_size = 56.0;
-        let (tw, _) = display.renderer.measure_text(title, title_size);
+        let (tw, _) = display.renderer.measure_text(&title, title_size);
         display.renderer.draw_text(
             (1072 - tw as i16) / 2,
             120,
-            title,
+            &title,
             title_size,
             DrawColor::Black,
         )?;
@@ -1795,6 +1846,7 @@ impl Screen for SettingsScreen {
             y += 40;
         }
 
+        self.language_button.draw(&mut display.renderer)?;
         self.check_update_button.draw(&mut display.renderer)?;
         self.back_button.draw(&mut display.renderer)?;
         display.renderer.present()?;
@@ -1810,6 +1862,17 @@ impl Screen for SettingsScreen {
             AppEvent::Touch(touch) => {
                 if touch.kind != TouchKind::Up {
                     return Ok(Transition::Stay);
+                }
+                if self.language_button.rect.contains(touch.x, touch.y) {
+                    // Cycle through the shipped locales: en -> de -> en …
+                    let next = {
+                        let cur = i18n::locale_of(&self.config);
+                        let idx = i18n::LOCALES.iter().position(|l| *l == cur).unwrap_or(0);
+                        i18n::LOCALES[(idx + 1) % i18n::LOCALES.len()].to_string()
+                    };
+                    info!("Language switched to {next}");
+                    self.config.write().map(|mut c| c.language = next).ok();
+                    return Ok(Transition::Redraw);
                 }
                 if self.check_update_button.rect.contains(touch.x, touch.y) {
                     info!("Check-for-updates pressed");
