@@ -78,6 +78,7 @@ pub enum Transition {
 
 pub struct HomeScreen {
     pub chess_button: Button,
+    pub quit_button: Button,
     pub puzzle_button: Button,
     pub ongoing_games_button: Button,
     pub settings_button: Button,
@@ -101,14 +102,14 @@ pub struct HomeScreen {
 impl HomeScreen {
     pub fn new(config: Arc<RwLock<AppConfig>>) -> Self {
         // Layout: 1072 × 1448 total canvas. The logo occupies the upper half;
-        // the four equal buttons are stacked and height-centred in the lower
+        // the five equal buttons are stacked and height-centred in the lower
         // half.
         const BTN_W: u16 = 600;
         const BTN_H: u16 = 96;
         const GAP: i16 = 28;
         const CENTER_X: i16 = 1072 / 2;
         let x = CENTER_X - BTN_W as i16 / 2;
-        let total = 4 * BTN_H as i16 + 3 * GAP;
+        let total = 5 * BTN_H as i16 + 4 * GAP;
         let upper_half = 1448 / 2;
         let start_y = upper_half + (1448 - upper_half - total) / 2;
         let row = |i: i16| start_y + i * (BTN_H as i16 + GAP);
@@ -131,6 +132,15 @@ impl HomeScreen {
                 BTN_W,
                 BTN_H,
                 String::from("Settings"),
+                45.0,
+                true,
+            ),
+            quit_button: Button::new(
+                x,
+                row(4),
+                BTN_W,
+                BTN_H,
+                String::from("Quit"),
                 45.0,
                 true,
             ),

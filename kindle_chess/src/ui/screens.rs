@@ -54,6 +54,7 @@ impl Screen for HomeScreen {
         self.puzzle_button.label = tr(&loc, "home-puzzle");
         self.ongoing_games_button.label = tr(&loc, "home-ongoing");
         self.settings_button.label = tr(&loc, "home-settings");
+        self.quit_button.label = tr(&loc, "home-quit");
 
         // Logo, centred in the upper third. It was pre-scaled to its display
         // size in HomeScreen::new, so draw it at its own dimensions.
@@ -72,6 +73,7 @@ impl Screen for HomeScreen {
         self.puzzle_button.draw(&mut display.renderer)?;
         self.ongoing_games_button.draw(&mut display.renderer)?;
         self.settings_button.draw(&mut display.renderer)?;
+        self.quit_button.draw(&mut display.renderer)?;
 
         display.renderer.present()?;
         Ok(())
@@ -107,6 +109,13 @@ impl Screen for HomeScreen {
                         return Ok(Transition::Push(Box::new(SettingsScreen::new(
                             self.config.clone(),
                         ))));
+                    }
+
+                    // Quit is always available (even before auth), same as
+                    // the global triple-tap gesture.
+                    if self.quit_button.rect.contains(touch.x, touch.y) {
+                        info!("Quit button pressed");
+                        return Ok(Transition::Quit);
                     }
 
                     // Puzzle is also auth-independent: the daily puzzle needs
@@ -2569,5 +2578,30 @@ impl Screen for GameActionsScreen {
 
             _ => Ok(Transition::Stay),
         }
+    }
+}
+
+#[cfg(test)]
+mod home_screen_tests {
+    use super::*;
+
+    #[test]
+    fn home_has_five_buttons_all_on_canvas_quit_at_bottom() {
+        let s = HomeScreen::new(test_config());
+        let buttons = [
+            &s.chess_button,
+            &s.puzzle_button,
+            &s.ongoing_games_button,
+            &s.settings_button,
+            &s.quit_button,
+        ];
+        for (i, b) in buttons.iter().enumerate() {
+            assert!(b.rect.y >= 0 && b.rect.y + b.rect.height as i16 <= 1448, "btn {i} off-canvas");
+            if i > 0 {
+                assert!(b.rect.y > buttons[i - 1].rect.y, "btn {i} not below previous");
+            }
+        }
+        // Quit is the last (bottom-most) button.
+        assert!(s.quit_button.rect.y > s.settings_button.rect.y);
     }
 }

@@ -92,3 +92,5 @@ phase-queen-rook-endgame = Dame & Turm
 
 puzzle-settings-title = Aufgaben-Einstellungen
 puzzle-fetch = Neue Aufgabe holen
+
+home-quit = Beenden

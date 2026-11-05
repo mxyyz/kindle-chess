@@ -92,3 +92,5 @@ phase-queen-rook-endgame = Queen & rook
 
 puzzle-settings-title = Puzzle Settings
 puzzle-fetch = Get new puzzle
+
+home-quit = Quit
