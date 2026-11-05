@@ -168,6 +168,7 @@ fn load_home_logo() -> Option<Icon> {
 
 pub struct ChessGameScreen {
     pub app: ChessApp,
+    pub config: Arc<RwLock<AppConfig>>,
     pub board: BoardWidget,
     pub sidebar: SidebarWidget,
     // First-render guard: kick the game-state stream task exactly once.
@@ -178,16 +179,18 @@ pub struct ChessGameScreen {
 }
 
 impl ChessGameScreen {
-    pub fn new(app: ChessApp) -> Self {
+    pub fn new(app: ChessApp, config: Arc<RwLock<AppConfig>>) -> Self {
         // Seed the sidebar with the initial turn from `attach_game` so the
         // sidebar shows "Your turn" / "Waiting…" immediately, before the
         // game-state stream catches up.
+        let loc = crate::i18n::locale_of(&config);
         let mut sidebar = SidebarWidget::new(Rectangle::new(0, 1072, 1072, 376));
         if let Some(turn) = app.turn() {
-            sidebar.set_turn(turn.clone());
+            sidebar.set_turn(turn.clone(), &loc);
         }
         Self {
             app,
+            config,
             board: BoardWidget::new(Rectangle::new(0, 0, 1072, 1072)),
             sidebar,
             stream_started: false,
@@ -200,6 +203,7 @@ impl ChessGameScreen {
 
 pub struct OngoingChessGamesScreen {
     pub app: ChessApp,
+    pub config: Arc<RwLock<AppConfig>>,
     pub prev_page_button: IconButton,
     pub next_page_button: IconButton,
     pub chessgame_button_0: Button,
@@ -221,13 +225,14 @@ pub struct OngoingChessGamesScreen {
 }
 
 impl OngoingChessGamesScreen {
-    pub fn new(app: ChessApp) -> Self {
+    pub fn new(app: ChessApp, config: Arc<RwLock<AppConfig>>) -> Self {
         // Layout: 1072 × 1448 total canvas
         const BTN_W: u16 = 800;
         const BTN_H: u16 = 120;
         const CENTER_X: i16 = 1072 / 2; // 336
         const CENTER_Y: i16 = 1448 / 2; // 304
         Self {
+            config,
             app,
             prev_page_button: IconButton::new(
                 CENTER_X - (ICON_BUTTON_SIZE as i16 + 8),
@@ -504,6 +509,7 @@ impl FriendlistScreen {
 // ─── ChessAuthScreen ──────────────────────────────────────────────────────────
 
 pub struct ChessAuthScreen {
+    pub config: Arc<RwLock<AppConfig>>,
     pub qr_code: Rectangle,
     pub auth_status: Rectangle,
     pub qr_image: Option<ImageBuffer<Luma<u8>, Vec<u8>>>,
@@ -513,8 +519,9 @@ pub struct ChessAuthScreen {
 }
 
 impl ChessAuthScreen {
-    pub fn new() -> Self {
+    pub fn new(config: Arc<RwLock<AppConfig>>) -> Self {
         Self {
+            config,
             qr_code: Rectangle::new(286, 400, 500, 500),
             auth_status: Rectangle::new(286, 940, 500, 60),
             qr_image: None,
@@ -526,7 +533,7 @@ impl ChessAuthScreen {
 
 impl Default for ChessAuthScreen {
     fn default() -> Self {
-        Self::new()
+        Self::new(Arc::new(RwLock::new(AppConfig::load())))
     }
 }
 
@@ -604,6 +611,7 @@ pub enum UpdateState {
 }
 
 pub struct UpdateScreen {
+    pub config: Arc<RwLock<AppConfig>>,
     pub state: UpdateState,
     pub action_button: Button,
     pub back_button: Button,
@@ -612,12 +620,13 @@ pub struct UpdateScreen {
 }
 
 impl UpdateScreen {
-    pub fn new() -> Self {
+    pub fn new(config: Arc<RwLock<AppConfig>>) -> Self {
         const BTN_W: u16 = 600;
         const BTN_H: u16 = 120;
         const CENTER_X: i16 = 1072 / 2;
         const CENTER_Y: i16 = 1448 / 2;
         Self {
+            config,
             state: UpdateState::Checking,
             action_button: Button::new(
                 CENTER_X - BTN_W as i16 / 2,
@@ -644,7 +653,7 @@ impl UpdateScreen {
 
 impl Default for UpdateScreen {
     fn default() -> Self {
-        Self::new()
+        Self::new(Arc::new(RwLock::new(AppConfig::load())))
     }
 }
 
@@ -772,19 +781,21 @@ impl PuzzleSettingsScreen {
 
 pub struct GameActionsScreen {
     pub app: ChessApp,
+    pub config: Arc<RwLock<AppConfig>>,
     pub resign_button: Button,
     pub abort_button: Button,
     pub back_button: Button,
 }
 
 impl GameActionsScreen {
-    pub fn new(app: ChessApp) -> Self {
+    pub fn new(app: ChessApp, config: Arc<RwLock<AppConfig>>) -> Self {
         const BTN_W: u16 = 600;
         const BTN_H: u16 = 120;
         const CENTER_X: i16 = 1072 / 2;
         const CENTER_Y: i16 = 1448 / 2;
         let x = CENTER_X - BTN_W as i16 / 2;
         Self {
+            config,
             app,
             resign_button: Button::new(
                 x,

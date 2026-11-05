@@ -95,7 +95,7 @@ impl Screen for HomeScreen {
             // QR-flow screen; on success it'll pop and re-emit ChessReady.
             AppEvent::AuthFailed(e) => {
                 warn!("Silent auth failed ({}) — pushing ChessAuthScreen", e);
-                Ok(Transition::Push(Box::new(ChessAuthScreen::new())))
+                Ok(Transition::Push(Box::new(ChessAuthScreen::new(self.config.clone()))))
             }
 
             AppEvent::Touch(touch) => {
@@ -135,6 +135,7 @@ impl Screen for HomeScreen {
                         info!("Ongoing-games button pressed");
                         return Ok(Transition::Push(Box::new(OngoingChessGamesScreen::new(
                             app,
+                            self.config.clone(),
                         ))));
                     }
                 }
@@ -222,6 +223,7 @@ impl Screen for ChessGameScreen {
             kick_game_stream(&self.app, display.event_tx.clone(), cancel);
         }
 
+        self.sidebar.set_locale(&i18n::locale_of(&self.config));
         self.board.render(&mut display.renderer)?;
         self.sidebar.render(&mut display.renderer)?;
         display.renderer.present()?;
@@ -258,7 +260,7 @@ impl Screen for ChessGameScreen {
                 self.board.set_flipped(!player0_white);
                 self.board.set_position(board);
                 self.board.set_last_move(last_move);
-                self.sidebar.set_turn(turn);
+                self.sidebar.set_turn(turn, &crate::i18n::locale_of(&self.config));
                 Ok(Transition::Redraw)
             }
 
@@ -270,7 +272,7 @@ impl Screen for ChessGameScreen {
                 self.app.apply_turn(turn.clone());
                 self.board.set_position(board);
                 self.board.set_last_move(last_move);
-                self.sidebar.set_turn(turn);
+                self.sidebar.set_turn(turn, &crate::i18n::locale_of(&self.config));
                 Ok(Transition::Redraw)
             }
 
@@ -345,6 +347,7 @@ impl Screen for ChessGameScreen {
                 info!("Opening game-actions screen");
                 Ok(Transition::Push(Box::new(GameActionsScreen::new(
                     self.app.clone(),
+                    self.config.clone(),
                 ))))
             }
 
@@ -593,6 +596,7 @@ impl OngoingChessGamesScreen {
             &mut self.chessgame_button_2,
             &mut self.chessgame_button_3,
         ];
+        let loc = i18n::locale_of(&self.config);
         let start = index * GAMES_PER_PAGE;
         for (k, btn) in buttons.into_iter().enumerate() {
             match games.now_playing.get(start + k) {
@@ -600,11 +604,11 @@ impl OngoingChessGamesScreen {
                     let opp = match &game.opponent {
                         PlayedBy::User(player) => player.name.clone(),
                         PlayedBy::Ai(computer) => match computer.ai_level {
-                            Some(level) => format!("AI lvl {}", level),
-                            None => String::from("AI"),
+                            Some(level) => i18n::t(&loc, "ongoing-ai-level", &[("level", &level.to_string())]),
+                            None => tr(&loc, "ongoing-ai"),
                         },
                     };
-                    let mut l = format!("VS {opp}");
+                    let mut l = i18n::t(&loc, "ongoing-vs", &[("opponent", &opp)]);
                     if game.is_my_turn {
                         l = format!("> {l} <");
                     }
@@ -643,7 +647,8 @@ impl Screen for OngoingChessGamesScreen {
         let size_px = 24.0;
 
         if let Some(err) = &self.error {
-            let label = format!("Error: {}", err);
+            let loc = i18n::locale_of(&self.config);
+            let label = i18n::t(&loc, "common-error", &[("error", err)]);
             let (tw, th) = display.renderer.measure_text(&label, size_px);
             let tx = (1072 - tw as i16) / 2;
             let ty = (1448 - th as i16) / 2;
@@ -662,13 +667,13 @@ impl Screen for OngoingChessGamesScreen {
             self.next_page_button.draw(&mut display.renderer)?;
             self.prev_page_button.draw(&mut display.renderer)?;
         } else {
-            let label = "Loading…";
-            let (tw, th) = display.renderer.measure_text(label, size_px);
+            let label = tr(&i18n::locale_of(&self.config), "common-loading");
+            let (tw, th) = display.renderer.measure_text(&label, size_px);
             let tx = (1072 - tw as i16) / 2;
             let ty = (1448 - th as i16) / 2;
             display
                 .renderer
-                .draw_text(tx, ty, label, size_px, DrawColor::Black)?;
+                .draw_text(tx, ty, &label, size_px, DrawColor::Black)?;
         }
 
         display.renderer.present()?;
@@ -746,7 +751,10 @@ impl Screen for OngoingChessGamesScreen {
                         .app
                         .clone()
                         .attach_game(game.game_id.clone(), game.is_my_turn);
-                    return Ok(Transition::Push(Box::new(ChessGameScreen::new(game_app))));
+                    return Ok(Transition::Push(Box::new(ChessGameScreen::new(
+                        game_app,
+                        self.config.clone(),
+                    ))));
                 }
                 Ok(Transition::Stay)
             }
@@ -1204,7 +1212,7 @@ impl Screen for InvitesScreen {
         label(680, &tr(&loc, "invites-outgoing"))?;
 
         if let Some(err) = &self.error {
-            let label = format!("Error: {}", err);
+            let label = i18n::t(&i18n::locale_of(&self.config), "common-error", &[("error", err)]);
             let (w, h) = display.renderer.measure_text(&label, 24.0);
             display.renderer.draw_text(
                 (1072 - w as i16) / 2,
@@ -1275,7 +1283,10 @@ impl Screen for InvitesScreen {
                         let game_id = game_id.to_string();
                         info!("Challenge {} accepted — joining game {}", c.id, game_id);
                         let game_app = self.app.clone().attach_game(game_id, false);
-                        return Ok(Transition::Push(Box::new(ChessGameScreen::new(game_app))));
+                        return Ok(Transition::Push(Box::new(ChessGameScreen::new(
+                            game_app,
+                            self.config.clone(),
+                        ))));
                     }
                 }
                 self.challenges = Some(list);
@@ -1636,7 +1647,7 @@ impl Screen for FriendlistScreen {
 
         let size_px = 24.0;
         if let Some(err) = &self.error {
-            let label = format!("Error: {}", err);
+            let label = i18n::t(&i18n::locale_of(&self.config), "common-error", &[("error", err)]);
             let (tw, th) = display.renderer.measure_text(&label, size_px);
             display.renderer.draw_text(
                 (1072 - tw as i16) / 2,
@@ -1876,7 +1887,9 @@ impl Screen for SettingsScreen {
                 }
                 if self.check_update_button.rect.contains(touch.x, touch.y) {
                     info!("Check-for-updates pressed");
-                    return Ok(Transition::Push(Box::new(UpdateScreen::new())));
+                    return Ok(Transition::Push(Box::new(UpdateScreen::new(
+                        self.config.clone(),
+                    ))));
                 }
                 if self.back_button.rect.contains(touch.x, touch.y) {
                     return Ok(Transition::Pop);
@@ -1907,52 +1920,50 @@ impl Screen for UpdateScreen {
         display.renderer.clear(DrawColor::White)?;
 
         // Title
-        let title = "Update";
+        let title = tr(&i18n::locale_of(&self.config), "update-title");
         let title_size = 56.0;
-        let (tw, _) = display.renderer.measure_text(title, title_size);
+        let (tw, _) = display.renderer.measure_text(&title, title_size);
         display.renderer.draw_text(
             (1072 - tw as i16) / 2,
             120,
-            title,
+            &title,
             title_size,
             DrawColor::Black,
         )?;
 
         // State-driven body. The action button is only drawn (and only live in
         // the touch handler) when there is something meaningful to do.
+        let loc = i18n::locale_of(&self.config);
         let (lines, action_label, action_visible) = match &self.state {
-            UpdateState::Checking => (vec!["Checking for updates…".to_string()], "Apply", false),
+            UpdateState::Checking => (vec![tr(&loc, "update-checking")], tr(&loc, "update-apply"), false),
             UpdateState::UpToDate => (
-                vec![format!("You're up to date — v{}", version::VERSION)],
-                "Apply",
+                vec![i18n::t(&loc, "update-uptodate", &[("version", version::VERSION)])],
+                tr(&loc, "update-apply"),
                 false,
             ),
             UpdateState::Available(info) => (
                 vec![
-                    format!("Update available: v{} → v{}", info.current, info.latest),
-                    format!("({} bytes)", info.asset_size),
+                    i18n::t(&loc, "update-available", &[("current", &info.current.to_string()), ("latest", &info.latest.to_string())]),
+                    i18n::t(&loc, "update-size", &[("bytes", &info.asset_size.to_string())]),
                     String::new(),
                     info.release_name.clone(),
                 ],
-                "Apply",
+                tr(&loc, "update-apply"),
                 true,
             ),
             UpdateState::Downloading => (
-                vec!["Downloading and verifying…".to_string()],
-                "Apply",
+                vec![tr(&loc, "update-downloading")],
+                tr(&loc, "update-apply"),
                 false,
             ),
             UpdateState::Applied => (
-                vec![
-                    "Update applied.".to_string(),
-                    "Quit and relaunch from the KUAL menu.".to_string(),
-                ],
-                "Quit",
+                vec![tr(&loc, "update-applied"), tr(&loc, "update-relaunch")],
+                tr(&loc, "update-quit"),
                 true,
             ),
             UpdateState::Failed(err) => (
-                vec!["Update failed:".to_string(), err.clone()],
-                "Apply",
+                vec![tr(&loc, "update-failed"), err.clone()],
+                tr(&loc, "update-apply"),
                 false,
             ),
         };
@@ -1995,7 +2006,7 @@ impl Screen for UpdateScreen {
             }
             AppEvent::UpdateCheckFailed(e) => {
                 warn!("Update check failed: {}", e);
-                self.state = UpdateState::Failed(format!("Check failed: {}", e));
+                self.state = UpdateState::Failed(i18n::t(&i18n::locale_of(&self.config), "update-check-failed", &[("error", &e.to_string())]));
                 Ok(Transition::Redraw)
             }
             AppEvent::UpdateApplied => {
@@ -2005,7 +2016,7 @@ impl Screen for UpdateScreen {
             }
             AppEvent::UpdateApplyFailed(e) => {
                 warn!("Update apply failed: {}", e);
-                self.state = UpdateState::Failed(format!("Apply failed: {}", e));
+                self.state = UpdateState::Failed(i18n::t(&i18n::locale_of(&self.config), "update-apply-failed", &[("error", &e.to_string())]));
                 Ok(Transition::Redraw)
             }
 
@@ -2113,6 +2124,7 @@ impl Screen for PuzzleScreen {
             kick_home_puzzle(self.token.clone(), self.params, display.event_tx.clone());
         }
 
+        self.sidebar.set_locale(&i18n::locale_of(&self.config));
         self.board.render(&mut display.renderer)?;
         self.sidebar.render(&mut display.renderer)?;
         display.renderer.present()?;
@@ -2263,7 +2275,7 @@ impl Screen for PuzzleScreen {
 
             // The sidebar's "Next puzzle" button — refetch with current params.
             AppEvent::NextPuzzle => {
-                self.sidebar.set_message("Loading…");
+                self.sidebar.set_message(&tr(&i18n::locale_of(&self.config), "common-loading"));
                 // Clear the previous puzzle's rating/themes immediately at
                 // press time (not when the new puzzle arrives) — an info change
                 // triggers a full sidebar repaint, so no residue is left.
@@ -2276,7 +2288,7 @@ impl Screen for PuzzleScreen {
             // params and fetch a puzzle with them.
             AppEvent::ApplyPuzzleParams(params) => {
                 self.params = params;
-                self.sidebar.set_message("Loading…");
+                self.sidebar.set_message(&tr(&i18n::locale_of(&self.config), "common-loading"));
                 self.sidebar.set_puzzle_info(0, &[], &PuzzleStatus::Solving);
                 kick_next_puzzle(self.token.clone(), self.params, display.event_tx.clone());
                 Ok(Transition::Redraw)
@@ -2359,11 +2371,11 @@ impl Screen for PuzzleSettingsScreen {
 
         let title = "Puzzle Settings";
         let title_size = 56.0;
-        let (tw, _) = display.renderer.measure_text(title, title_size);
+        let (tw, _) = display.renderer.measure_text(&title, title_size);
         display.renderer.draw_text(
             (1072 - tw as i16) / 2,
             150,
-            title,
+            &title,
             title_size,
             DrawColor::Black,
         )?;
@@ -2393,17 +2405,17 @@ impl Screen for PuzzleSettingsScreen {
                 if self.difficulty_button.rect.contains(touch.x, touch.y) {
                     self.params.difficulty = self.params.difficulty.next();
                     self.difficulty_button.label =
-                        format!("Difficulty: {}", self.params.difficulty.label());
+                        i18n::t(&i18n::locale_of(&self.config), "puzzle-difficulty", &[("value", &tr(&i18n::locale_of(&self.config), self.params.difficulty.i18n_key()))]);
                     return Ok(Transition::Redraw);
                 }
                 if self.phase_button.rect.contains(touch.x, touch.y) {
                     self.params.phase = self.params.phase.next();
-                    self.phase_button.label = format!("Phase: {}", self.params.phase.label());
+                    self.phase_button.label = i18n::t(&i18n::locale_of(&self.config), "puzzle-phase", &[("value", &tr(&i18n::locale_of(&self.config), self.params.phase.i18n_key()))]);
                     return Ok(Transition::Redraw);
                 }
                 if self.color_button.rect.contains(touch.x, touch.y) {
                     self.params.color = self.params.color.next();
-                    self.color_button.label = format!("Color: {}", self.params.color.label());
+                    self.color_button.label = i18n::t(&i18n::locale_of(&self.config), "puzzle-color", &[("value", &tr(&i18n::locale_of(&self.config), self.params.color.i18n_key()))]);
                     return Ok(Transition::Redraw);
                 }
 
@@ -2450,13 +2462,17 @@ impl Screen for GameActionsScreen {
     fn render(&mut self, display: &mut Display) -> Result<(), Box<dyn std::error::Error>> {
         display.renderer.clear(DrawColor::White)?;
 
-        let title = "Game Actions";
+        let loc = i18n::locale_of(&self.config);
+        self.resign_button.label = tr(&loc, "game-resign");
+        self.abort_button.label = tr(&loc, "game-abort");
+        self.back_button.label = tr(&loc, "settings-back");
+        let title = tr(&loc, "game-actions-title");
         let title_size = 56.0;
-        let (tw, _) = display.renderer.measure_text(title, title_size);
+        let (tw, _) = display.renderer.measure_text(&title, title_size);
         display.renderer.draw_text(
             (1072 - tw as i16) / 2,
             160,
-            title,
+            &title,
             title_size,
             DrawColor::Black,
         )?;
