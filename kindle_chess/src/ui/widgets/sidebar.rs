@@ -5,9 +5,11 @@ use crate::ui::widgets::icon_button::{ICON_BUTTON_SIZE, Icon, IconButton, load_i
 use log::info;
 
 /// Sidebar shown below the board on the live-game screen. Displays the opponent
-/// and whose turn it is, with a button row: back-nav (left), settings (right).
+/// and whose turn it is, with buttons: status-bar toggle (top.png, top-left,
+/// above the back-nav button), back-nav (bottom-left), settings (right).
 pub struct SidebarWidget {
     area: Rectangle,
+    top_button: IconButton,
     back_button: IconButton,
     settings_button: IconButton,
     // Driven by `set_turn` from the game-state stream events arriving on
@@ -34,7 +36,9 @@ pub struct SidebarWidget {
 impl SidebarWidget {
     pub fn new(area: Rectangle) -> Self {
         const MARGIN: i16 = 24;
-        let btn_y = area.y + (area.height as i16 - ICON_BUTTON_SIZE as i16) / 2;
+        // Left column: status-bar toggle on top, back-nav below it.
+        let top_btn_y = area.y + MARGIN;
+        let btn_y = top_btn_y + ICON_BUTTON_SIZE as i16 + 8;
         // Dynamic text bands are centred and only as wide as their content can
         // get. A narrow, centred band leaves a wide gap to the edge-mounted
         // buttons, so the e-ink refresh of a band never disturbs one — the
@@ -42,6 +46,7 @@ impl SidebarWidget {
         let centered = |w: u16| area.x + (area.width as i16 - w as i16) / 2;
         Self {
             area,
+            top_button: IconButton::new(area.x + MARGIN, top_btn_y, "top.png"),
             back_button: IconButton::new(area.x + MARGIN, btn_y, "back-nav.png"),
             settings_button: IconButton::new(
                 area.x + area.width as i16 - ICON_BUTTON_SIZE as i16 - MARGIN,
@@ -86,6 +91,10 @@ impl SidebarWidget {
     pub fn handle_touch(&self, touch: &TouchEvent) -> Option<AppEvent> {
         if touch.kind != TouchKind::Up {
             return None;
+        }
+        if self.top_button.contains(touch.x, touch.y) {
+            info!("Top-bar (status bar) button pressed");
+            return Some(AppEvent::ToggleTopBar);
         }
         if self.back_button.contains(touch.x, touch.y) {
             info!("Back button pressed");
@@ -134,6 +143,7 @@ impl SidebarWidget {
         // Buttons are static — drawn once per full repaint; the bands above
         // are sized to never overlap them.
         if full {
+            self.top_button.draw(renderer)?;
             self.back_button.draw(renderer)?;
             self.settings_button.draw(renderer)?;
             self.needs_full_repaint = false;
@@ -202,5 +212,21 @@ impl SidebarWidget {
             )?;
         }
         Ok(())
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    /// Same contract as the board: after the screensaver drew over the sidebar,
+    /// invalidate() must make the next render a full repaint.
+    #[test]
+    fn invalidate_forces_full_repaint() {
+        let mut sidebar = SidebarWidget::new(Rectangle::new(0, 1072, 1072, 376));
+        assert!(sidebar.needs_full_repaint); // fresh widget paints fully once
+        sidebar.needs_full_repaint = false;
+        sidebar.invalidate();
+        assert!(sidebar.needs_full_repaint);
     }
 }

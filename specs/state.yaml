@@ -1,23 +1,39 @@
 # bigpowers session source-of-truth. See survey-context / session-state.
 session:
-  active_flow: fix_bug
-  active_bug_id: BUG-2026-11-04T193559
-  phase: Execute
+  active_flow: build_epic
+  active_epic: e02-native-kindle-integration
+  phase: Execute (Phase 1 done, Phase 2 pending)
 
 vcs:
   kind: git
-  branch: fix-post-puzzle-solutions
-  head: d0415f3
-  # Worktree: /home/mxy/repos/fix-post-puzzle-solutions (branched from
-  # api-migration tip d0415f3 — litchee adapter only exists there, not main).
+  branch: e02-native-kindle-integration
+  head: edab5f7
+  # Branched from main 16ec011. Epic spec: specs/epics/e02-native-kindle-integration{,.md,.yaml}
+  # + specs/planning-context.yaml. Prior fix_bug flow lived in worktree
+  # /home/mxy/repos/fix-post-puzzle-solutions (branch fix-post-puzzle-solutions,
+  # from api-migration tip d0415f3 — litchee adapter only exists there).
 
 handoff:
-  next_skill: verify-work
-  # Bug BUG-2026-11-04T184513 implemented on this branch (8 commits,
-  # RED/GREEN pairs): solved puzzles now auto-post to
-  # POST /api/puzzle/batch/{angle} when signed in. 79 lib + 24 integration
-  # tests green, build + fmt clean. Remaining: live-account UAT of
-  # /puzzle/next advancing + activity entry (needs real token).
+  next_skill: verify-work (on-device UAT on k2) then Phase 2 tasks t05–t07
+  # e02 Phase 1 committed: AWM WM_NAME title (PC:N; UAT deferred to t05 since
+  # override_redirect+pillow-off means AWM never reads it yet), scriptlet
+  # launcher at repo-root scriptlet/kindle-chess.sh deployed to /mnt/us/documents
+  # by flash scripts (appreg.db registration tried for k1, does not work there —
+  # dropped for now; KUAL = fallback on k1), display-lock-aware powerd watcher
+  # (DeviceLock + DeviceWake, 500ms leading-edge debounce; wake -> full redraw
+  # AND stream re-kick; stream task is now a resilient reconnect loop with
+  # backoff + cancel flag + StreamEnd terminal stop — root-caused via device
+  # logs: post-wake one-shot kick died once on HTTP transport error (wifi not
+  # back yet) and never retried; lock = hook for custom screensaver t08),
+  # --source logging in launch.log.
+  # 89 lib tests green, build + fmt clean. Phase 2 t05+t06 done: runtime
+  # PC:T toggle (status bar ONLY, overlays top strip — no layout shift, no home
+  # buttons; window recreated on override_redirect change; pillow handoff via
+  # system/pillow.rs, no-op off-device; chrome_on_start config flag) + top.png
+  # sidebar button above Back emitting ToggleTopBar. t08 done: logo.png
+  # screensaver on DeviceLock (App.locked suppresses redraws until wake).
+  # Remaining: t07 on-device UAT on k2 (scriptlet launch, lock->logo screensaver
+  # -> wake refetch, top-bar toggle), then land branch.
 
 notes:
   phase1: ready_to_land

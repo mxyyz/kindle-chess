@@ -1,0 +1,65 @@
+# specs/planning-context.yaml — written by elaborate-spec; consumed by scope-work and slice-tasks
+feature_name: native-kindle-integration
+problem_statement: >-
+  kindle-chess is only launchable through the KUAL booklet, draws fullscreen with
+  pillow disabled and override_redirect(1) set, and sets no AWM window title, so
+  the Kindle's Awesome Window Manager and home UI ignore it entirely. It feels
+  like a foreign fullscreen hack, not a Kindle app. Source research:
+  https://kindlemodding.org/kindle-dev/ (AWM window-title convention, lipc
+  com.lab126.* services, appreg.db registration) — raw extracts in session
+  scratchpad kindle-dev/.
+constraints:
+  - Rust + x11rb only; no C++/GTK/Meson/kindle-sdk rewrite
+  - WAF/Mesquite track (config.xml, window.kindle JS APIs) is out — it cannot host the Rust renderer
+  - KPM packaging (research item 4) is out of scope for this epic
+  - KUAL stays in the repo as the fallback launcher (chess_app.sh is the KUAL action)
+  - Launch registration = scriptlet only: repo-root scriptlet/kindle-chess.sh is
+    deployed to /mnt/us/documents by flash.sh/flash_usb.sh; k2's SH_Integration
+    auto-indexes it as a launchable library item. appreg.db registration was tried
+    (register_appreg.sh) but does not work on k1 (possibly account-dependent) —
+    dropped for now, may be revisited later
+  - The dedicated scriptlet launcher lives at repo-root scriptlet/, NOT inside
+    kindle_KUAL — chess_app.sh remains the KUAL launcher script
+  - Static musl armv7-unknown-linux-musleabi release build unchanged
+  - run-dev.sh / Xephyr dev harness must keep working: all AWM/lipc calls degrade to no-ops off-device
+  - 1072x1448 absolute canvas unchanged
+  - flash.sh / flash_usb.sh token.json mv-aside dance must not break
+  - Phase 2 window title uses PC:T (status bar ONLY — no home/search buttons, not PC:TS);
+    the status bar OVERLAYS the app's top strip — no layout shift, 1072x1448 canvas untouched
+out_of_scope:
+  - KPM .kpkg packaging and kpm launch flow
+  - WAF config.xml / kindle.* JavaScript object APIs
+  - Any C++/GTK rewrite of the renderer
+  - Lichess game logic / puzzle features
+  - Removing the KUAL bundle or menu.json
+  - appreg.db registration (for now — did not work on k1; deferred, not forgotten)
+key_decisions:
+  - decision: Hybrid phased approach (option C)
+    rationale: Phase 1 delivers native lifecycle at low risk (keeps current fullscreen UX); Phase 2 adds Kindle chrome behind the same window-title mechanism.
+  - decision: Phase 1 = lifecycle (P1), Phase 2 = chrome (P2)
+    rationale: User-confirmed split. P1: scriptlet launcher (repo-root scriptlet/) + AWM-conformant WM_NAME + display-lock-aware powerd watcher (lock->custom-screensaver hook, wake->full redraw). P2: PC:T title, pillow handoff rework, top-bar layout offset, top.png sidebar button.
+  - decision: Launch registration via scriptlet only; appreg.db approach dropped for now
+    rationale: k2's SH_Integration auto-registers .sh in /mnt/us/documents (proven);
+      the hand-written appreg.db handlerId did not make the app launchable on k1
+      (possibly because no account is connected) — removed again, KUAL covers k1.
+  - decision: chess_app.sh stays the KUAL launcher; a dedicated scriptlet launcher
+    lives at repo-root scriptlet/kindle-chess.sh and is deployed to /mnt/us/documents
+    by the flash scripts
+    rationale: user requirement — clear separation of KUAL path vs scriptlet path.
+  - decision: powerd watcher is display-lock aware (emits DeviceLock AND DeviceWake)
+    rationale: on lock the panel just freezes (no Amazon screensaver is drawn while
+      pillow is disabled); lock events are the hook for a custom screensaver later
+      (task t08). Wake keeps the full-redraw behavior.
+  - decision: t01 (WM_NAME) UAT deferred until t05 (PC:T) lands
+    rationale: with override_redirect + pillow disabled, AWM never reads the title in
+      Phase 1, so there is nothing user-visible to test yet; unit tests cover the format.
+  - decision: Phase 2 exposes the top bar via a dedicated sidebar button (assets/top.png, above the Back button) plus PC:T window title
+    rationale: User wants brightness settings reachable from the Kindle top bar without permanently eating e-ink space; top.png asset already added.
+  - decision: Verification = automated checks now (cargo tests, dev harness), on-device UAT on k2 when reachable
+    rationale: User confirmed "both, device when available"; flash.sh device used for UAT later.
+success_criteria:
+  - Phase 1 on-device k2: "Kindli-Chess" scriptlet appears in the library; tapping it launches fullscreen without KUAL
+  - Phase 1 on-device k1: KUAL ChessApp entry launches the app (fallback path)
+  - Both: after lock/unlock the board redraws cleanly on wake (powerd outOfScreenSaver -> full redraw); DeviceLock is observed in logs
+  - Phase 1 automated: WM_NAME/title-builder + powerd classify/debounce unit tests green; scriptlet + flash scripts syntax-checked; cargo build + cargo test green
+  - Phase 2 on-device: top.png sidebar button (above Back) toggles the PC:T status bar over the app (overlay, no layout shift, no home buttons); brightness adjustable from it

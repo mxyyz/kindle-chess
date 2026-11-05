@@ -1,6 +1,6 @@
 use std::sync::Arc;
 
-use log::{debug, info, warn};
+use log::{debug, error, info, warn};
 
 use crate::{
     api::{
@@ -200,7 +200,9 @@ impl Screen for ChessGameScreen {
         // GameFullReceived / TurnChanged events (see kick_game_stream).
         if !self.stream_started {
             self.stream_started = true;
-            kick_game_stream(&self.app, display.event_tx.clone());
+            let cancel = std::sync::Arc::new(std::sync::atomic::AtomicBool::new(false));
+            self.stream_cancel = Some(cancel.clone());
+            kick_game_stream(&self.app, display.event_tx.clone(), cancel);
         }
 
         self.board.render(&mut display.renderer)?;
@@ -304,6 +306,19 @@ impl Screen for ChessGameScreen {
                 Ok(Transition::Redraw)
             }
 
+            // Sidebar top.png button: toggle the Kindle status bar (PC:T)
+            // over the app window. Handled here (not in the app loop) because
+            // the sidebar re-emits widget events via this screen-local
+            // recursion — an app-loop handler would never see them.
+            AppEvent::ToggleTopBar => {
+                let new_mode = !display.chrome_mode();
+                info!("ToggleTopBar — chrome mode -> {}", new_mode);
+                if let Err(e) = display.set_chrome_mode(new_mode) {
+                    error!("set_chrome_mode failed: {}", e);
+                }
+                Ok(Transition::Redraw)
+            }
+
             AppEvent::ExitToMenu => {
                 info!("Returning to home screen");
                 Ok(Transition::Pop)
@@ -328,6 +343,21 @@ impl Screen for ChessGameScreen {
                 Ok(Transition::Stay)
             }
 
+            // Device woke from lock: the SSE stream stalls/dies while the
+            // display is locked, so restart it — Lichess sends the full game
+            // state (GameFull) on every new stream connection, which refetches
+            // the most recent position. Cancel any stalled predecessor first.
+            AppEvent::DeviceWake => {
+                info!("Device wake — restarting game-state stream (refetch)");
+                if let Some(old) = &self.stream_cancel {
+                    old.store(true, std::sync::atomic::Ordering::SeqCst);
+                }
+                let cancel = std::sync::Arc::new(std::sync::atomic::AtomicBool::new(false));
+                self.stream_cancel = Some(cancel.clone());
+                kick_game_stream(&self.app, display.event_tx.clone(), cancel);
+                Ok(Transition::Redraw)
+            }
+
             AppEvent::Quit => {
                 info!("Quit requested");
                 Ok(Transition::Quit)
@@ -350,14 +380,56 @@ impl Screen for ChessGameScreen {
 // bookkeeping. Every state change the screen needs is sent back as an
 // `AppEvent`. No-op when the screen wasn't pushed with an in-game backend
 // (e.g. the Demo button path, which still uses an Idle ChessApp).
-fn kick_game_stream(app: &ChessApp, tx: Sender<AppEvent>) {
+fn kick_game_stream(
+    app: &ChessApp,
+    tx: Sender<AppEvent>,
+    cancel: std::sync::Arc<std::sync::atomic::AtomicBool>,
+) {
     let Some(mut api) = app.online_in_game_api() else {
         warn!("ChessGameScreen has no in-game backend — skipping stream");
         return;
     };
     tokio::spawn(async move {
-        if let Err(e) = api.stream_game_event(tx).await {
-            warn!("Game-state stream errored: {}", e);
+        use crate::api::board::StreamEnd;
+        use std::sync::atomic::Ordering;
+        use std::time::Duration;
+
+        // Resilient reconnect loop: the stream can die mid-session (e.g. the
+        // transport drops while the display is locked) and the network may not
+        // be back yet right at wake — so a failed/ended stream is re-established
+        // with exponential backoff instead of giving up after one attempt.
+        // Lichess sends the full GameFull state on every new connection, so a
+        // reconnect also refetches the latest position.
+        let mut backoff = Duration::from_secs(2);
+        loop {
+            if cancel.load(Ordering::SeqCst) {
+                info!("game stream task cancelled");
+                break;
+            }
+            match api.stream_game_event(tx.clone(), cancel.clone()).await {
+                Ok(StreamEnd::Events { terminal: true }) => {
+                    info!("game finished — game stream closed, not reconnecting");
+                    break;
+                }
+                Ok(_) => {
+                    // Stream delivered events then ended (e.g. died while the
+                    // display was locked) — reconnect promptly.
+                    backoff = Duration::from_secs(2);
+                    info!("game stream ended — reconnecting");
+                }
+                Err(e) => {
+                    warn!(
+                        "Game-state stream errored: {} — reconnecting in {:?}",
+                        e, backoff
+                    );
+                }
+            }
+            if cancel.load(Ordering::SeqCst) {
+                info!("game stream task cancelled");
+                break;
+            }
+            tokio::time::sleep(backoff).await;
+            backoff = std::cmp::min(backoff * 2, Duration::from_secs(30));
         }
     });
 }

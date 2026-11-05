@@ -1,6 +1,9 @@
 target/
+kindle_KUAL/hellokindle/bin
 kindle_KUAL/hellokindle/secrets/
 kindle_KUAL/hellokindle/log/
 .aider*
 .zed/
 /docs/dev/
+flash_usb.sh
+flash.sh

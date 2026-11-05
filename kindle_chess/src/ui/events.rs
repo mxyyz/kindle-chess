@@ -95,9 +95,22 @@ pub enum AppEvent {
     ChessReady(Box<ChessApp>),
     Quit,
 
+    // Toggle the Kindle status bar (PC:T chrome) over the app window — the
+    // top.png sidebar button. Lets the user reach brightness/quick settings
+    // without the bar permanently covering the board's top strip.
+    ToggleTopBar,
+
     // X11 Events
     Expose,
     WindowUnmapped,
+
+    // System Events (com.lab126.powerd via lipc, display-lock aware)
+    // Display locked / going to screensaver (goingToScreenSaver) — hook point
+    // for a custom screensaver later; currently just logged.
+    DeviceLock,
+    // Device woke / unlocked (outOfScreenSaver) — the app answers with a full
+    // redraw of the top screen so the e-ink panel is clean.
+    DeviceWake,
 }
 
 #[derive(Debug, Clone, Copy)]

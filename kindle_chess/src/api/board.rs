@@ -9,7 +9,20 @@ use crate::ui::events::AppEvent;
 use futures_util::StreamExt;
 use litchee::LichessError;
 use log::{info, warn};
+use std::sync::Arc;
+use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::mpsc::Sender;
+
+/// How a `stream_game_event` run ended — the caller (reconnect loop) uses this
+/// to decide whether/when to re-establish the stream.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum StreamEnd {
+    /// The stream delivered at least one event. `terminal` is true when the
+    /// last seen game state was a finished game — no point reconnecting.
+    Events { terminal: bool },
+    /// The stream closed without delivering any event.
+    NoEvents,
+}
 
 // State-agnostic operations: ongoing-games list and the account event stream
 // are valid in both Idle and InGame.
@@ -88,15 +101,34 @@ impl BoardAPI<InGame> {
     /// **not** propagate back to the screen. Every state change the screen
     /// cares about is shipped as an `AppEvent` through `tx`. The screen
     /// applies those events to *its own* `ChessApp` copy.
+    ///
+    /// `cancel`: when set, the task stops forwarding events and exits. Used to
+    /// supersede a stalled stream (e.g. after device wake) with a fresh one —
+    /// Lichess sends the full game state on every new stream connection, so
+    /// re-kicking is also the refetch path.
     pub async fn stream_game_event(
         &mut self,
         tx: Sender<AppEvent>,
-    ) -> Result<(), Box<dyn std::error::Error>> {
+        cancel: Arc<AtomicBool>,
+    ) -> Result<StreamEnd, Box<dyn std::error::Error>> {
         let mut stream = self.adapter.stream_game(self.game_id()).await?;
 
+        let mut got_any = false;
+        let mut terminal = false;
         while let Some(result) = stream.next().await {
+            if cancel.load(Ordering::SeqCst) {
+                info!("game stream cancelled (superseded by a newer stream)");
+                break;
+            }
             match result {
                 Ok(event) => {
+                    got_any = true;
+                    terminal = match &event {
+                        GameStateStreamEvent::GameFull(f) => is_terminal_status(&f.state.status),
+                        GameStateStreamEvent::GameState(s) => is_terminal_status(&s.status),
+                        GameStateStreamEvent::GameOver(_) => true,
+                        _ => terminal,
+                    };
                     info!("Received event: {:?}", event);
                     if let Err(e) = self.handle_game_event(event, &tx).await {
                         warn!("Error while handling game event: {e}");
@@ -111,7 +143,11 @@ impl BoardAPI<InGame> {
                 }
             }
         }
-        Ok(())
+        Ok(if got_any {
+            StreamEnd::Events { terminal }
+        } else {
+            StreamEnd::NoEvents
+        })
     }
 
     async fn handle_game_event(

@@ -17,6 +17,7 @@ mkdir -p "$APP_DIR/secrets"
 
 echo "=== chess_app.sh started ===" > "$SCRIPT_LOG"
 echo "Time: $(date)"               >> "$SCRIPT_LOG"
+echo "Source: ${1:-unknown} (scriptlet / kual menu)" >> "$SCRIPT_LOG"
 
 # ─── Sanity checks ────────────────────────────────────────────────────────────
 if [ ! -f "$BINARY" ]; then

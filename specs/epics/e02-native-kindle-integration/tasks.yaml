@@ -1,0 +1,252 @@
+# Epic e02-native-kindle-integration - Task Specifications
+# Format: YAML for machine readability and CI integration
+# Planning context: specs/planning-context.yaml
+
+---
+# Phase 1: Lifecycle (fullscreen UX preserved, PC:N)
+
+- id: t01-awm-window-title
+  title: AWM window-title module + WM_NAME on the X11 window
+  phase: 1
+  priority: P0
+  estimate_hours: 3
+  status: complete
+  description: |
+    New module kindle_chess/src/ui/awm.rs that builds an AWM-conformant window
+    title from parts (layer, role, PC flags, ID, orientation) and applies it to
+    the app window via x11rb change_property(WM_NAME). Phase 1 title:
+    L:A_N:application_PC:N_ID:org.kindlemodding.kindlechess_O:U
+    PC:N keeps fullscreen (no chrome) in Phase 1; PC:T variant lands in t05.
+    override_redirect stays for Phase 1 (pillow still disabled by launcher);
+    the title is what AWM reads in Phase 2 when the window becomes managed.
+    Setting WM_NAME under Xephyr is harmless (no AWM), so no cfg gating needed.
+  acceptance_criteria:
+    - awm::WindowTitle builder with unit tests for the exact title string format
+    - renderer.rs applies WM_NAME right after create_window/map_window
+    - cargo build + cargo test green
+    - NOTE: on-device UAT of the title is deferred until t05 (PC:T) lands — in
+      Phase 1 (override_redirect + pillow disabled) AWM never reads WM_NAME,
+      so there is nothing user-visible to test yet
+  files_created:
+    - kindle_chess/src/ui/awm.rs
+  files_modified:
+    - kindle_chess/src/ui/mod.rs
+    - kindle_chess/src/ui/renderer.rs
+  dependencies: []
+  blocker: false
+
+- id: t02-scriptlet-launcher
+  title: Scriptlet launcher at repo-root scriptlet/ + flash deploy wiring
+  phase: 1
+  priority: P0
+  estimate_hours: 1
+  status: complete
+  description: |
+    REVISED twice after user feedback. Current shape:
+    - scriptlet/kindle-chess.sh (repo root, NOT inside kindle_KUAL) with
+      # Name: Kindli-Chess / # Author / # Icon: /mnt/us/hellokindle/assets/chess-king.png,
+      execs chess_app.sh --scriptlet. flash.sh / flash_usb.sh copy it to
+      /mnt/us/documents/, where k2's SH_Integration auto-registers it as a
+      launchable library item (kindlemodding.org/kindle-dev/scriptlets.html).
+    - chess_app.sh remains the KUAL launcher (menu.json action, --kual).
+    - appreg.db registration (register_appreg.sh + KUAL entry) was tried for
+      k1 but does NOT work there (possibly account-dependent) — removed again,
+      deferred (out of scope for now). KUAL covers k1.
+  acceptance_criteria:
+    - scriptlet/kindle-chess.sh executable, Name/Author/Icon metadata present,
+      sh -n clean; menu.json valid JSON
+    - flash scripts deploy the scriptlet to /mnt/us/documents
+    - k2 UAT: scriptlet appears in library and launches (--scriptlet in launch.log)
+  files_created:
+    - scriptlet/kindle-chess.sh
+  files_modified:
+    - flash.sh
+    - flash_usb.sh
+    - kindle_KUAL/hellokindle/chess_app.sh
+  dependencies: []
+  blocker: false
+
+- id: t03-powerd-lock-aware-watcher
+  title: Display-lock-aware powerd watcher (lock + wake) -> redraw on wake
+  phase: 1
+  priority: P1
+  estimate_hours: 4
+  status: complete
+  description: |
+    REVISED — was wake-only. kindle_chess/src/system/powerd.rs now classifies raw
+    lipc-wait-event lines (com.lab126.powerd "*") into PowerEvent::Lock
+    (goingToScreenSaver) and PowerEvent::Wake (outOfScreenSaver), debounced
+    500ms leading-edge per kind (coalesces powerd event bursts without adding
+    latency; 2s was tried first and felt laggy / could swallow a real wake),
+    emitted as AppEvent::DeviceLock / AppEvent::DeviceWake. App loop passes both
+    events through to the top screen; on DeviceWake it also does a global redraw
+    AND ChessGameScreen re-kicks the game stream with a cancel flag for the old
+    task — Lichess sends the full GameFull state on every new connection, so
+    this is the explicit refetch of the latest position after unlock.
+    ROOT CAUSE found via device logs (2026-11-05): the debounce was NOT the
+    problem — Wake fired and both handlers ran. The re-kicked stream failed
+    ONCE with "HTTP transport error" ~5s after wake (wifi not re-associated
+    yet) and the one-shot kick gave up. Fix: kick_game_stream is now a
+    resilient reconnect loop (backoff 2s->30s, cancel-flag aware, stops when
+    the game is terminal via StreamEnd) — this also self-heals streams that
+    die mid-lock (observed: stream kept delivering during lock, then died
+    with transport error while still locked). DeviceLock is logged,
+    hook point for the custom screensaver (t08). While locked the panel simply
+    freezes (pillow disabled, no Amazon screensaver). Off-device (no lipc tools)
+    the watcher logs once and exits — no-op.
+  acceptance_criteria:
+    - classify_powerd_event + should_emit unit tests green
+    - AppEvent::DeviceLock and DeviceWake both routed in the app loop and to the top screen
+    - stream_game_event takes a cancel flag and returns StreamEnd; kick_game_stream
+      reconnects with backoff on error/end, stops on terminal game
+    - off-device: no-op with a single log line; cargo build + cargo test green
+    - on-device UAT: after unlock the board shows the LATEST game state — the
+      reconnect loop survives the initial post-wake transport error and refetches
+  files_created:
+    - kindle_chess/src/system/mod.rs
+    - kindle_chess/src/system/powerd.rs
+  files_modified:
+    - kindle_chess/src/lib.rs
+    - kindle_chess/src/ui/events.rs
+    - kindle_chess/src/app/app.rs
+  dependencies:
+    - t01-awm-window-title
+  blocker: false
+
+- id: t04-launch-script-hardening
+  title: Launch-source logging; chess_app.sh = KUAL launcher, scriptlet/ = scriptlet launcher
+  phase: 1
+  priority: P2
+  estimate_hours: 1
+  status: complete
+  description: |
+    REVISED — chess_app.sh is now purely the KUAL launcher script; the scriptlet
+    path is the dedicated repo-root scriptlet/kindle-chess.sh (t02). chess_app.sh
+    logs its source argument (--kual from menu.json, --scriptlet from the
+    scriptlet) in launch.log. Pillow disable/enable handoff and eips -c/-f stay
+    as-is (Phase 1 fullscreen). token.json dance in flash scripts untouched.
+  acceptance_criteria:
+    - launch.log records the source parameter
+    - chess_app.sh contains no registration logic
+    - sh -n clean
+  files_modified:
+    - kindle_KUAL/hellokindle/chess_app.sh
+  dependencies:
+    - t02-scriptlet-launcher
+  blocker: false
+
+---
+# Phase 2: Chrome (PC:T top bar + sidebar button)
+
+- id: t05-pc-t-title
+  title: Runtime-toggleable PC:T status bar over the app (no layout shift)
+  phase: 2
+  priority: P1
+  estimate_hours: 5
+  status: complete
+  description: |
+    REVISED per user correction: PC:T only — NO home/search buttons come up, just
+    the status bar; and the status bar OVERLAYS the app's top strip — the
+    1072x1448 canvas is NOT shifted/pushed down (no LAYOUT offset).
+    Implementation: Renderer::set_chrome_mode(chrome) applies the AWM title
+    (PC:T vs PC:N — live WM_NAME update) and recreates the window when the
+    override-redirect value changes (it is a create-time-only X11 attribute;
+    GCs carry over). Display::set_chrome_mode wraps it with the pillow handoff
+    via system/pillow.rs (lipc-set-prop com.lab126.pillow disableEnablePillow
+    enable/disable, eips -c on return to fullscreen) — all no-ops off-device.
+    AppConfig.chrome_on_start (default false) starts directly in chrome mode.
+    chess_app.sh unchanged: still disables pillow at launch (fullscreen start).
+  acceptance_criteria:
+    - awm title unit tests green; cargo build + cargo test green
+    - off-device: toggle is a safe no-op for pillow/eips, title/override logic exercised
+    - on-device UAT (t07): toggling shows ONLY the Kindle status bar drawn over
+      the app's top strip (no layout shift, no home buttons), brightness
+      reachable from it; toggling back restores clean fullscreen
+  files_created:
+    - kindle_chess/src/system/pillow.rs
+  files_modified:
+    - kindle_chess/src/ui/awm.rs
+    - kindle_chess/src/ui/renderer.rs
+    - kindle_chess/src/ui/display.rs
+    - kindle_chess/src/ui/events.rs
+    - kindle_chess/src/app/app.rs
+    - kindle_chess/src/utils/config.rs
+  dependencies:
+    - t01-awm-window-title
+  blocker: false
+
+- id: t06-topbar-sidebar-button
+  title: Sidebar status-bar button (top.png) above Back
+  phase: 2
+  priority: P1
+  estimate_hours: 3
+  status: complete
+  description: |
+    REVISED per user correction — the button TOGGLES the PC:T status bar (t05),
+    it does not call chromebar directly. IconButton with assets/top.png placed
+    in the left button column of SidebarWidget directly ABOVE the back-nav
+    button (back button moved down to make room; text bands are centred and
+    unaffected). Tap emits AppEvent::ToggleTopBar, handled in the app loop
+    (chrome toggle + full redraw). Game sidebar only for now; puzzle sidebar
+    can get the same button later.
+  acceptance_criteria:
+    - button renders from assets/top.png above Back on the game sidebar
+    - tap emits ToggleTopBar; app loop toggles chrome mode and redraws
+    - cargo build + cargo test green
+  files_created: []
+  files_modified:
+    - kindle_chess/src/ui/widgets/sidebar.rs
+    - kindle_chess/src/ui/events.rs
+    - kindle_chess/src/app/app.rs
+  dependencies:
+    - t05-pc-t-title
+  blocker: false
+
+- id: t07-phase2-uat
+  title: On-device UAT of chrome mode on k2
+  phase: 2
+  priority: P2
+  estimate_hours: 2
+  status: pending
+  description: |
+    Manual UAT on k2 (working scriptlets): scriptlet launch, top bar reachable via
+    top.png button, brightness adjustable, home button exits, lock/unlock redraw,
+    PC:N fallback flag works. Log results in specs/verifications/.
+  acceptance_criteria:
+    - all UAT scenarios pass or have logged follow-up bugs
+  files_created:
+    - specs/verifications/e02-phase2-uat.md
+  files_modified: []
+  dependencies:
+    - t05-pc-t-title
+    - t06-topbar-sidebar-button
+  blocker: false
+
+- id: t08-custom-screensaver
+  title: Custom screensaver (logo.png) on DeviceLock
+  phase: 2
+  priority: P3
+  estimate_hours: 4
+  status: complete
+  description: |
+    While pillow is disabled no Amazon screensaver appears on lock — the panel
+    just froze. Now AppEvent::DeviceLock draws our own screensaver via
+    ui/screensaver.rs: clear white + assets/logo.png (the home-screen logo)
+    pre-scaled to max 800px wide, centred on the 1072x1448 canvas. App gains a
+    `locked` flag: lock sets it and draws the screensaver, wake clears it and
+    does the existing full redraw + stream re-kick; all app redraws (bootstrap,
+    Redraw/Push/Pop transitions) are suppressed while locked so stream events
+    arriving mid-lock don't paint over the screensaver.
+  acceptance_criteria:
+    - cargo build + cargo test green
+    - on-device UAT (t07): lock shows the logo screensaver; unlock restores the
+      app screen cleanly and the game refetches (t03 behavior)
+  files_created:
+    - kindle_chess/src/ui/screensaver.rs
+  files_modified:
+    - kindle_chess/src/ui/mod.rs
+    - kindle_chess/src/models/app.rs
+    - kindle_chess/src/app/app.rs
+  dependencies:
+    - t03-powerd-lock-aware-watcher
+  blocker: false

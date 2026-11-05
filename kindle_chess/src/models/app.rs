@@ -12,4 +12,7 @@ pub struct App {
     /// user choices confirmed at runtime live here for the rest of the app's
     /// lifetime.
     pub config: Arc<RwLock<AppConfig>>,
+    /// True while the display is locked (DeviceLock seen, no DeviceWake yet) —
+    /// screen redraws are suppressed so the custom screensaver stays up.
+    pub locked: bool,
 }
