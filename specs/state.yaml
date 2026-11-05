@@ -21,7 +21,7 @@ handoff:
     - specs/product/SCOPE_LATEST.yaml
     - specs/planning-context.yaml
     - specs/epics/e03-target-device-directory-restructure.md
-  next_skill: develop-tdd (e03s06 apply EN/DE to remaining screens: auth, game, puzzle, ongoing, settings title)
+  next_skill: e03s07 (carried t07 on-device UAT) — then verify-work / release-branch for the epic
 
 notes:
   e02: merged to main (PR #35); all tasks complete except t07 (moved to e03)
