@@ -6,7 +6,7 @@ use x11rb::protocol::xproto;
 use crate::api::github::UpdateInfo;
 use crate::models::{
     bitboard::Bitboards,
-    board_api::{GameDataList, PlayedBy, Turn},
+    board_api::{ChallengeSummary, GameDataList, PlayedBy, Turn},
     chess::ChessApp,
     oauth::{LichessUser, TokenInfo},
     puzzle::{Puzzle, PuzzleParams},
@@ -34,6 +34,10 @@ pub enum AppEvent {
     // Challenge send from PlayScreen
     ChallengeSent(String),   // opponent username
     ChallengeSendFailed(String),
+
+    // InvitesScreen challenge list
+    ChallengesLoaded(Arc<Vec<ChallengeSummary>>),
+    ChallengesFailed(String),
 
     // Update flow → UpdateScreen.
     // - Available: a strictly newer release was found, with verified asset metadata.

@@ -1,4 +1,5 @@
 use std::sync::Arc;
+use std::time::{Duration, Instant};
 
 use log::{debug, error, info, warn};
 
@@ -10,14 +11,14 @@ use crate::{
         update::apply_update,
     },
     models::{
-        board_api::{ChallengeMode, PlayedBy},
+        board_api::{ChallengeMode, ChallengeSummary, PlayedBy},
         chess::ChessApp,
         oauth::TokenInfo,
         puzzle::{PuzzleParams, PuzzleSession, PuzzleStatus},
         ui::{
             ChessAuthScreen, ChessGameScreen, Display, FriendlistScreen, GameActionsScreen,
-            HomeScreen, OngoingChessGamesScreen, PlayScreen, PuzzleScreen, PuzzleSettingsScreen,
-            Screen, SettingsScreen, Transition, UpdateScreen, UpdateState,
+            HomeScreen, InvitesScreen, OngoingChessGamesScreen, PlayScreen, PuzzleScreen,
+            PuzzleSettingsScreen, Screen, SettingsScreen, Transition, UpdateScreen, UpdateState,
         },
     },
     ui::{
@@ -879,7 +880,10 @@ impl Screen for PlayScreen {
             AppEvent::ChallengeSent(opponent) => {
                 self.sending = false;
                 self.status = Some(format!("Challenge sent to {opponent}"));
-                Ok(Transition::Redraw)
+                // Show the pending outgoing invite on the Invites screen.
+                return Ok(Transition::Push(Box::new(InvitesScreen::new(
+                    self.app.clone(),
+                ))));
             }
 
             AppEvent::ChallengeSendFailed(e) => {
@@ -938,10 +942,11 @@ impl Screen for PlayScreen {
                     return Ok(Transition::Redraw);
                 }
 
-                // Invites screen lands in e03s04 — button is visible, wiring there.
                 if self.invites_button.rect.contains(touch.x, touch.y) {
-                    info!("Invites button pressed (screen wired in e03s04)");
-                    return Ok(Transition::Stay);
+                    info!("Invites button pressed — pushing InvitesScreen");
+                    return Ok(Transition::Push(Box::new(InvitesScreen::new(
+                        self.app.clone(),
+                    ))));
                 }
 
                 Ok(Transition::Stay)
@@ -958,6 +963,357 @@ impl Screen for PlayScreen {
 
             _ => Ok(Transition::Stay),
         }
+    }
+}
+
+// ─── InvitesScreen ────────────────────────────────────────────────────────────
+
+/// How often the challenge list is re-polled while the screen is visible.
+const INVITES_POLL_INTERVAL: Duration = Duration::from_secs(5);
+
+/// First accepted challenge with a game id — that's a live game to join.
+fn accepted_game(challenges: &[ChallengeSummary]) -> Option<&ChallengeSummary> {
+    challenges.iter().find(|c| c.game_id().is_some())
+}
+
+/// Which challenge action an InvitesScreen row button triggers.
+#[derive(Debug, Clone, Copy)]
+enum Action {
+    Accept,
+    Decline,
+    Cancel,
+}
+
+impl Action {
+    fn label(self) -> &'static str {
+        match self {
+            Action::Accept => "accept",
+            Action::Decline => "decline",
+            Action::Cancel => "cancel",
+        }
+    }
+}
+
+impl InvitesScreen {
+    /// Spawn the challenge-list fetch. Idempotent w.r.t. `self.loading`.
+    fn kick_fetch(&mut self, display: &Display) {
+        if self.loading {
+            return;
+        }
+        let Some(api) = self.app.online_idle_api() else {
+            self.error = Some("Offline backend has no invites".into());
+            return;
+        };
+        self.loading = true;
+        let tx = display.event_tx.clone();
+        tokio::spawn(async move {
+            match api.list_challenges().await {
+                Ok(list) => {
+                    let _ = tx.send(AppEvent::ChallengesLoaded(Arc::new(list)));
+                }
+                Err(e) => {
+                    let _ = tx.send(AppEvent::ChallengesFailed(e.to_string()));
+                }
+            }
+        });
+    }
+
+    /// Spawn an accept/decline/cancel action, then re-fetch the list so the
+    /// row disappears on success. The refreshed list arrives as
+    /// `ChallengesLoaded`.
+    fn kick_action(&mut self, display: &Display, id: String, action: Action) {
+        let Some(api) = self.app.online_idle_api() else {
+            self.status = Some("Offline backend".into());
+            return;
+        };
+        self.status = Some(format!("Sending {}…", action.label()));
+        let tx = display.event_tx.clone();
+        tokio::spawn(async move {
+            // Map the error to String immediately — `Box<dyn Error>` is not
+            // Send, so it must not be held across the next `.await`.
+            let res_msg = match action {
+                Action::Accept => api.accept_challenge(&id).await.err(),
+                Action::Decline => api.decline_challenge(&id).await.err(),
+                Action::Cancel => api.cancel_challenge(&id).await.err(),
+            }
+            .map(|e| format!("{}: {e}", action.label()));
+            match api.list_challenges().await {
+                Ok(list) => {
+                    let _ = tx.send(AppEvent::ChallengesLoaded(Arc::new(list)));
+                }
+                Err(e) => {
+                    let _ = tx.send(AppEvent::ChallengesFailed(res_msg.unwrap_or_else(|| e.to_string())));
+                }
+            }
+        });
+    }
+
+    /// Bake the current challenge list into the 2+2 rows. Slots past the list
+    /// end get "-" (inert).
+    fn set_rows(&mut self) {
+        let Some(list) = self.challenges.as_ref() else {
+            return;
+        };
+        let incoming: Vec<&ChallengeSummary> = list.iter().filter(|c| c.incoming).collect();
+        let outgoing: Vec<&ChallengeSummary> = list.iter().filter(|c| !c.incoming).collect();
+        let names = [
+            (&mut self.incoming_name_0, &mut self.incoming_name_1, &incoming),
+            (&mut self.outgoing_name_0, &mut self.outgoing_name_1, &outgoing),
+        ];
+        for (n0, n1, src) in names {
+            for (btn, k) in [(n0, 0usize), (n1, 1usize)] {
+                match src.get(k) {
+                    Some(c) => btn.label = format!("{} ({})", c.opponent, c.status),
+                    None => btn.label = "-".to_string(),
+                }
+            }
+        }
+    }
+
+    fn incoming_at(&self, k: usize) -> Option<&ChallengeSummary> {
+        self.challenges
+            .as_ref()?
+            .iter()
+            .filter(|c| c.incoming)
+            .nth(k)
+    }
+
+    fn outgoing_at(&self, k: usize) -> Option<&ChallengeSummary> {
+        self.challenges
+            .as_ref()?
+            .iter()
+            .filter(|c| !c.incoming)
+            .nth(k)
+    }
+}
+
+impl Screen for InvitesScreen {
+    fn render(&mut self, display: &mut Display) -> Result<(), Box<dyn std::error::Error>> {
+        // Poll: initial fetch, then re-fetch every INVITES_POLL_INTERVAL.
+        let stale = self
+            .last_fetch
+            .map(|t| t.elapsed() >= INVITES_POLL_INTERVAL)
+            .unwrap_or(true);
+        if !self.loading && self.error.is_none() && stale {
+            self.kick_fetch(display);
+        }
+
+        display.renderer.clear(DrawColor::White)?;
+
+        let title = "Invites";
+        let (tw, _) = display.renderer.measure_text(title, 36.0);
+        display.renderer.draw_text((1072 - tw as i16) / 2, 120, title, 36.0, DrawColor::Black)?;
+
+        let label_y = |y: i16, text: &str, display: &mut Display| -> Result<(), Box<dyn std::error::Error>> {
+            let (w, _) = display.renderer.measure_text(text, 28.0);
+            display.renderer.draw_text(136, y, text, 28.0, DrawColor::Black)?;
+            let _ = w;
+            Ok(())
+        };
+        label_y(200, "Incoming", display)?;
+        label_y(500, "Outgoing", display)?;
+
+        if let Some(err) = &self.error {
+            let label = format!("Error: {}", err);
+            let (w, h) = display.renderer.measure_text(&label, 24.0);
+            display.renderer.draw_text(
+                (1072 - w as i16) / 2,
+                (1448 - h as i16) / 2,
+                &label,
+                24.0,
+                DrawColor::Black,
+            )?;
+        } else if self.challenges.is_some() {
+            self.incoming_name_0.draw(&mut display.renderer)?;
+            self.incoming_name_1.draw(&mut display.renderer)?;
+            self.incoming_accept_0.draw(&mut display.renderer)?;
+            self.incoming_accept_1.draw(&mut display.renderer)?;
+            self.incoming_decline_0.draw(&mut display.renderer)?;
+            self.incoming_decline_1.draw(&mut display.renderer)?;
+            self.outgoing_name_0.draw(&mut display.renderer)?;
+            self.outgoing_name_1.draw(&mut display.renderer)?;
+            self.outgoing_cancel_0.draw(&mut display.renderer)?;
+            self.outgoing_cancel_1.draw(&mut display.renderer)?;
+        } else {
+            let label = "Loading…";
+            let (w, h) = display.renderer.measure_text(label, 24.0);
+            display.renderer.draw_text(
+                (1072 - w as i16) / 2,
+                (1448 - h as i16) / 2,
+                label,
+                24.0,
+                DrawColor::Black,
+            )?;
+        }
+
+        if let Some(status) = &self.status {
+            let (w, h) = display.renderer.measure_text(status, 24.0);
+            display.renderer.draw_text(
+                (1072 - w as i16) / 2,
+                1240 - h as i16 / 2,
+                status,
+                24.0,
+                DrawColor::Black,
+            )?;
+        }
+
+        self.back_button.draw(&mut display.renderer)?;
+        display.renderer.present()?;
+        Ok(())
+    }
+
+    fn handle_event(
+        &mut self,
+        event: AppEvent,
+        display: &mut Display,
+    ) -> Result<Transition, Box<dyn std::error::Error>> {
+        match event {
+            AppEvent::ChallengesLoaded(list) => {
+                info!("Challenges loaded: {} entries", list.len());
+                self.last_fetch = Some(Instant::now());
+                self.loading = false;
+                self.error = None;
+                // An accepted challenge means the game has started — join it.
+                if let Some(c) = accepted_game(&list) {
+                    if let Some(game_id) = c.game_id() {
+                        let game_id = game_id.to_string();
+                        info!("Challenge {} accepted — joining game {}", c.id, game_id);
+                        let game_app = self.app.clone().attach_game(game_id, false);
+                        return Ok(Transition::Push(Box::new(ChessGameScreen::new(game_app))));
+                    }
+                }
+                self.challenges = Some(list);
+                self.set_rows();
+                Ok(Transition::Redraw)
+            }
+
+            AppEvent::ChallengesFailed(e) => {
+                warn!("Challenge list fetch failed: {}", e);
+                self.error = Some(e);
+                self.loading = false;
+                Ok(Transition::Redraw)
+            }
+
+            AppEvent::Touch(touch) => {
+                if touch.kind != TouchKind::Up {
+                    return Ok(Transition::Stay);
+                }
+                if self.back_button.rect.contains(touch.x, touch.y) {
+                    return Ok(Transition::Pop);
+                }
+
+                // Resolve the tapped row to (challenge id, action) first, so
+                // the immutable button borrows end before `kick_action` borrows
+                // `self` mutably.
+                let mut pending: Option<(String, Action)> = None;
+                for (k, btn) in [&self.incoming_accept_0, &self.incoming_accept_1]
+                    .into_iter()
+                    .enumerate()
+                {
+                    if btn.rect.contains(touch.x, touch.y) {
+                        pending = self.incoming_at(k).map(|c| (c.id.clone(), Action::Accept));
+                        break;
+                    }
+                }
+                if pending.is_none() {
+                    for (k, btn) in [&self.incoming_decline_0, &self.incoming_decline_1]
+                        .into_iter()
+                        .enumerate()
+                    {
+                        if btn.rect.contains(touch.x, touch.y) {
+                            pending = self.incoming_at(k).map(|c| (c.id.clone(), Action::Decline));
+                            break;
+                        }
+                    }
+                }
+                if pending.is_none() {
+                    for (k, btn) in [&self.outgoing_cancel_0, &self.outgoing_cancel_1]
+                        .into_iter()
+                        .enumerate()
+                    {
+                        if btn.rect.contains(touch.x, touch.y) {
+                            pending = self.outgoing_at(k).map(|c| (c.id.clone(), Action::Cancel));
+                            break;
+                        }
+                    }
+                }
+                if let Some((id, action)) = pending {
+                    self.kick_action(display, id, action);
+                    return Ok(Transition::Redraw);
+                }
+                Ok(Transition::Stay)
+            }
+
+            AppEvent::Expose => Ok(Transition::Redraw),
+
+            AppEvent::WindowUnmapped => {
+                warn!("Window unmapped!");
+                Ok(Transition::Stay)
+            }
+
+            AppEvent::Quit => Ok(Transition::Quit),
+
+            _ => Ok(Transition::Stay),
+        }
+    }
+
+    fn on_reveal(&mut self) {
+        // Returning to this screen: force a refetch on next render.
+        self.last_fetch = None;
+        self.challenges = None;
+        self.error = None;
+    }
+}
+
+#[cfg(test)]
+mod invites_tests {
+    use super::*;
+    use crate::models::board_api::ChallengeSummary;
+
+    fn ch(id: &str, status: &str, url: &str, incoming: bool) -> ChallengeSummary {
+        ChallengeSummary {
+            id: id.into(),
+            status: status.into(),
+            opponent: "X".into(),
+            incoming,
+            url: url.into(),
+        }
+    }
+
+    #[test]
+    fn accepted_game_finds_only_accepted_with_url() {
+        let list = vec![
+            ch("a", "created", "https://lichess.org/", true),
+            ch("b", "accepted", "https://lichess.org/gameB", false),
+            ch("c", "accepted", "https://lichess.org/", true), // empty id segment
+        ];
+        let found = accepted_game(&list).unwrap();
+        assert_eq!(found.id, "b");
+        assert_eq!(found.game_id(), Some("gameB"));
+    }
+
+    #[test]
+    fn no_accepted_means_no_game() {
+        let list = vec![ch("a", "created", "https://lichess.org/", true)];
+        assert!(accepted_game(&list).is_none());
+    }
+
+    #[test]
+    fn rows_split_incoming_outgoing() {
+        let mut s = InvitesScreen::new(ChessApp::new_offline());
+        s.challenges = Some(Arc::new(vec![
+            ch("in1", "created", "u", true),
+            ch("out1", "created", "u", false),
+            ch("in2", "created", "u", true),
+        ]));
+        s.set_rows();
+        assert_eq!(s.incoming_name_0.label, "X (created)");
+        assert_eq!(s.incoming_name_1.label, "X (created)");
+        assert_eq!(s.outgoing_name_0.label, "X (created)");
+        assert_eq!(s.outgoing_name_1.label, "-");
+        assert_eq!(s.incoming_at(0).unwrap().id, "in1");
+        assert_eq!(s.incoming_at(2), None);
+        assert_eq!(s.outgoing_at(0).unwrap().id, "out1");
     }
 }
 

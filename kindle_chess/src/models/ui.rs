@@ -12,7 +12,7 @@ use image::{ImageBuffer, Luma};
 use crate::{
     api::github::UpdateInfo,
     models::{
-        board_api::{ChallengeMode, GameDataList},
+        board_api::{ChallengeMode, ChallengeSummary, GameDataList},
         chess::ChessApp,
         oauth::TokenInfo,
         puzzle::{PuzzleParams, PuzzleSession},
@@ -285,6 +285,70 @@ impl OngoingChessGamesScreen {
             error: None,
             loading: false,
             page_index: 0,
+        }
+    }
+}
+
+// ─── InvitesScreen ────────────────────────────────────────────────────────────
+/// Incoming/outgoing friend challenges. Polls the challenge list every 5 s;
+/// incoming rows get Accept/Decline, outgoing rows get Cancel. Any challenge
+/// whose status flips to "accepted" starts the live game (push ChessGameScreen).
+pub struct InvitesScreen {
+    pub app: ChessApp,
+    // 2 incoming + 2 outgoing rows: opponent name button + action button(s)
+    pub incoming_name_0: Button,
+    pub incoming_name_1: Button,
+    pub incoming_accept_0: Button,
+    pub incoming_accept_1: Button,
+    pub incoming_decline_0: Button,
+    pub incoming_decline_1: Button,
+    pub outgoing_name_0: Button,
+    pub outgoing_name_1: Button,
+    pub outgoing_cancel_0: Button,
+    pub outgoing_cancel_1: Button,
+    pub back_button: IconButton,
+
+    pub challenges: Option<Arc<Vec<ChallengeSummary>>>,
+    pub error: Option<String>,
+    pub loading: bool,
+    pub last_fetch: Option<Instant>,
+    pub status: Option<String>,
+}
+
+impl InvitesScreen {
+    pub fn new(app: ChessApp) -> Self {
+        // Layout: 1072 × 1448. "Incoming" section at top, "Outgoing" below,
+        // status line near the bottom, back bottom-left.
+        const NAME_W: u16 = 420;
+        const ACT_W: u16 = 200;
+        const ROW_H: u16 = 80;
+        let name_x = 136;
+        let acc_x = 576;
+        let dec_x = 792;
+        let row = |i: i16| 240 + i * (ROW_H as i16 + 20);
+        let orow = |i: i16| 540 + i * (ROW_H as i16 + 20);
+        let btn = |x: i16, y: i16, w: u16, label: &str| {
+            Button::new(x, y, w, ROW_H, label.to_string(), 32.0, true)
+        };
+        let bottom = 1448 - (ICON_BUTTON_SIZE as i16 - 20) - 32;
+        Self {
+            app,
+            incoming_name_0: btn(name_x, row(0), NAME_W, "-"),
+            incoming_name_1: btn(name_x, row(1), NAME_W, "-"),
+            incoming_accept_0: btn(acc_x, row(0), ACT_W, "Accept"),
+            incoming_accept_1: btn(acc_x, row(1), ACT_W, "Accept"),
+            incoming_decline_0: btn(dec_x, row(0), ACT_W, "Decline"),
+            incoming_decline_1: btn(dec_x, row(1), ACT_W, "Decline"),
+            outgoing_name_0: btn(name_x, orow(0), NAME_W, "-"),
+            outgoing_name_1: btn(name_x, orow(1), NAME_W, "-"),
+            outgoing_cancel_0: btn(acc_x, orow(0), ACT_W, "Cancel"),
+            outgoing_cancel_1: btn(acc_x, orow(1), ACT_W, "Cancel"),
+            back_button: IconButton::new(32 + ICON_BUTTON_SIZE as i16 / 2, bottom, "back-nav.png"),
+            challenges: None,
+            error: None,
+            loading: false,
+            last_fetch: None,
+            status: None,
         }
     }
 }
