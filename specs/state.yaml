@@ -32,8 +32,9 @@ handoff:
   # system/pillow.rs, no-op off-device; chrome_on_start config flag) + top.png
   # sidebar button above Back emitting ToggleTopBar. t08 done: logo.png
   # screensaver on DeviceLock (App.locked suppresses redraws until wake).
-  # Remaining: t07 on-device UAT on k2 (scriptlet launch, lock->logo screensaver
-  # -> wake refetch, top-bar toggle), then land branch.
+  # BUG-2026-11-05T095333 (wake redraw skipped cached widgets) fixed dc898bf,
+  # CONFIRMED on-device by user. Remaining: t07 UAT log, then branch is ready
+  # to merge to main (user handles push/merge).
 
 notes:
   phase1: ready_to_land

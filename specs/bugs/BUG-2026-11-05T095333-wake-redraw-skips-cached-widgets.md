@@ -69,6 +69,8 @@ Risk level: Low (visual staleness only; input and game logic unaffected).
 
 ## Resolution
 
-Fixed on branch `e02-native-kindle-integration`: app-loop `DeviceWake` handler
-now calls `screen.on_reveal()` before the redraw; widget-level regression tests
-added for the invalidate contract. Pending on-device confirmation via t07 UAT.
+Fixed on branch `e02-native-kindle-integration` (commit dc898bf): app-loop
+`DeviceWake` handler now calls `screen.on_reveal()` before the redraw; widget-level
+regression tests added for the invalidate contract. Confirmed on-device by the
+reporter: unlock after lock now fully repaints board+sidebar. Remaining e02 step:
+t07 UAT log, then merge to main.
