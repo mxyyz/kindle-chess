@@ -289,6 +289,58 @@ impl OngoingChessGamesScreen {
     }
 }
 
+// ─── FriendlistScreen ─────────────────────────────────────────────────────────
+/// Opponent picker for the Play flow: paged list of the user's Lichess friends
+/// (`/api/rel/following`). Tapping a friend emits `AppEvent::FriendSelected`
+/// and pops, handing the username back to the pushing screen (PlayScreen).
+pub struct FriendlistScreen {
+    pub app: ChessApp,
+    pub friend_button_0: Button,
+    pub friend_button_1: Button,
+    pub friend_button_2: Button,
+    pub friend_button_3: Button,
+    pub prev_page_button: IconButton,
+    pub next_page_button: IconButton,
+    pub back_button: IconButton,
+
+    // Async fetch state. `friends == None && error == None && !loading` means
+    // the screen has not yet kicked off its initial fetch — `render` triggers it.
+    pub friends: Option<Arc<Vec<String>>>,
+    pub error: Option<String>,
+    pub loading: bool,
+
+    // Pagination: 4 friend buttons per page; labels baked by `set_page`.
+    pub page_index: usize,
+}
+
+impl FriendlistScreen {
+    pub fn new(app: ChessApp) -> Self {
+        // Layout: 1072 × 1448. Title strip at top, then 4 stacked 600×96
+        // buttons starting at y=400, page icons + back along the bottom.
+        const BTN_W: u16 = 600;
+        const BTN_H: u16 = 96;
+        const GAP: i16 = 28;
+        const START_Y: i16 = 400;
+        let x = (1072 - BTN_W as i16) / 2;
+        let row = |i: i16| START_Y + i * (BTN_H as i16 + GAP);
+        let bottom = 1448 - (ICON_BUTTON_SIZE as i16 - 20) - 32;
+        Self {
+            app,
+            friend_button_0: Button::new(x, row(0), BTN_W, BTN_H, "-".to_string(), 40.0, true),
+            friend_button_1: Button::new(x, row(1), BTN_W, BTN_H, "-".to_string(), 40.0, true),
+            friend_button_2: Button::new(x, row(2), BTN_W, BTN_H, "-".to_string(), 40.0, true),
+            friend_button_3: Button::new(x, row(3), BTN_W, BTN_H, "-".to_string(), 40.0, true),
+            prev_page_button: IconButton::new(1072 / 2 - (ICON_BUTTON_SIZE as i16 + 8), bottom, "back-page.png"),
+            next_page_button: IconButton::new(1072 / 2 + 8, bottom, "next-page.png"),
+            back_button: IconButton::new(32 + ICON_BUTTON_SIZE as i16 / 2, bottom, "back-nav.png"),
+            friends: None,
+            error: None,
+            loading: false,
+            page_index: 0,
+        }
+    }
+}
+
 // ─── ChessAuthScreen ──────────────────────────────────────────────────────────
 
 pub struct ChessAuthScreen {

@@ -15,9 +15,9 @@ use crate::{
         oauth::TokenInfo,
         puzzle::{PuzzleParams, PuzzleSession, PuzzleStatus},
         ui::{
-            ChessAuthScreen, ChessGameScreen, Display, GameActionsScreen, HomeScreen,
-            OngoingChessGamesScreen, PuzzleScreen, PuzzleSettingsScreen, Screen, SettingsScreen,
-            Transition, UpdateScreen, UpdateState,
+            ChessAuthScreen, ChessGameScreen, Display, FriendlistScreen, GameActionsScreen,
+            HomeScreen, OngoingChessGamesScreen, PuzzleScreen, PuzzleSettingsScreen, Screen,
+            SettingsScreen, Transition, UpdateScreen, UpdateState,
         },
     },
     ui::{
@@ -752,6 +752,271 @@ impl Screen for OngoingChessGamesScreen {
         // so the next render re-fetches and the ongoing-games view is current.
         self.games = None;
         self.error = None;
+    }
+}
+
+// ─── FriendlistScreen ─────────────────────────────────────────────────────────
+
+const FRIENDS_PER_PAGE: usize = 4;
+
+impl FriendlistScreen {
+    /// Spawn the friends fetch onto the tokio runtime. Idempotent w.r.t.
+    /// `self.loading` — call from `render` (initial load) only. Result is
+    /// delivered as `FriendsLoaded` / `FriendsFailed` over the event channel.
+    fn kick_fetch(&mut self, display: &Display) {
+        if self.loading {
+            return;
+        }
+        let Some(api) = self.app.online_idle_api() else {
+            self.error = Some("Offline backend has no friend list".into());
+            return;
+        };
+        self.loading = true;
+        let tx = display.event_tx.clone();
+        tokio::spawn(async move {
+            match api.get_following().await {
+                Ok(names) => {
+                    let _ = tx.send(AppEvent::FriendsLoaded(Arc::new(names)));
+                }
+                Err(e) => {
+                    let _ = tx.send(AppEvent::FriendsFailed(e.to_string()));
+                }
+            }
+        });
+    }
+
+    fn page_count(&self) -> usize {
+        match &self.friends {
+            Some(f) => f.len().div_ceil(FRIENDS_PER_PAGE),
+            None => 0,
+        }
+    }
+
+    /// Bake labels for `index`'s page of friends into the four buttons and
+    /// update `self.page_index`. Slots past the list end get "-" (inert).
+    fn set_page(&mut self, index: usize) {
+        self.page_index = index;
+        let Some(friends) = self.friends.as_ref() else {
+            return;
+        };
+        let buttons: [&mut Button; 4] = [
+            &mut self.friend_button_0,
+            &mut self.friend_button_1,
+            &mut self.friend_button_2,
+            &mut self.friend_button_3,
+        ];
+        let start = index * FRIENDS_PER_PAGE;
+        for (k, btn) in buttons.into_iter().enumerate() {
+            match friends.get(start + k) {
+                Some(name) => btn.label = name.clone(),
+                None => btn.label = "-".to_string(),
+            }
+        }
+    }
+
+    /// Which friend `friend_button_{k}` currently maps to, given the page.
+    /// `None` for inert "-" slots.
+    fn friend_at_slot(&self, k: usize) -> Option<&String> {
+        self.friends
+            .as_ref()?
+            .get(self.page_index * FRIENDS_PER_PAGE + k)
+    }
+}
+
+impl Screen for FriendlistScreen {
+    fn render(&mut self, display: &mut Display) -> Result<(), Box<dyn std::error::Error>> {
+        use crate::ui::renderer::DrawColor;
+
+        // First paint after Push: kick off the async fetch once.
+        if self.friends.is_none() && self.error.is_none() && !self.loading {
+            self.kick_fetch(display);
+        }
+
+        display.renderer.clear(DrawColor::White)?;
+
+        // Title strip
+        let title = "Choose opponent";
+        let (tw, _) = display.renderer.measure_text(title, 36.0);
+        display.renderer.draw_text(
+            (1072 - tw as i16) / 2,
+            120,
+            title,
+            36.0,
+            DrawColor::Black,
+        )?;
+
+        let size_px = 24.0;
+        if let Some(err) = &self.error {
+            let label = format!("Error: {}", err);
+            let (tw, th) = display.renderer.measure_text(&label, size_px);
+            display.renderer.draw_text(
+                (1072 - tw as i16) / 2,
+                (1448 - th as i16) / 2,
+                &label,
+                size_px,
+                DrawColor::Black,
+            )?;
+        } else if let Some(friends) = &self.friends {
+            if friends.is_empty() {
+                let label = "No friends yet — add friends on lichess.org";
+                let (tw, th) = display.renderer.measure_text(label, size_px);
+                display.renderer.draw_text(
+                    (1072 - tw as i16) / 2,
+                    (1448 - th as i16) / 2,
+                    label,
+                    size_px,
+                    DrawColor::Black,
+                )?;
+            } else {
+                self.friend_button_0.draw(&mut display.renderer)?;
+                self.friend_button_1.draw(&mut display.renderer)?;
+                self.friend_button_2.draw(&mut display.renderer)?;
+                self.friend_button_3.draw(&mut display.renderer)?;
+            }
+            self.back_button.draw(&mut display.renderer)?;
+            self.next_page_button.draw(&mut display.renderer)?;
+            self.prev_page_button.draw(&mut display.renderer)?;
+        } else {
+            let label = "Loading…";
+            let (tw, th) = display.renderer.measure_text(label, size_px);
+            display.renderer.draw_text(
+                (1072 - tw as i16) / 2,
+                (1448 - th as i16) / 2,
+                label,
+                size_px,
+                DrawColor::Black,
+            )?;
+            self.back_button.draw(&mut display.renderer)?;
+        }
+
+        display.renderer.present()?;
+        Ok(())
+    }
+
+    fn handle_event(
+        &mut self,
+        event: AppEvent,
+        display: &mut Display,
+    ) -> Result<Transition, Box<dyn std::error::Error>> {
+        match event {
+            AppEvent::FriendsLoaded(names) => {
+                info!("Friends loaded: {} entries", names.len());
+                self.friends = Some(names);
+                self.loading = false;
+                self.set_page(self.page_index);
+                Ok(Transition::Redraw)
+            }
+
+            AppEvent::FriendsFailed(e) => {
+                warn!("Friends fetch failed: {}", e);
+                self.error = Some(e);
+                self.loading = false;
+                Ok(Transition::Redraw)
+            }
+
+            AppEvent::Touch(touch) => {
+                if touch.kind != TouchKind::Up {
+                    return Ok(Transition::Stay);
+                }
+
+                if self.back_button.rect.contains(touch.x, touch.y) {
+                    return Ok(Transition::Pop);
+                }
+
+                if self.next_page_button.rect.contains(touch.x, touch.y) {
+                    let last = self.page_count().saturating_sub(1);
+                    if self.page_index < last {
+                        self.set_page(self.page_index + 1);
+                        return Ok(Transition::Redraw);
+                    }
+                    return Ok(Transition::Stay);
+                }
+
+                if self.prev_page_button.rect.contains(touch.x, touch.y) {
+                    if self.page_index > 0 {
+                        self.set_page(self.page_index - 1);
+                        return Ok(Transition::Redraw);
+                    }
+                    return Ok(Transition::Stay);
+                }
+
+                let friend_buttons = [
+                    &self.friend_button_0,
+                    &self.friend_button_1,
+                    &self.friend_button_2,
+                    &self.friend_button_3,
+                ];
+                for (k, btn) in friend_buttons.into_iter().enumerate() {
+                    if !btn.rect.contains(touch.x, touch.y) {
+                        continue;
+                    }
+                    let Some(name) = self.friend_at_slot(k).cloned() else {
+                        return Ok(Transition::Stay);
+                    };
+                    info!("Friend selected: {}", name);
+                    // Bubble the pick to the screen below before popping —
+                    // it becomes top-of-stack and receives this event next.
+                    let _ = display.event_tx.send(AppEvent::FriendSelected(name));
+                    return Ok(Transition::Pop);
+                }
+                Ok(Transition::Stay)
+            }
+
+            AppEvent::Expose => Ok(Transition::Redraw),
+
+            AppEvent::WindowUnmapped => {
+                warn!("Window unmapped!");
+                Ok(Transition::Stay)
+            }
+
+            AppEvent::Quit => Ok(Transition::Quit),
+
+            _ => Ok(Transition::Stay),
+        }
+    }
+
+    fn on_reveal(&mut self) {
+        // Returning to this screen from a pushed one: refetch so the list is
+        // current.
+        self.friends = None;
+        self.error = None;
+    }
+}
+
+#[cfg(test)]
+mod friendlist_tests {
+    use super::*;
+    use crate::models::chess::ChessApp;
+
+    fn screen_with_friends(names: &[&str]) -> FriendlistScreen {
+        let mut s = FriendlistScreen::new(ChessApp::new_offline());
+        s.friends = Some(Arc::new(names.iter().map(|n| n.to_string()).collect()));
+        s.set_page(0);
+        s
+    }
+
+    #[test]
+    fn pagination_pages_of_four() {
+        let s = screen_with_friends(&["a", "b", "c", "d", "e"]);
+        assert_eq!(s.page_count(), 2);
+        assert_eq!(s.friend_button_0.label, "a");
+        assert_eq!(s.friend_button_3.label, "d");
+    }
+
+    #[test]
+    fn set_page_second_page_and_inert_slots() {
+        let mut s = screen_with_friends(&["a", "b", "c", "d", "e"]);
+        s.set_page(1);
+        assert_eq!(s.friend_button_0.label, "e");
+        assert_eq!(s.friend_button_1.label, "-");
+        assert_eq!(s.friend_at_slot(0).map(|s| s.as_str()), Some("e"));
+        assert_eq!(s.friend_at_slot(1), None);
+    }
+
+    #[test]
+    fn empty_friend_list_has_one_empty_page() {
+        let s = screen_with_friends(&[]);
+        assert_eq!(s.page_count(), 0);
     }
 }
 
