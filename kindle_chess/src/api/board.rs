@@ -9,6 +9,8 @@ use crate::ui::events::AppEvent;
 use futures_util::StreamExt;
 use litchee::LichessError;
 use log::{info, warn};
+use std::sync::Arc;
+use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::mpsc::Sender;
 
 // State-agnostic operations: ongoing-games list and the account event stream
@@ -88,13 +90,23 @@ impl BoardAPI<InGame> {
     /// **not** propagate back to the screen. Every state change the screen
     /// cares about is shipped as an `AppEvent` through `tx`. The screen
     /// applies those events to *its own* `ChessApp` copy.
+    ///
+    /// `cancel`: when set, the task stops forwarding events and exits. Used to
+    /// supersede a stalled stream (e.g. after device wake) with a fresh one —
+    /// Lichess sends the full game state on every new stream connection, so
+    /// re-kicking is also the refetch path.
     pub async fn stream_game_event(
         &mut self,
         tx: Sender<AppEvent>,
+        cancel: Arc<AtomicBool>,
     ) -> Result<(), Box<dyn std::error::Error>> {
         let mut stream = self.adapter.stream_game(self.game_id()).await?;
 
         while let Some(result) = stream.next().await {
+            if cancel.load(Ordering::SeqCst) {
+                info!("game stream cancelled (superseded by a newer stream)");
+                break;
+            }
             match result {
                 Ok(event) => {
                     info!("Received event: {:?}", event);

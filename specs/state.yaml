@@ -20,8 +20,10 @@ handoff:
   # launcher at repo-root scriptlet/kindle-chess.sh deployed to /mnt/us/documents
   # by flash scripts (appreg.db registration tried for k1, does not work there —
   # dropped for now; KUAL = fallback on k1), display-lock-aware powerd watcher
-  # (DeviceLock + DeviceWake, wake -> full redraw; lock = hook for custom
-  # screensaver t08), --source logging in launch.log.
+  # (DeviceLock + DeviceWake, 500ms leading-edge debounce; wake -> full redraw
+  # AND ChessGameScreen re-kicks the SSE stream with cancel-flag so the board
+  # refetches latest state after unlock; lock = hook for custom screensaver t08),
+  # --source logging in launch.log.
   # 88 lib tests green, build + fmt clean. Remaining: on-device UAT on k2
   # (scriptlet launches, lock/unlock behavior), then Phase 2: t05 PC:T title,
   # t06 top.png sidebar button above Back, t07 UAT, t08 custom screensaver.

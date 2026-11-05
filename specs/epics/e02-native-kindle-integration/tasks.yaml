@@ -75,17 +75,24 @@
   description: |
     REVISED — was wake-only. kindle_chess/src/system/powerd.rs now classifies raw
     lipc-wait-event lines (com.lab126.powerd "*") into PowerEvent::Lock
-    (goingToScreenSaver) and PowerEvent::Wake (outOfScreenSaver), debounced 2s
-    per kind, emitted as AppEvent::DeviceLock / AppEvent::DeviceWake. App loop:
-    DeviceWake -> full redraw of top screen (clean e-ink panel after unlock);
-    DeviceLock -> logged, hook point for the custom screensaver (t08). While
-    locked the panel simply freezes (pillow disabled, no Amazon screensaver).
-    Off-device (no lipc tools) the watcher logs once and exits — no-op.
+    (goingToScreenSaver) and PowerEvent::Wake (outOfScreenSaver), debounced
+    500ms leading-edge per kind (coalesces powerd event bursts without adding
+    latency; 2s was tried first and felt laggy / could swallow a real wake),
+    emitted as AppEvent::DeviceLock / AppEvent::DeviceWake. App loop passes both
+    events through to the top screen; on DeviceWake it also does a global redraw
+    AND ChessGameScreen re-kicks the game stream with a cancel flag for the old
+    task — the SSE stream stalls/dies while the display is locked, and Lichess
+    sends the full GameFull state on every new connection, so this is the
+    explicit refetch of the latest position after unlock. DeviceLock is logged,
+    hook point for the custom screensaver (t08). While locked the panel simply
+    freezes (pillow disabled, no Amazon screensaver). Off-device (no lipc tools)
+    the watcher logs once and exits — no-op.
   acceptance_criteria:
     - classify_powerd_event + should_emit unit tests green
-    - AppEvent::DeviceLock and DeviceWake both routed in the app loop
+    - AppEvent::DeviceLock and DeviceWake both routed in the app loop and to the top screen
+    - stream_game_event takes a cancel flag; stale stream stops forwarding after wake
     - off-device: no-op with a single log line; cargo build + cargo test green
-    - on-device UAT: lock/unlock observed in log; board redraws cleanly on unlock
+    - on-device UAT: lock/unlock observed in log; after unlock the board shows the LATEST game state (stream refetched), not the pre-lock snapshot
   files_created:
     - kindle_chess/src/system/mod.rs
     - kindle_chess/src/system/powerd.rs

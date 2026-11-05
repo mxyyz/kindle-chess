@@ -200,7 +200,9 @@ impl Screen for ChessGameScreen {
         // GameFullReceived / TurnChanged events (see kick_game_stream).
         if !self.stream_started {
             self.stream_started = true;
-            kick_game_stream(&self.app, display.event_tx.clone());
+            let cancel = std::sync::Arc::new(std::sync::atomic::AtomicBool::new(false));
+            self.stream_cancel = Some(cancel.clone());
+            kick_game_stream(&self.app, display.event_tx.clone(), cancel);
         }
 
         self.board.render(&mut display.renderer)?;
@@ -328,6 +330,21 @@ impl Screen for ChessGameScreen {
                 Ok(Transition::Stay)
             }
 
+            // Device woke from lock: the SSE stream stalls/dies while the
+            // display is locked, so restart it — Lichess sends the full game
+            // state (GameFull) on every new stream connection, which refetches
+            // the most recent position. Cancel any stalled predecessor first.
+            AppEvent::DeviceWake => {
+                info!("Device wake — restarting game-state stream (refetch)");
+                if let Some(old) = &self.stream_cancel {
+                    old.store(true, std::sync::atomic::Ordering::SeqCst);
+                }
+                let cancel = std::sync::Arc::new(std::sync::atomic::AtomicBool::new(false));
+                self.stream_cancel = Some(cancel.clone());
+                kick_game_stream(&self.app, display.event_tx.clone(), cancel);
+                Ok(Transition::Redraw)
+            }
+
             AppEvent::Quit => {
                 info!("Quit requested");
                 Ok(Transition::Quit)
@@ -350,13 +367,17 @@ impl Screen for ChessGameScreen {
 // bookkeeping. Every state change the screen needs is sent back as an
 // `AppEvent`. No-op when the screen wasn't pushed with an in-game backend
 // (e.g. the Demo button path, which still uses an Idle ChessApp).
-fn kick_game_stream(app: &ChessApp, tx: Sender<AppEvent>) {
+fn kick_game_stream(
+    app: &ChessApp,
+    tx: Sender<AppEvent>,
+    cancel: std::sync::Arc<std::sync::atomic::AtomicBool>,
+) {
     let Some(mut api) = app.online_in_game_api() else {
         warn!("ChessGameScreen has no in-game backend — skipping stream");
         return;
     };
     tokio::spawn(async move {
-        if let Err(e) = api.stream_game_event(tx).await {
+        if let Err(e) = api.stream_game_event(tx, cancel).await {
             warn!("Game-state stream errored: {}", e);
         }
     });

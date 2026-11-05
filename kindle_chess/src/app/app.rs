@@ -114,14 +114,15 @@ impl App {
 
             // Display lock: powerd goingToScreenSaver. Hook point for a custom
             // screensaver (future task); for now just log — the panel freezes
-            // on its own while locked.
+            // on its own while locked. The event still flows to the top screen.
             if matches!(event, AppEvent::DeviceLock) {
                 info!("Device lock (screensaver) — display frozen");
-                continue;
             }
 
             // Device wake/unlock: full redraw of the top screen so the e-ink
             // panel comes back clean after the lock (powerd outOfScreenSaver).
+            // The event also flows to the top screen, which re-kicks the game
+            // stream so the board refetches its latest state.
             if matches!(event, AppEvent::DeviceWake) {
                 info!("Device wake — full redraw");
                 if let Some(screen) = self.screen_stack.last_mut()
@@ -129,7 +130,6 @@ impl App {
                 {
                     error!("Wake redraw error: {}", e);
                 }
-                continue;
             }
 
             // Delegate to the screen on top of the stack

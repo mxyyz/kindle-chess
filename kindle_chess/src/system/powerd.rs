@@ -23,8 +23,11 @@ use log::{info, warn};
 use crate::ui::events::AppEvent;
 
 /// Minimum gap between two emitted events of the same kind — powerd can emit a
-/// burst around one physical lock/unlock.
-pub const EVENT_DEBOUNCE: Duration = Duration::from_secs(2);
+/// burst of duplicate events around one physical lock/unlock. Leading-edge:
+/// the first event passes immediately (no added latency), repeats within the
+/// window are swallowed. 500 ms is enough to coalesce bursts without a
+/// perceptible delay between button press and screen update.
+pub const EVENT_DEBOUNCE: Duration = Duration::from_millis(500);
 
 /// A classified powerd event.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -151,7 +154,7 @@ mod tests {
     #[test]
     fn event_within_debounce_is_suppressed() {
         let t0 = Instant::now();
-        assert!(!should_emit(Some(t0), t0 + Duration::from_millis(500)));
+        assert!(!should_emit(Some(t0), t0 + Duration::from_millis(200)));
     }
 
     #[test]

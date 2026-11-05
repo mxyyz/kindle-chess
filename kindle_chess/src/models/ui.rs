@@ -172,6 +172,9 @@ pub struct ChessGameScreen {
     pub sidebar: SidebarWidget,
     // First-render guard: kick the game-state stream task exactly once.
     pub stream_started: bool,
+    // Cancel flag of the currently running stream task. Set on DeviceWake so
+    // a stalled stream (device was locked) is superseded by a fresh one.
+    pub stream_cancel: Option<std::sync::Arc<std::sync::atomic::AtomicBool>>,
 }
 
 impl ChessGameScreen {
@@ -188,6 +191,7 @@ impl ChessGameScreen {
             board: BoardWidget::new(Rectangle::new(0, 0, 1072, 1072)),
             sidebar,
             stream_started: false,
+            stream_cancel: None,
         }
     }
 }
