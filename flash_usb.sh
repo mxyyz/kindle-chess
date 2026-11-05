@@ -17,7 +17,10 @@ echo "Temporarly moving token before copying.."
 mv ./kindle_KUAL/hellokindle/secrets/token.json ./
 
 echo "Flashing local KUAL-App to Kindle"
-yes | sudo cp -r ./kindle_KUAL/* /mnt/tmp/
+# App root deploys as /mnt/us/kindlichess (repo dir stays kindle_KUAL/hellokindle);
+# KUAL wiring stays at /mnt/us/extensions/hellokindle. New deploys only.
+yes | sudo cp -r ./kindle_KUAL/extensions /mnt/tmp/
+yes | sudo cp -r ./kindle_KUAL/hellokindle /mnt/tmp/kindlichess
 
 echo "Deploying scriptlet to /mnt/us/documents (SH_Integration auto-registers it)"
 yes | sudo cp ./scriptlet/kindle-chess.sh /mnt/tmp/documents/
