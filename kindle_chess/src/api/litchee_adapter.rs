@@ -295,6 +295,27 @@ impl LitcheeAdapter {
     pub async fn abort_game(&self, game_id: &str) -> Result<(), LichessError> {
         self.client.board().abort(game_id).await
     }
+
+    // Relations
+    /// Usernames of the players the authenticated user follows (Lichess
+    /// "friends"). `GET /api/rel/following` streams NDJSON — one user object
+    /// per line — which we collect into a plain sorted list for the
+    /// FriendlistScreen.
+    pub async fn get_following(&self) -> Result<Vec<String>, LichessError> {
+        if self.token.is_none() {
+            return Err(LichessError::InvalidRequest(
+                "get_following requires authentication".into(),
+            ));
+        }
+        let stream = self.client.relations().following().await?;
+        tokio::pin!(stream);
+        let mut names = Vec::new();
+        while let Some(item) = stream.next().await {
+            names.push(item?.username);
+        }
+        names.sort();
+        Ok(names)
+    }
 }
 
 fn map_board_event(lb_event: &LichessBoardEvent) -> GameStateStreamEvent {

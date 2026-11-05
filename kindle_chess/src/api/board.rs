@@ -33,6 +33,12 @@ impl<S> BoardAPI<S> {
     ) -> Result<GameDataList, Box<dyn std::error::Error>> {
         Ok(self.adapter.get_ongoing_games(n).await?)
     }
+
+    /// Usernames of followed players (Lichess friends) — the FriendlistScreen's
+    /// data source for picking a challenge opponent.
+    pub async fn get_following(&self) -> Result<Vec<String>, Box<dyn std::error::Error>> {
+        Ok(self.adapter.get_following().await?)
+    }
 }
 
 impl BoardAPI<Idle> {
