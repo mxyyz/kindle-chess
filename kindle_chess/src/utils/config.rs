@@ -242,3 +242,36 @@ mod config_tests {
         assert_eq!(parsed.language, "en");
     }
 }
+
+#[cfg(test)]
+mod persistence_tests {
+    use crate::models::puzzle::Difficulty;
+    use super::*;
+
+    #[test]
+    fn language_and_puzzle_survive_save_load_roundtrip() {
+        let path = std::env::temp_dir().join(format!(
+            "kindle-chess-persist-{}.json",
+            uuid::Uuid::new_v4()
+        ));
+        let mut cfg = AppConfig::default();
+        cfg.language = "de".into();
+        cfg.puzzle.difficulty = Difficulty::Hardest;
+        cfg.save_to(&path).unwrap();
+
+        let loaded = AppConfig::load_from(&path).unwrap();
+        assert_eq!(loaded.language, "de");
+        assert_eq!(loaded.puzzle.difficulty, Difficulty::Hardest);
+
+        std::fs::remove_file(&path).ok();
+    }
+
+    #[test]
+    fn save_to_creates_missing_parent_dirs() {
+        let dir = std::env::temp_dir().join(format!("kindle-chess-persist-{}", uuid::Uuid::new_v4()));
+        let path = dir.join("config").join("default_cfg.json");
+        AppConfig::default().save_to(&path).unwrap();
+        assert!(path.exists());
+        std::fs::remove_dir_all(&dir).ok();
+    }
+}
