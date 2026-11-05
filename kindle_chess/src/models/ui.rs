@@ -12,7 +12,7 @@ use image::{ImageBuffer, Luma};
 use crate::{
     api::github::UpdateInfo,
     models::{
-        board_api::GameDataList,
+        board_api::{ChallengeMode, GameDataList},
         chess::ChessApp,
         oauth::TokenInfo,
         puzzle::{PuzzleParams, PuzzleSession},
@@ -114,7 +114,7 @@ impl HomeScreen {
         let row = |i: i16| start_y + i * (BTN_H as i16 + GAP);
 
         Self {
-            chess_button: Button::new(x, row(0), BTN_W, BTN_H, String::from("Demo"), 45.0, true),
+            chess_button: Button::new(x, row(0), BTN_W, BTN_H, String::from("Play"), 45.0, true),
             puzzle_button: Button::new(x, row(1), BTN_W, BTN_H, String::from("Puzzle"), 45.0, true),
             ongoing_games_button: Button::new(
                 x,
@@ -285,6 +285,68 @@ impl OngoingChessGamesScreen {
             error: None,
             loading: false,
             page_index: 0,
+        }
+    }
+}
+
+// ─── PlayScreen ───────────────────────────────────────────────────────────────
+/// The Play flow's form: pick a game mode (Unlimited / Real time 10:5 /
+/// Correspondence with a 1–14 days spinner), pick an opponent via
+/// FriendlistScreen, then send a casual standard challenge with random color.
+pub struct PlayScreen {
+    pub app: ChessApp,
+    pub mode_button_unlimited: Button,
+    pub mode_button_realtime: Button,
+    pub mode_button_correspondence: Button,
+    pub spinner_minus: Button,
+    pub spinner_plus: Button,
+    pub opponent_button: Button,
+    pub send_button: Button,
+    pub invites_button: IconButton,
+    pub back_button: IconButton,
+
+    pub selected_mode: ChallengeMode,
+    pub days: u8,
+    pub opponent: Option<String>,
+    pub status: Option<String>,
+    pub sending: bool,
+}
+
+impl PlayScreen {
+    pub fn new(app: ChessApp) -> Self {
+        // Layout: 1072 × 1448. Title top, invites icon top-right, mode row,
+        // spinner row, opponent + send buttons, status line, back bottom-left.
+        const MODE_W: u16 = 320;
+        const MODE_H: u16 = 80;
+        const BTN_W: u16 = 600;
+        const BTN_H: u16 = 96;
+        let mode_x0 = (1072 - (3 * MODE_W as i16 + 2 * 16)) / 2;
+        let x = (1072 - BTN_W as i16) / 2;
+        let bottom = 1448 - (ICON_BUTTON_SIZE as i16 - 20) - 32;
+        Self {
+            app,
+            mode_button_unlimited: Button::new(mode_x0, 200, MODE_W, MODE_H, "Unlimited".into(), 32.0, true),
+            mode_button_realtime: Button::new(mode_x0 + MODE_W as i16 + 16, 200, MODE_W, MODE_H, "Real time 10:5".into(), 32.0, true),
+            mode_button_correspondence: Button::new(mode_x0 + 2 * (MODE_W as i16 + 16), 200, MODE_W, MODE_H, "Correspondence".into(), 32.0, true),
+            spinner_minus: Button::new(316, 310, 96, 96, "-".into(), 45.0, true),
+            spinner_plus: Button::new(660, 310, 96, 96, "+".into(), 45.0, true),
+            opponent_button: Button::new(x, 470, BTN_W, BTN_H, "Opponent: -".into(), 40.0, true),
+            send_button: Button::new(x, 600, BTN_W, BTN_H, "Send challenge".into(), 40.0, true),
+            invites_button: IconButton::new(1072 - ICON_BUTTON_SIZE as i16 - 24, 24, "invitation.png"),
+            back_button: IconButton::new(32 + ICON_BUTTON_SIZE as i16 / 2, bottom, "back-nav.png"),
+            selected_mode: ChallengeMode::RealTime,
+            days: 3,
+            opponent: None,
+            status: None,
+            sending: false,
+        }
+    }
+
+    /// Label for the opponent button reflecting the current pick.
+    pub fn opponent_label(&self) -> String {
+        match &self.opponent {
+            Some(name) => format!("Opponent: {name}"),
+            None => "Opponent: -".to_string(),
         }
     }
 }

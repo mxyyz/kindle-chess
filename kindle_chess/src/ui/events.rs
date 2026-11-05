@@ -31,6 +31,10 @@ pub enum AppEvent {
     // new top of the stack (same bubble-up pattern as ChessReady).
     FriendSelected(String),
 
+    // Challenge send from PlayScreen
+    ChallengeSent(String),   // opponent username
+    ChallengeSendFailed(String),
+
     // Update flow → UpdateScreen.
     // - Available: a strictly newer release was found, with verified asset metadata.
     // - UpToDate:  GitHub responded but no newer release exists.

@@ -10,14 +10,14 @@ use crate::{
         update::apply_update,
     },
     models::{
-        board_api::PlayedBy,
+        board_api::{ChallengeMode, PlayedBy},
         chess::ChessApp,
         oauth::TokenInfo,
         puzzle::{PuzzleParams, PuzzleSession, PuzzleStatus},
         ui::{
             ChessAuthScreen, ChessGameScreen, Display, FriendlistScreen, GameActionsScreen,
-            HomeScreen, OngoingChessGamesScreen, PuzzleScreen, PuzzleSettingsScreen, Screen,
-            SettingsScreen, Transition, UpdateScreen, UpdateState,
+            HomeScreen, OngoingChessGamesScreen, PlayScreen, PuzzleScreen, PuzzleSettingsScreen,
+            Screen, SettingsScreen, Transition, UpdateScreen, UpdateState,
         },
     },
     ui::{
@@ -112,8 +112,8 @@ impl Screen for HomeScreen {
                         return Ok(Transition::Stay);
                     };
                     if self.chess_button.rect.contains(touch.x, touch.y) {
-                        info!("Chess button pressed — launching chess game");
-                        return Ok(Transition::Push(Box::new(ChessGameScreen::new(app))));
+                        info!("Play button pressed — pushing PlayScreen");
+                        return Ok(Transition::Push(Box::new(PlayScreen::new(app))));
                     } else if self.ongoing_games_button.rect.contains(touch.x, touch.y) {
                         info!("Ongoing-games button pressed");
                         return Ok(Transition::Push(Box::new(OngoingChessGamesScreen::new(
@@ -752,6 +752,244 @@ impl Screen for OngoingChessGamesScreen {
         // so the next render re-fetches and the ongoing-games view is current.
         self.games = None;
         self.error = None;
+    }
+}
+
+// ─── PlayScreen ───────────────────────────────────────────────────────────────
+
+/// Days-per-move spinner bounds (correspondence challenges: 1..=14).
+fn dec_days(d: u8) -> u8 {
+    d.saturating_sub(1).max(1)
+}
+fn inc_days(d: u8) -> u8 {
+    (d + 1).min(14)
+}
+
+impl PlayScreen {
+    fn mode(&self) -> ChallengeMode {
+        match self.selected_mode {
+            ChallengeMode::Correspondence(_) => ChallengeMode::Correspondence(self.days),
+            other => other,
+        }
+    }
+
+    /// Spawn the challenge send. Result arrives as `ChallengeSent` /
+    /// `ChallengeSendFailed` over the event channel.
+    fn kick_send(&mut self, display: &Display) {
+        let Some(opponent) = self.opponent.clone() else {
+            self.status = Some("Select an opponent first".into());
+            return;
+        };
+        let Some(api) = self.app.online_idle_api() else {
+            self.status = Some("Offline backend cannot send challenges".into());
+            return;
+        };
+        if self.sending {
+            return;
+        }
+        self.sending = true;
+        self.status = Some(format!("Sending challenge to {opponent}…"));
+        let mode = self.mode();
+        let tx = display.event_tx.clone();
+        tokio::spawn(async move {
+            match api.send_challenge(&opponent, &mode).await {
+                Ok(_) => {
+                    let _ = tx.send(AppEvent::ChallengeSent(opponent));
+                }
+                Err(e) => {
+                    let _ = tx.send(AppEvent::ChallengeSendFailed(e.to_string()));
+                }
+            }
+        });
+    }
+
+    /// Reflect the selected mode button visually (outline = selectable).
+    fn sync_mode_buttons(&mut self) {
+        let sel = self.selected_mode;
+        self.mode_button_unlimited.outline = sel != ChallengeMode::Unlimited;
+        self.mode_button_realtime.outline = sel != ChallengeMode::RealTime;
+        self.mode_button_correspondence.outline = sel != ChallengeMode::Correspondence(self.days)
+            && !matches!(sel, ChallengeMode::Correspondence(_));
+    }
+}
+
+impl Screen for PlayScreen {
+    fn render(&mut self, display: &mut Display) -> Result<(), Box<dyn std::error::Error>> {
+        use crate::ui::renderer::DrawColor;
+
+        display.renderer.clear(DrawColor::White)?;
+
+        let title = "Play vs friend";
+        let (tw, _) = display.renderer.measure_text(title, 36.0);
+        display.renderer.draw_text((1072 - tw as i16) / 2, 120, title, 36.0, DrawColor::Black)?;
+
+        self.invites_button.draw(&mut display.renderer)?;
+        self.sync_mode_buttons();
+        self.mode_button_unlimited.draw(&mut display.renderer)?;
+        self.mode_button_realtime.draw(&mut display.renderer)?;
+        self.mode_button_correspondence.draw(&mut display.renderer)?;
+
+        // Spinner row: "-  N days/move  +" (spinner only affects correspondence)
+        self.spinner_minus.draw(&mut display.renderer)?;
+        self.spinner_plus.draw(&mut display.renderer)?;
+        let days_label = format!("{} days/move", self.days);
+        let (dw, dh) = display.renderer.measure_text(&days_label, 28.0);
+        display.renderer.draw_text(
+            (1072 - dw as i16) / 2,
+            310 + (96 - dh as i16) / 2 + dh as i16 - 8,
+            &days_label,
+            28.0,
+            DrawColor::Black,
+        )?;
+
+        self.opponent_button.label = self.opponent_label();
+        self.opponent_button.draw(&mut display.renderer)?;
+        self.send_button.draw(&mut display.renderer)?;
+
+        if let Some(status) = &self.status {
+            let (sw, sh) = display.renderer.measure_text(status, 24.0);
+            display.renderer.draw_text(
+                (1072 - sw as i16) / 2,
+                1240 - sh as i16 / 2,
+                status,
+                24.0,
+                DrawColor::Black,
+            )?;
+        }
+
+        self.back_button.draw(&mut display.renderer)?;
+        display.renderer.present()?;
+        Ok(())
+    }
+
+    fn handle_event(
+        &mut self,
+        event: AppEvent,
+        display: &mut Display,
+    ) -> Result<Transition, Box<dyn std::error::Error>> {
+        match event {
+            // Bubbled up from the popped FriendlistScreen.
+            AppEvent::FriendSelected(name) => {
+                info!("Opponent selected: {}", name);
+                self.opponent = Some(name);
+                self.status = None;
+                Ok(Transition::Redraw)
+            }
+
+            AppEvent::ChallengeSent(opponent) => {
+                self.sending = false;
+                self.status = Some(format!("Challenge sent to {opponent}"));
+                Ok(Transition::Redraw)
+            }
+
+            AppEvent::ChallengeSendFailed(e) => {
+                warn!("Challenge send failed: {}", e);
+                self.sending = false;
+                self.status = Some(format!("Send failed: {e}"));
+                Ok(Transition::Redraw)
+            }
+
+            AppEvent::Touch(touch) => {
+                if touch.kind != TouchKind::Up {
+                    return Ok(Transition::Stay);
+                }
+
+                if self.back_button.rect.contains(touch.x, touch.y) {
+                    return Ok(Transition::Pop);
+                }
+
+                if self.mode_button_unlimited.rect.contains(touch.x, touch.y) {
+                    self.selected_mode = ChallengeMode::Unlimited;
+                    return Ok(Transition::Redraw);
+                }
+                if self.mode_button_realtime.rect.contains(touch.x, touch.y) {
+                    self.selected_mode = ChallengeMode::RealTime;
+                    return Ok(Transition::Redraw);
+                }
+                if self.mode_button_correspondence.rect.contains(touch.x, touch.y) {
+                    self.selected_mode = ChallengeMode::Correspondence(self.days);
+                    return Ok(Transition::Redraw);
+                }
+
+                if self.spinner_minus.rect.contains(touch.x, touch.y) {
+                    self.days = dec_days(self.days);
+                    if matches!(self.selected_mode, ChallengeMode::Correspondence(_)) {
+                        self.selected_mode = ChallengeMode::Correspondence(self.days);
+                    }
+                    return Ok(Transition::Redraw);
+                }
+                if self.spinner_plus.rect.contains(touch.x, touch.y) {
+                    self.days = inc_days(self.days);
+                    if matches!(self.selected_mode, ChallengeMode::Correspondence(_)) {
+                        self.selected_mode = ChallengeMode::Correspondence(self.days);
+                    }
+                    return Ok(Transition::Redraw);
+                }
+
+                if self.opponent_button.rect.contains(touch.x, touch.y) {
+                    info!("Opening friend list");
+                    return Ok(Transition::Push(Box::new(FriendlistScreen::new(
+                        self.app.clone(),
+                    ))));
+                }
+
+                if self.send_button.rect.contains(touch.x, touch.y) {
+                    self.kick_send(display);
+                    return Ok(Transition::Redraw);
+                }
+
+                // Invites screen lands in e03s04 — button is visible, wiring there.
+                if self.invites_button.rect.contains(touch.x, touch.y) {
+                    info!("Invites button pressed (screen wired in e03s04)");
+                    return Ok(Transition::Stay);
+                }
+
+                Ok(Transition::Stay)
+            }
+
+            AppEvent::Expose => Ok(Transition::Redraw),
+
+            AppEvent::WindowUnmapped => {
+                warn!("Window unmapped!");
+                Ok(Transition::Stay)
+            }
+
+            AppEvent::Quit => Ok(Transition::Quit),
+
+            _ => Ok(Transition::Stay),
+        }
+    }
+}
+
+#[cfg(test)]
+mod play_screen_tests {
+    use super::*;
+    use crate::models::chess::ChessApp;
+
+    #[test]
+    fn spinner_clamps_to_1_14() {
+        assert_eq!(dec_days(1), 1);
+        assert_eq!(dec_days(5), 4);
+        assert_eq!(inc_days(14), 14);
+        assert_eq!(inc_days(3), 4);
+    }
+
+    #[test]
+    fn opponent_label_reflects_selection() {
+        let mut s = PlayScreen::new(ChessApp::new_offline());
+        assert_eq!(s.opponent_label(), "Opponent: -");
+        s.opponent = Some("Alice42".into());
+        assert_eq!(s.opponent_label(), "Opponent: Alice42");
+    }
+
+    #[test]
+    fn mode_tracks_spinner_in_correspondence() {
+        let mut s = PlayScreen::new(ChessApp::new_offline());
+        s.selected_mode = ChallengeMode::Correspondence(s.days);
+        s.days = inc_days(s.days);
+        assert_eq!(s.mode(), ChallengeMode::Correspondence(4));
+        s.selected_mode = ChallengeMode::RealTime;
+        assert_eq!(s.mode(), ChallengeMode::RealTime);
     }
 }
 
