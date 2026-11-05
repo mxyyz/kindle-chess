@@ -84,6 +84,29 @@ impl AppConfig {
         Self::from_json(&json).map_err(|e| e.to_string())
     }
 
+    /// Persist the configuration to `path`, creating parent dirs as needed.
+    pub fn save_to(&self, path: &Path) -> Result<(), String> {
+        if let Some(parent) = path.parent() {
+            std::fs::create_dir_all(parent).map_err(|e| e.to_string())?;
+        }
+        let json = serde_json::to_string_pretty(self).map_err(|e| e.to_string())?;
+        std::fs::write(path, json).map_err(|e| e.to_string())
+    }
+
+    /// Persist to the primary config location (the bundle's own `config/`
+    /// dir next to the running binary, falling back to the baked-in ROOT_DIR).
+    /// Never fails hard — a read-only /mnt/us must not crash the app.
+    pub fn save(&self) {
+        let path = Self::candidate_paths()
+            .into_iter()
+            .next()
+            .unwrap_or_else(|| Path::new(env!("ROOT_DIR")).join("config").join(CONFIG_FILE));
+        match self.save_to(&path) {
+            Ok(()) => info!("Config saved to {}", path.display()),
+            Err(e) => warn!("Failed to save config to {}: {}", path.display(), e),
+        }
+    }
+
     /// Load the configuration at startup.
     ///
     /// Never fails: the first candidate that exists and parses wins, a

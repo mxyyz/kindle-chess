@@ -1882,7 +1882,10 @@ impl Screen for SettingsScreen {
                         i18n::LOCALES[(idx + 1) % i18n::LOCALES.len()].to_string()
                     };
                     info!("Language switched to {next}");
-                    self.config.write().map(|mut c| c.language = next).ok();
+                    if let Ok(mut c) = self.config.write() {
+                        c.language = next;
+                        c.save();
+                    }
                     return Ok(Transition::Redraw);
                 }
                 if self.check_update_button.rect.contains(touch.x, touch.y) {
@@ -2447,7 +2450,10 @@ impl Screen for PuzzleSettingsScreen {
                 if self.fetch_button.rect.contains(touch.x, touch.y) {
                     info!("Fetching puzzle with {:?}", self.params);
                     match self.config.write() {
-                        Ok(mut config) => config.puzzle = self.params,
+                        Ok(mut config) => {
+                            config.puzzle = self.params;
+                            config.save();
+                        }
                         Err(e) => {
                             warn!("Config store poisoned; puzzle params not persisted: {}", e)
                         }
