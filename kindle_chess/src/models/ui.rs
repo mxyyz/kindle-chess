@@ -12,7 +12,7 @@ use image::{ImageBuffer, Luma};
 use crate::{
     api::github::UpdateInfo,
     models::{
-        board_api::GameDataList,
+        board_api::{ALLOWED_CORRESPONDENCE_DAYS, ChallengeMode, ChallengeSummary, GameDataList},
         chess::ChessApp,
         oauth::TokenInfo,
         puzzle::{PuzzleParams, PuzzleSession},
@@ -78,6 +78,7 @@ pub enum Transition {
 
 pub struct HomeScreen {
     pub chess_button: Button,
+    pub quit_button: Button,
     pub puzzle_button: Button,
     pub ongoing_games_button: Button,
     pub settings_button: Button,
@@ -101,20 +102,20 @@ pub struct HomeScreen {
 impl HomeScreen {
     pub fn new(config: Arc<RwLock<AppConfig>>) -> Self {
         // Layout: 1072 × 1448 total canvas. The logo occupies the upper half;
-        // the four equal buttons are stacked and height-centred in the lower
+        // the five equal buttons are stacked and height-centred in the lower
         // half.
         const BTN_W: u16 = 600;
         const BTN_H: u16 = 96;
         const GAP: i16 = 28;
         const CENTER_X: i16 = 1072 / 2;
         let x = CENTER_X - BTN_W as i16 / 2;
-        let total = 4 * BTN_H as i16 + 3 * GAP;
+        let total = 5 * BTN_H as i16 + 4 * GAP;
         let upper_half = 1448 / 2;
         let start_y = upper_half + (1448 - upper_half - total) / 2;
         let row = |i: i16| start_y + i * (BTN_H as i16 + GAP);
 
         Self {
-            chess_button: Button::new(x, row(0), BTN_W, BTN_H, String::from("Demo"), 45.0, true),
+            chess_button: Button::new(x, row(0), BTN_W, BTN_H, String::from("Play"), 45.0, true),
             puzzle_button: Button::new(x, row(1), BTN_W, BTN_H, String::from("Puzzle"), 45.0, true),
             ongoing_games_button: Button::new(
                 x,
@@ -131,6 +132,15 @@ impl HomeScreen {
                 BTN_W,
                 BTN_H,
                 String::from("Settings"),
+                45.0,
+                true,
+            ),
+            quit_button: Button::new(
+                x,
+                row(4),
+                BTN_W,
+                BTN_H,
+                String::from("Quit"),
                 45.0,
                 true,
             ),
@@ -168,6 +178,7 @@ fn load_home_logo() -> Option<Icon> {
 
 pub struct ChessGameScreen {
     pub app: ChessApp,
+    pub config: Arc<RwLock<AppConfig>>,
     pub board: BoardWidget,
     pub sidebar: SidebarWidget,
     // First-render guard: kick the game-state stream task exactly once.
@@ -178,16 +189,18 @@ pub struct ChessGameScreen {
 }
 
 impl ChessGameScreen {
-    pub fn new(app: ChessApp) -> Self {
+    pub fn new(app: ChessApp, config: Arc<RwLock<AppConfig>>) -> Self {
         // Seed the sidebar with the initial turn from `attach_game` so the
         // sidebar shows "Your turn" / "Waiting…" immediately, before the
         // game-state stream catches up.
+        let loc = crate::i18n::locale_of(&config);
         let mut sidebar = SidebarWidget::new(Rectangle::new(0, 1072, 1072, 376));
         if let Some(turn) = app.turn() {
-            sidebar.set_turn(turn.clone());
+            sidebar.set_turn(turn.clone(), &loc);
         }
         Self {
             app,
+            config,
             board: BoardWidget::new(Rectangle::new(0, 0, 1072, 1072)),
             sidebar,
             stream_started: false,
@@ -200,6 +213,7 @@ impl ChessGameScreen {
 
 pub struct OngoingChessGamesScreen {
     pub app: ChessApp,
+    pub config: Arc<RwLock<AppConfig>>,
     pub prev_page_button: IconButton,
     pub next_page_button: IconButton,
     pub chessgame_button_0: Button,
@@ -221,13 +235,14 @@ pub struct OngoingChessGamesScreen {
 }
 
 impl OngoingChessGamesScreen {
-    pub fn new(app: ChessApp) -> Self {
+    pub fn new(app: ChessApp, config: Arc<RwLock<AppConfig>>) -> Self {
         // Layout: 1072 × 1448 total canvas
         const BTN_W: u16 = 800;
         const BTN_H: u16 = 120;
         const CENTER_X: i16 = 1072 / 2; // 336
         const CENTER_Y: i16 = 1448 / 2; // 304
         Self {
+            config,
             app,
             prev_page_button: IconButton::new(
                 CENTER_X - (ICON_BUTTON_SIZE as i16 + 8),
@@ -289,9 +304,222 @@ impl OngoingChessGamesScreen {
     }
 }
 
+// ─── InvitesScreen ────────────────────────────────────────────────────────────
+/// Incoming/outgoing friend challenges. Polls the challenge list every 5 s;
+/// incoming rows get Accept/Decline, outgoing rows get Cancel. Any challenge
+/// whose status flips to "accepted" starts the live game (push ChessGameScreen).
+pub struct InvitesScreen {
+    pub app: ChessApp,
+    pub config: Arc<RwLock<AppConfig>>,
+    // Up to 4 incoming + 4 outgoing rows per page: opponent name + action
+    // button(s). Rows past the list end are simply not drawn.
+    pub incoming_name: [Button; 4],
+    pub incoming_accept: [Button; 4],
+    pub incoming_decline: [Button; 4],
+    pub outgoing_name: [Button; 4],
+    pub outgoing_cancel: [Button; 4],
+    // Separate pagination per section; each section's page icons sit on its
+    // label row, so incoming's controls are above the "Outgoing" label.
+    pub incoming_prev: IconButton,
+    pub incoming_next: IconButton,
+    pub outgoing_prev: IconButton,
+    pub outgoing_next: IconButton,
+    pub back_button: IconButton,
+
+    pub challenges: Option<Arc<Vec<ChallengeSummary>>>,
+    pub error: Option<String>,
+    pub loading: bool,
+    pub last_fetch: Option<Instant>,
+    pub status: Option<String>,
+    pub incoming_page: usize,
+    pub outgoing_page: usize,
+}
+
+impl InvitesScreen {
+    pub fn new(app: ChessApp, config: Arc<RwLock<AppConfig>>) -> Self {
+        // Layout: 1072 × 1448. "Incoming" section at top (4 rows), "Outgoing"
+        // below (4 rows), status line near the bottom, back/page icons along
+        // the bottom edge.
+        const NAME_W: u16 = 420;
+        const ACT_W: u16 = 200;
+        const ROW_H: u16 = 80;
+        const ROW_GAP: i16 = 16;
+        let name_x = 136;
+        let acc_x = 576;
+        let dec_x = 792;
+        let irow = |i: usize| 240 + i as i16 * (ROW_H as i16 + ROW_GAP);
+        let orow = |i: usize| 720 + i as i16 * (ROW_H as i16 + ROW_GAP);
+        let btn = |x: i16, y: i16, w: u16, label: &str| {
+            Button::new(x, y, w, ROW_H, label.to_string(), 32.0, true)
+        };
+        let bottom = 1448 - (ICON_BUTTON_SIZE as i16 - 20) - 32;
+        // Section label rows: incoming label y=200 (icons y=176), outgoing
+        // label y=680 (icons y=656) — icons at the right edge of the canvas.
+        let icon_next_x = 1072 - ICON_BUTTON_SIZE as i16 - 24;
+        let icon_prev_x = icon_next_x - ICON_BUTTON_SIZE as i16 - 16;
+        Self {
+            app,
+            config,
+            incoming_name: std::array::from_fn(|i| btn(name_x, irow(i), NAME_W, "-")),
+            incoming_accept: std::array::from_fn(|i| btn(acc_x, irow(i), ACT_W, "Accept")),
+            incoming_decline: std::array::from_fn(|i| btn(dec_x, irow(i), ACT_W, "Decline")),
+            outgoing_name: std::array::from_fn(|i| btn(name_x, orow(i), NAME_W, "-")),
+            outgoing_cancel: std::array::from_fn(|i| btn(acc_x, orow(i), ACT_W, "Cancel")),
+            incoming_prev: IconButton::new(icon_prev_x, 176, "back-page.png"),
+            incoming_next: IconButton::new(icon_next_x, 176, "next-page.png"),
+            outgoing_prev: IconButton::new(icon_prev_x, 656, "back-page.png"),
+            outgoing_next: IconButton::new(icon_next_x, 656, "next-page.png"),
+            back_button: IconButton::new(32 + ICON_BUTTON_SIZE as i16 / 2, bottom, "back-nav.png"),
+            challenges: None,
+            error: None,
+            loading: false,
+            last_fetch: None,
+            status: None,
+            incoming_page: 0,
+            outgoing_page: 0,
+        }
+    }
+}
+
+// ─── PlayScreen ───────────────────────────────────────────────────────────────
+/// The Play flow's form: pick a game mode (Unlimited / Real time 10:5 /
+/// Correspondence with a 1–14 days spinner), pick an opponent via
+/// FriendlistScreen, then send a casual standard challenge with random color.
+pub struct PlayScreen {
+    pub app: ChessApp,
+    pub config: Arc<RwLock<AppConfig>>,
+    pub mode_button_unlimited: Button,
+    pub mode_button_realtime: Button,
+    pub mode_button_correspondence: Button,
+    /// Days-per-move toggle group — only drawn in correspondence mode. One
+    /// button per Lichess-allowed value (ALLOWED_CORRESPONDENCE_DAYS); a
+    /// button group instead of a slider/spinner so rapid taps can't hit the
+    /// triple-tap-to-quit gesture and values can't be invalid.
+    pub days_buttons: [Button; 7],
+    pub selected_days: u8,
+    pub opponent_button: Button,
+    pub send_button: Button,
+    pub invites_button: IconButton,
+    pub back_button: IconButton,
+
+    pub selected_mode: ChallengeMode,
+    pub opponent: Option<String>,
+    pub status: Option<String>,
+    pub sending: bool,
+}
+
+impl PlayScreen {
+    pub fn new(app: ChessApp, config: Arc<RwLock<AppConfig>>) -> Self {
+        // Layout: 1072 × 1448. Title top, invites icon top-right, mode row,
+        // spinner row, opponent + send buttons, status line, back bottom-left.
+        const MODE_W: u16 = 320;
+        const MODE_H: u16 = 80;
+        const BTN_W: u16 = 600;
+        const BTN_H: u16 = 96;
+        let mode_x0 = (1072 - (3 * MODE_W as i16 + 2 * 16)) / 2;
+        let x = (1072 - BTN_W as i16) / 2;
+        // Days toggle group: 7 buttons of 100px + 6 gaps of 16 = 796px wide,
+        // centred, on the slider's old row (y=310).
+        const DAY_W: u16 = 100;
+        let days_x0 = (1072 - (7 * DAY_W as i16 + 6 * 16)) / 2;
+        let days_labels = ["1", "2", "3", "5", "7", "10", "14"];
+        let bottom = 1448 - (ICON_BUTTON_SIZE as i16 - 20) - 32;
+        Self {
+            app,
+            config,
+            mode_button_unlimited: Button::new(mode_x0, 200, MODE_W, MODE_H, "Unlimited".into(), 32.0, true),
+            mode_button_realtime: Button::new(mode_x0 + MODE_W as i16 + 16, 200, MODE_W, MODE_H, "Real time 10:5".into(), 32.0, true),
+            mode_button_correspondence: Button::new(mode_x0 + 2 * (MODE_W as i16 + 16), 200, MODE_W, MODE_H, "Correspondence".into(), 32.0, true),
+            days_buttons: std::array::from_fn(|i| {
+                Button::new(
+                    days_x0 + i as i16 * (DAY_W as i16 + 16),
+                    310,
+                    DAY_W,
+                    96,
+                    days_labels[i].to_string(),
+                    32.0,
+                    true,
+                )
+            }),
+            selected_days: 3,
+            opponent_button: Button::new(x, 470, BTN_W, BTN_H, "Opponent: -".into(), 40.0, true),
+            send_button: Button::new(x, 600, BTN_W, BTN_H, "Send challenge".into(), 40.0, true),
+            invites_button: IconButton::new(1072 - ICON_BUTTON_SIZE as i16 - 24, 24, "invitation.png"),
+            back_button: IconButton::new(32 + ICON_BUTTON_SIZE as i16 / 2, bottom, "back-nav.png"),
+            selected_mode: ChallengeMode::RealTime,
+            opponent: None,
+            status: None,
+            sending: false,
+        }
+    }
+
+    /// Label for the opponent button reflecting the current pick.
+    pub fn opponent_label(&self) -> String {
+        match &self.opponent {
+            Some(name) => format!("Opponent: {name}"),
+            None => "Opponent: -".to_string(),
+        }
+    }
+}
+
+// ─── FriendlistScreen ─────────────────────────────────────────────────────────
+/// Opponent picker for the Play flow: paged list of the user's Lichess friends
+/// (`/api/rel/following`). Tapping a friend emits `AppEvent::FriendSelected`
+/// and pops, handing the username back to the pushing screen (PlayScreen).
+pub struct FriendlistScreen {
+    pub app: ChessApp,
+    pub config: Arc<RwLock<AppConfig>>,
+    pub friend_button_0: Button,
+    pub friend_button_1: Button,
+    pub friend_button_2: Button,
+    pub friend_button_3: Button,
+    pub prev_page_button: IconButton,
+    pub next_page_button: IconButton,
+    pub back_button: IconButton,
+
+    // Async fetch state. `friends == None && error == None && !loading` means
+    // the screen has not yet kicked off its initial fetch — `render` triggers it.
+    pub friends: Option<Arc<Vec<String>>>,
+    pub error: Option<String>,
+    pub loading: bool,
+
+    // Pagination: 4 friend buttons per page; labels baked by `set_page`.
+    pub page_index: usize,
+}
+
+impl FriendlistScreen {
+    pub fn new(app: ChessApp, config: Arc<RwLock<AppConfig>>) -> Self {
+        // Layout: 1072 × 1448. Title strip at top, then 4 stacked 600×96
+        // buttons starting at y=400, page icons + back along the bottom.
+        const BTN_W: u16 = 600;
+        const BTN_H: u16 = 96;
+        const GAP: i16 = 28;
+        const START_Y: i16 = 400;
+        let x = (1072 - BTN_W as i16) / 2;
+        let row = |i: i16| START_Y + i * (BTN_H as i16 + GAP);
+        let bottom = 1448 - (ICON_BUTTON_SIZE as i16 - 20) - 32;
+        Self {
+            app,
+            friend_button_0: Button::new(x, row(0), BTN_W, BTN_H, "-".to_string(), 40.0, true),
+            friend_button_1: Button::new(x, row(1), BTN_W, BTN_H, "-".to_string(), 40.0, true),
+            friend_button_2: Button::new(x, row(2), BTN_W, BTN_H, "-".to_string(), 40.0, true),
+            friend_button_3: Button::new(x, row(3), BTN_W, BTN_H, "-".to_string(), 40.0, true),
+            prev_page_button: IconButton::new(1072 / 2 - (ICON_BUTTON_SIZE as i16 + 8), bottom, "back-page.png"),
+            next_page_button: IconButton::new(1072 / 2 + 8, bottom, "next-page.png"),
+            back_button: IconButton::new(32 + ICON_BUTTON_SIZE as i16 / 2, bottom, "back-nav.png"),
+            config,
+            friends: None,
+            error: None,
+            loading: false,
+            page_index: 0,
+        }
+    }
+}
+
 // ─── ChessAuthScreen ──────────────────────────────────────────────────────────
 
 pub struct ChessAuthScreen {
+    pub config: Arc<RwLock<AppConfig>>,
     pub qr_code: Rectangle,
     pub auth_status: Rectangle,
     pub qr_image: Option<ImageBuffer<Luma<u8>, Vec<u8>>>,
@@ -301,8 +529,9 @@ pub struct ChessAuthScreen {
 }
 
 impl ChessAuthScreen {
-    pub fn new() -> Self {
+    pub fn new(config: Arc<RwLock<AppConfig>>) -> Self {
         Self {
+            config,
             qr_code: Rectangle::new(286, 400, 500, 500),
             auth_status: Rectangle::new(286, 940, 500, 60),
             qr_image: None,
@@ -314,7 +543,7 @@ impl ChessAuthScreen {
 
 impl Default for ChessAuthScreen {
     fn default() -> Self {
-        Self::new()
+        Self::new(Arc::new(RwLock::new(AppConfig::load())))
     }
 }
 
@@ -324,17 +553,29 @@ impl Default for ChessAuthScreen {
 // orientation, etc.) without further restructuring HomeScreen.
 
 pub struct SettingsScreen {
+    pub config: Arc<RwLock<AppConfig>>,
+    pub language_button: Button,
     pub check_update_button: Button,
     pub back_button: Button,
 }
 
 impl SettingsScreen {
-    pub fn new() -> Self {
+    pub fn new(config: Arc<RwLock<AppConfig>>) -> Self {
         const BTN_W: u16 = 600;
         const BTN_H: u16 = 120;
         const CENTER_X: i16 = 1072 / 2;
         const CENTER_Y: i16 = 1448 / 2;
         Self {
+            config,
+            language_button: Button::new(
+                CENTER_X - BTN_W as i16 / 2,
+                CENTER_Y - BTN_H as i16 / 2 - 140,
+                BTN_W,
+                BTN_H,
+                String::from("Language"),
+                40.0,
+                true,
+            ),
             check_update_button: Button::new(
                 CENTER_X - BTN_W as i16 / 2,
                 CENTER_Y - BTN_H as i16 / 2,
@@ -359,7 +600,7 @@ impl SettingsScreen {
 
 impl Default for SettingsScreen {
     fn default() -> Self {
-        Self::new()
+        Self::new(Arc::new(RwLock::new(AppConfig::load())))
     }
 }
 
@@ -380,6 +621,7 @@ pub enum UpdateState {
 }
 
 pub struct UpdateScreen {
+    pub config: Arc<RwLock<AppConfig>>,
     pub state: UpdateState,
     pub action_button: Button,
     pub back_button: Button,
@@ -388,12 +630,13 @@ pub struct UpdateScreen {
 }
 
 impl UpdateScreen {
-    pub fn new() -> Self {
+    pub fn new(config: Arc<RwLock<AppConfig>>) -> Self {
         const BTN_W: u16 = 600;
         const BTN_H: u16 = 120;
         const CENTER_X: i16 = 1072 / 2;
         const CENTER_Y: i16 = 1448 / 2;
         Self {
+            config,
             state: UpdateState::Checking,
             action_button: Button::new(
                 CENTER_X - BTN_W as i16 / 2,
@@ -420,7 +663,7 @@ impl UpdateScreen {
 
 impl Default for UpdateScreen {
     fn default() -> Self {
-        Self::new()
+        Self::new(Arc::new(RwLock::new(AppConfig::load())))
     }
 }
 
@@ -548,19 +791,21 @@ impl PuzzleSettingsScreen {
 
 pub struct GameActionsScreen {
     pub app: ChessApp,
+    pub config: Arc<RwLock<AppConfig>>,
     pub resign_button: Button,
     pub abort_button: Button,
     pub back_button: Button,
 }
 
 impl GameActionsScreen {
-    pub fn new(app: ChessApp) -> Self {
+    pub fn new(app: ChessApp, config: Arc<RwLock<AppConfig>>) -> Self {
         const BTN_W: u16 = 600;
         const BTN_H: u16 = 120;
         const CENTER_X: i16 = 1072 / 2;
         const CENTER_Y: i16 = 1448 / 2;
         let x = CENTER_X - BTN_W as i16 / 2;
         Self {
+            config,
             app,
             resign_button: Button::new(
                 x,

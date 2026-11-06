@@ -1,0 +1,11 @@
+# Story e03s06 — Phase 3 slice 2: all remaining screens localized
+story_id: e03s06
+title: "Apply EN/DE locale strings to all remaining screens (auth, game, puzzle, ongoing, settings, screensaver)"
+status: passing
+bcps: 3
+delta: MODIFIED
+tasks:
+  - id: e03s06t01
+    description: "Replace hardcoded strings with t() lookups across ChessAuthScreen, ChessGameScreen + sidebars, PuzzleScreen/PuzzleSettingsScreen, OngoingChessGamesScreen, SettingsScreen, screensaver; add matching en.ftl/de.ftl entries."
+    verify: "cd kindle_chess && cargo test locale_keys 2>&1 | tail -3 && cargo build 2>&1 | tail -1"
+    status: passing

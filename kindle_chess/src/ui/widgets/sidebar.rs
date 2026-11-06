@@ -9,6 +9,8 @@ use log::info;
 /// above the back-nav button), back-nav (bottom-left), settings (right).
 pub struct SidebarWidget {
     area: Rectangle,
+    /// UI locale used for the status line; refreshed by the owning screen.
+    pub locale: String,
     top_button: IconButton,
     back_button: IconButton,
     settings_button: IconButton,
@@ -46,6 +48,7 @@ impl SidebarWidget {
         let centered = |w: u16| area.x + (area.width as i16 - w as i16) / 2;
         Self {
             area,
+            locale: crate::i18n::DEFAULT_LOCALE.to_string(),
             top_button: IconButton::new(area.x + MARGIN, top_btn_y, "top.png"),
             back_button: IconButton::new(area.x + MARGIN, btn_y, "back-nav.png"),
             settings_button: IconButton::new(
@@ -54,7 +57,7 @@ impl SidebarWidget {
                 "settings.png",
             )
             .with_glyph_size(90),
-            turn_status: String::from("Loading…"),
+            turn_status: crate::i18n::tr(crate::i18n::DEFAULT_LOCALE, "common-loading"),
             opponent: String::new(),
             rejected: false,
             x_icon: load_icon("x.png"),
@@ -66,14 +69,20 @@ impl SidebarWidget {
         }
     }
 
-    pub fn set_turn(&mut self, turn: Turn) {
+    /// Refresh the UI locale (called by the owning screen each render).
+    pub fn set_locale(&mut self, loc: &str) {
+        self.locale = loc.to_string();
+    }
+
+    pub fn set_turn(&mut self, turn: Turn, loc: &str) {
+        use crate::i18n::t;
         // A fresh turn update supersedes any rejected-move indication.
         self.rejected = false;
         self.turn_status = match turn {
-            Turn::Playing => "Your turn".to_string(),
-            Turn::Waiting => "Waiting for opponent".to_string(),
-            Turn::Over { winner: Some(w) } => format!("{} won!", w),
-            Turn::Over { winner: None } => "Game over".to_string(),
+            Turn::Playing => t(loc, "game-turn-playing", &[]),
+            Turn::Waiting => t(loc, "game-turn-waiting", &[]),
+            Turn::Over { winner: Some(w) } => t(loc, "game-won", &[("winner", &w)]),
+            Turn::Over { winner: None } => t(loc, "game-over", &[]),
         };
     }
 
@@ -180,8 +189,8 @@ impl SidebarWidget {
         let size_px = 32.0;
         let status_y = self.area.y + 160;
         if self.rejected {
-            let text = "Try something else";
-            let (tw, th) = renderer.measure_text(text, size_px);
+            let text = crate::i18n::tr(&self.locale, "game-try-again");
+            let (tw, th) = renderer.measure_text(&text, size_px);
             let icon_size: u16 = 48;
             let icon_gap: i16 = 14;
             let icon_w = if self.x_icon.is_some() {
@@ -200,7 +209,7 @@ impl SidebarWidget {
                     DrawColor::White,
                 )?;
             }
-            renderer.draw_text(block_x + icon_w, status_y, text, size_px, DrawColor::Black)?;
+            renderer.draw_text(block_x + icon_w, status_y, &text, size_px, DrawColor::Black)?;
         } else {
             let (tw, _) = renderer.measure_text(&self.turn_status, size_px);
             renderer.draw_text(

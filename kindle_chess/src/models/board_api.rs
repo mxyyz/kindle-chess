@@ -268,3 +268,54 @@ pub enum Speed {
     Classical,
     Correspondence,
 }
+
+/// Game mode for a friend challenge. Fixed defaults per e03 scope: standard
+/// variant, casual (rated=false), random color — only the time control varies.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum ChallengeMode {
+    /// No clock at all.
+    Unlimited,
+    /// Real-time 10 minutes + 5 seconds increment (clock 600+5).
+    RealTime,
+    /// Correspondence, `days` per move (snapped to
+    /// `ALLOWED_CORRESPONDENCE_DAYS` by the UI slider).
+    Correspondence(u8),
+}
+
+impl ChallengeMode {
+    /// The days value for correspondence modes.
+    pub fn days_value(self) -> u8 {
+        match self {
+            ChallengeMode::Correspondence(d) => d,
+            _ => 0,
+        }
+    }
+}
+
+/// A challenge as the app needs it: id for follow-up, opponent name, and
+/// which side of the invite it is on.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct ChallengeSummary {
+    pub id: String,
+    pub status: String,
+    pub opponent: String,
+    pub incoming: bool,
+    /// Challenge URL (`https://lichess.org/{gameId}` once accepted).
+    pub url: String,
+}
+
+/// Day values Lichess accepts for correspondence challenges
+/// (`days: Literal[1, 2, 3, 5, 7, 10, 14]` in the API contract) — anything else
+/// is rejected with 400 (see BUG-2026-11-05T135402).
+pub const ALLOWED_CORRESPONDENCE_DAYS: [u8; 7] = [1, 2, 3, 5, 7, 10, 14];
+
+impl ChallengeSummary {
+    /// Game id of an accepted challenge, taken from the challenge URL
+    /// (`https://lichess.org/{gameId}`) — `None` until accepted.
+    pub fn game_id(&self) -> Option<&str> {
+        if self.status != "accepted" {
+            return None;
+        }
+        self.url.rsplit('/').next().filter(|s| !s.is_empty())
+    }
+}

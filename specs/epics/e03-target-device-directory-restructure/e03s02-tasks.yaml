@@ -1,0 +1,19 @@
+# Story e03s02 — Phase 2 slice 1: FriendlistScreen (vertical: list friends -> tap returns username to caller)
+story_id: e03s02
+title: "FriendlistScreen — paged Lichess following list; tap friend pops and delivers FriendSelected(username)"
+status: passing
+bcps: 5
+delta: ADDED
+tasks:
+  - id: e03s02t01
+    description: "API layer: add RelationsApi::following paging to litchee adapter (api/litchee_adapter.rs) returning a list of usernames + paging info; unit-test the response parsing with a fixture."
+    verify: "cd kindle_chess && cargo test litchee_adapter 2>&1 | tail -3"
+    status: passing
+  - id: e03s02t02
+    description: "New FriendlistScreen (struct in models/ui.rs, impl Screen in ui/screens.rs) mirroring OngoingChessGamesScreen: 4 friend buttons 600x96 from y~400, next/prev IconButtons, back IconButton, loading/error/empty states; fetch on first render via tokio::spawn -> AppEvent::FriendsLoaded."
+    verify: "cd kindle_chess && cargo build 2>&1 | tail -1 && cargo test friendlist 2>&1 | tail -3"
+    status: passing
+  - id: e03s02t03
+    description: "Selection plumbing: tapping a friend emits AppEvent::FriendSelected(username) then Transition::Pop, so the pushing screen (PlayScreen) receives it after pop — same bubble-up pattern as ChessReady. Unit-test the event routing."
+    verify: "cd kindle_chess && cargo test friend_selected 2>&1 | tail -3"
+    status: passing

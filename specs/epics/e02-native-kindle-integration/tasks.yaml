@@ -202,26 +202,6 @@
     - t05-pc-t-title
   blocker: false
 
-- id: t07-phase2-uat
-  title: On-device UAT of chrome mode on k2
-  phase: 2
-  priority: P2
-  estimate_hours: 2
-  status: pending
-  description: |
-    Manual UAT on k2 (working scriptlets): scriptlet launch, top bar reachable via
-    top.png button, brightness adjustable, home button exits, lock/unlock redraw,
-    PC:N fallback flag works. Log results in specs/verifications/.
-  acceptance_criteria:
-    - all UAT scenarios pass or have logged follow-up bugs
-  files_created:
-    - specs/verifications/e02-phase2-uat.md
-  files_modified: []
-  dependencies:
-    - t05-pc-t-title
-    - t06-topbar-sidebar-button
-  blocker: false
-
 - id: t08-custom-screensaver
   title: Custom screensaver (logo.png) on DeviceLock
   phase: 2

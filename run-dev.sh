@@ -25,7 +25,7 @@ set -euo pipefail
 # ── Config ────────────────────────────────────────────────────────────────────
 REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 CRATE_DIR="$REPO_ROOT/kindle_chess"
-HELLOKINDLE_DIR="$REPO_ROOT/kindle_KUAL/hellokindle"
+HELLOKINDLE_DIR="$REPO_ROOT/kindle_KUAL/kindlichess"
 
 # Kindle Paperwhite 4 resolution
 KINDLE_W=1072

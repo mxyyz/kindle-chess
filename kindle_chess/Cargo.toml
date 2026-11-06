@@ -27,6 +27,8 @@ uuid = { version = "1.18.1", features = ["v4"]}
 x11rb = { version = "0.13", default-features = false }
 dotenv = "0.15"
 litchee = "=0.2.2"
+fluent-bundle = "0.16.0"
+fluent-resmgr = "0.0.8"
 
 
 [build-dependencies]

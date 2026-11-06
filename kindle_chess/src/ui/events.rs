@@ -6,7 +6,7 @@ use x11rb::protocol::xproto;
 use crate::api::github::UpdateInfo;
 use crate::models::{
     bitboard::Bitboards,
-    board_api::{GameDataList, PlayedBy, Turn},
+    board_api::{ChallengeSummary, GameDataList, PlayedBy, Turn},
     chess::ChessApp,
     oauth::{LichessUser, TokenInfo},
     puzzle::{Puzzle, PuzzleParams},
@@ -22,6 +22,22 @@ pub enum AppEvent {
     // Ongoing-games fetch
     OngoingGamesLoaded(Arc<GameDataList>),
     OngoingGamesFailed(String),
+
+    // Friendlist fetch (Play flow)
+    FriendsLoaded(Arc<Vec<String>>),
+    FriendsFailed(String),
+    // Friend picked on FriendlistScreen — sent over the channel right before
+    // `Transition::Pop`, so the pushing screen (PlayScreen) receives it as the
+    // new top of the stack (same bubble-up pattern as ChessReady).
+    FriendSelected(String),
+
+    // Challenge send from PlayScreen
+    ChallengeSent(String),   // opponent username
+    ChallengeSendFailed(String),
+
+    // InvitesScreen challenge list
+    ChallengesLoaded(Arc<Vec<ChallengeSummary>>),
+    ChallengesFailed(String),
 
     // Update flow → UpdateScreen.
     // - Available: a strictly newer release was found, with verified asset metadata.

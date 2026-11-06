@@ -20,6 +20,8 @@ enum StatusIcon {
 /// button sits stacked directly above the settings button.
 pub struct PuzzleSidebarWidget {
     area: Rectangle,
+    /// UI locale for status strings; refreshed by the owning screen.
+    pub locale: String,
     back_button: IconButton,
     hint_button: IconButton,
     settings_button: IconButton,
@@ -64,6 +66,7 @@ impl PuzzleSidebarWidget {
         let centered = |w: u16| area.x + (area.width as i16 - w as i16) / 2;
         Self {
             area,
+            locale: crate::i18n::DEFAULT_LOCALE.to_string(),
             back_button: IconButton::new(area.x + MARGIN, btn_y, "back-nav.png"),
             hint_button: IconButton::new(
                 right_x,
@@ -76,11 +79,11 @@ impl PuzzleSidebarWidget {
                 next_y,
                 NEXT_W,
                 NEXT_H,
-                String::from("Next puzzle"),
+                crate::i18n::tr(crate::i18n::DEFAULT_LOCALE, "puzzle-next"),
                 34.0,
                 true,
             ),
-            status_text: "Loading…".to_string(),
+            status_text: crate::i18n::tr(crate::i18n::DEFAULT_LOCALE, "common-loading"),
             status_icon: StatusIcon::None,
             rating: None,
             themes: String::new(),
@@ -97,16 +100,24 @@ impl PuzzleSidebarWidget {
     /// Update the status line from a puzzle status. Drives the check/cross icon
     /// and the "Correct move" / "Try something else" / "You solved the puzzle"
     /// text.
+    /// Refresh the UI locale and the static button labels (called by the
+    /// owning screen each render).
+    pub fn set_locale(&mut self, loc: &str) {
+        self.locale = loc.to_string();
+        self.next_button.label = crate::i18n::tr(loc, "puzzle-next");
+    }
+
     pub fn set_status(&mut self, status: &PuzzleStatus) {
-        let (text, icon) = match status {
-            PuzzleStatus::Solving => ("Find the best move", StatusIcon::None),
+        let loc = self.locale.clone();
+        let (key, icon) = match status {
+            PuzzleStatus::Solving => ("puzzle-status-solving", StatusIcon::None),
             // "Correct move" means the puzzle continues; "Finished Puzzle" only
             // shows once the whole solution has been played.
-            PuzzleStatus::Correct => ("Correct move", StatusIcon::Check),
-            PuzzleStatus::Wrong => ("Try something else", StatusIcon::Cross),
-            PuzzleStatus::Solved => ("Finished Puzzle", StatusIcon::Check),
+            PuzzleStatus::Correct => ("puzzle-status-correct", StatusIcon::Check),
+            PuzzleStatus::Wrong => ("puzzle-status-wrong", StatusIcon::Cross),
+            PuzzleStatus::Solved => ("puzzle-status-solved", StatusIcon::Check),
         };
-        self.status_text = text.to_string();
+        self.status_text = crate::i18n::tr(&loc, key);
         self.status_icon = icon;
     }
 

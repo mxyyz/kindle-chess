@@ -42,7 +42,7 @@ are visible in the binary with `strings`.
 
 | Constant | Source | Debug value | Release value |
 |---|---|---|---|
-| `ROOT_DIR` | `.env.*` | local checkout path | `/mnt/us/hellokindle/` |
+| `ROOT_DIR` | `.env.*` | local checkout path | `/mnt/us/kindlichess/` |
 | `LOG_FILE_DIR` | derived | `<ROOT_DIR>log/` | ″ |
 | `ASSETS_DIR` | derived | `<ROOT_DIR>assets/` | ″ |
 | `AUTH_TOKEN` | derived | `<ROOT_DIR>secrets/token.json` | ″ |
@@ -178,7 +178,7 @@ longer exists. (`flash_display.sh`, which deployed that binary, was deleted in `
 - `CLAUDE.md` is listed in `.gitignore`, so it does **not** travel with a clone. Anything
   that must survive a move to another machine belongs in `docs/` or a module README,
   not in `CLAUDE.md`.
-- A committed ARM binary lives at `kindle_KUAL/hellokindle/bin/kindle-hello` (~10 MB) and
+- A committed ARM binary lives at `kindle_KUAL/kindlichess/bin/kindle-hello` (~10 MB) and
   is re-committed on every flash.
 - There is a stray, remote-less `kindle_chess/.git/` directory. The crate's files are
   tracked by the outer repo; this nested git dir is inert leftover but can confuse tooling.
@@ -189,7 +189,7 @@ longer exists. (`flash_display.sh`, which deployed that binary, was deleted in `
 2. `rustup target add armv7-unknown-linux-musleabi`
 3. `cargo install cross --git https://github.com/cross-rs/cross` (needs Docker or Podman)
 4. **Edit `kindle_chess/.env.debug`** — `ROOT_DIR` must be the absolute path of *that*
-   checkout's `kindle_KUAL/hellokindle/` directory, with a trailing slash.
+   checkout's `kindle_KUAL/kindlichess/` directory, with a trailing slash.
 5. Dev harness deps (Arch): `xorg-server-xvfb`, plus `xorg-server-xephyr` (recommended).
 6. `./run-dev.sh`
 7. For flashing: see [`kindle-usb-ssh.md`](kindle-usb-ssh.md).

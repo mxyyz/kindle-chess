@@ -1,0 +1,19 @@
+# Story e03s05 — Phase 3 slice 1: i18n infra + language setting + Home/Play strings (vertical demo)
+story_id: e03s05
+title: "i18n infrastructure (fluent-rs, pure Rust / musl-safe) + language setting in Settings + EN/DE strings for Home and Play screens"
+status: passing
+bcps: 5
+delta: ADDED
+tasks:
+  - id: e03s05t01
+    description: "Add fluent-rs (fluent-bundle + fluent-resmgr) dependency; create locales/en.ftl and locales/de.ftl embedded via include_str!; i18n module with runtime locale switching (FluentBundle per locale). Pure Rust — verify it links into the armv7 musl static target."
+    verify: "cd kindle_chess && cargo build 2>&1 | tail -1 && RUSTFLAGS='-C target-feature=+crt-static' cargo build --target armv7-unknown-linux-musleabi --release 2>&1 | tail -1"
+    status: passing
+  - id: e03s05t02
+    description: "SettingsScreen: language picker (English/Deutsch) persisted in settings.toml (AppConfig); changing it swaps the active locale at runtime and redraws. Unit-test persistence + locale switch."
+    verify: "cd kindle_chess && cargo test i18n 2>&1 | tail -3"
+    status: passing
+  - id: e03s05t03
+    description: "Apply t() lookups to HomeScreen (Play/Puzzle/Ongoing Games/Settings) and PlayScreen/FriendlistScreen/InvitesScreen strings; en.ftl + de.ftl entries. Unit-test that every key used exists in both locales."
+    verify: "cd kindle_chess && cargo test locale_keys 2>&1 | tail -3"
+    status: passing

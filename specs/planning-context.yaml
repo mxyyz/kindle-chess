@@ -1,65 +1,57 @@
-# specs/planning-context.yaml — written by elaborate-spec; consumed by scope-work and slice-tasks
-feature_name: native-kindle-integration
+# specs/planning-context.yaml — written by elaborate-spec (e03 phase 2); consumed by scope-work / slice-tasks
+# Overwrites the e02 context per user approval (e02 context archived in its epic capsule).
+feature_name: e03-p2-live-game-friend-invite-flow
 problem_statement: >-
-  kindle-chess is only launchable through the KUAL booklet, draws fullscreen with
-  pillow disabled and override_redirect(1) set, and sets no AWM window title, so
-  the Kindle's Awesome Window Manager and home UI ignore it entirely. It feels
-  like a foreign fullscreen hack, not a Kindle app. Source research:
-  https://kindlemodding.org/kindle-dev/ (AWM window-title convention, lipc
-  com.lab126.* services, appreg.db registration) — raw extracts in session
-  scratchpad kindle-dev/.
+  The home screen's "Demo" button launches an idle offline game. Phase 2 replaces it
+  with a "Play" flow that leads the user into a live online Lichess game against a
+  friend: pick a friend from the Lichess following list, choose a game mode
+  (Unlimited / Real time 10:5 / Correspondence 1-14 days), send the challenge, and
+  manage incoming/outgoing invites on a dedicated screen. Scoped to friend
+  invites/inviting only. No keyboard on the Kindle — friend choice is a paged list,
+  never free-text input.
+
 constraints:
-  - Rust + x11rb only; no C++/GTK/Meson/kindle-sdk rewrite
-  - WAF/Mesquite track (config.xml, window.kindle JS APIs) is out — it cannot host the Rust renderer
-  - KPM packaging (research item 4) is out of scope for this epic
-  - KUAL stays in the repo as the fallback launcher (chess_app.sh is the KUAL action)
-  - Launch registration = scriptlet only: repo-root scriptlet/kindle-chess.sh is
-    deployed to /mnt/us/documents by flash.sh/flash_usb.sh; k2's SH_Integration
-    auto-indexes it as a launchable library item. appreg.db registration was tried
-    (register_appreg.sh) but does not work on k1 (possibly account-dependent) —
-    dropped for now, may be revisited later
-  - The dedicated scriptlet launcher lives at repo-root scriptlet/, NOT inside
-    kindle_KUAL — chess_app.sh remains the KUAL launcher script
-  - Static musl armv7-unknown-linux-musleabi release build unchanged
-  - run-dev.sh / Xephyr dev harness must keep working: all AWM/lipc calls degrade to no-ops off-device
-  - 1072x1448 absolute canvas unchanged
-  - flash.sh / flash_usb.sh token.json mv-aside dance must not break
-  - Phase 2 window title uses PC:T (status bar ONLY — no home/search buttons, not PC:TS);
-    the status bar OVERLAYS the app's top strip — no layout shift, 1072x1448 canvas untouched
-out_of_scope:
-  - KPM .kpkg packaging and kpm launch flow
-  - WAF config.xml / kindle.* JavaScript object APIs
-  - Any C++/GTK rewrite of the renderer
-  - Lichess game logic / puzzle features
-  - Removing the KUAL bundle or menu.json
-  - appreg.db registration (for now — did not work on k1; deferred, not forgotten)
+  - Rust + x11rb only; static musl armv7-unknown-linux-musleabi build unchanged
+  - 1072x1448 absolute-pixel canvas unchanged; full repaint only on state change (e-ink)
+  - run-dev.sh / Xephyr harness keeps working; all device-only behavior degrades to no-ops
+  - litchee =0.2.2 crate: RelationsApi::following / ChallengesApi::{list, challenge, accept, decline, cancel};
+    ChallengeRequest builder: rated(false), color(random), clock(limit_secs, inc_secs), days(n), variant standard
+  - OAuth scopes challenge:read + challenge:write already requested (models/oauth.rs)
+  - Existing ChessGameScreen + stream_game / BoardAPI::attach_game reused for the live game
+  - Home screen keeps 4 buttons; "Demo" is renamed "Play" and requires auth (existing QR flow first)
+  - assets/invitation.png used for the invites icon button (IconButton, 134x134 footprint)
+
+flow:
+  - 'HomeScreen "Play" -> PlayScreen (the "form")'
+  - 'PlayScreen: title top-left; invitation IconButton top-right (x=914, y=24) -> InvitesScreen; game-mode button group (Unlimited / Real time 10:5 / Correspondence) at y~140-260 with days-per-move spinner (- / + around value, clamped 1-14) for correspondence; opponent selector button ("Opponent: -" / chosen username) at y~400 -> pushes FriendlistScreen; "Send challenge" button at y~530 (enabled only with opponent selected); status line y~1240; Back bottom-left'
+  - 'FriendlistScreen (mirrors OngoingChessGamesScreen: 4 friend buttons 600x96 from y~400, next/prev page icons, Back, loading/error states): pages RelationsApi::following; tap friend -> AppEvent::FriendSelected(username) + Pop; PlayScreen (top of stack) fills opponent field'
+  - 'Send challenge -> ChallengesApi::challenge(user).rated(false).color(random) + clock(600,5) for realtime / days(n) for correspondence / neither for unlimited -> push InvitesScreen'
+  - 'InvitesScreen: "Incoming" rows with Accept/Decline, "Outgoing" rows with Cancel; poll list ~5s; accept in either direction -> Push ChessGameScreen attached to game id with live stream'
+
 key_decisions:
-  - decision: Hybrid phased approach (option C)
-    rationale: Phase 1 delivers native lifecycle at low risk (keeps current fullscreen UX); Phase 2 adds Kindle chrome behind the same window-title mechanism.
-  - decision: Phase 1 = lifecycle (P1), Phase 2 = chrome (P2)
-    rationale: User-confirmed split. P1: scriptlet launcher (repo-root scriptlet/) + AWM-conformant WM_NAME + display-lock-aware powerd watcher (lock->custom-screensaver hook, wake->full redraw). P2: PC:T title, pillow handoff rework, top-bar layout offset, top.png sidebar button.
-  - decision: Launch registration via scriptlet only; appreg.db approach dropped for now
-    rationale: k2's SH_Integration auto-registers .sh in /mnt/us/documents (proven);
-      the hand-written appreg.db handlerId did not make the app launchable on k1
-      (possibly because no account is connected) — removed again, KUAL covers k1.
-  - decision: chess_app.sh stays the KUAL launcher; a dedicated scriptlet launcher
-    lives at repo-root scriptlet/kindle-chess.sh and is deployed to /mnt/us/documents
-    by the flash scripts
-    rationale: user requirement — clear separation of KUAL path vs scriptlet path.
-  - decision: powerd watcher is display-lock aware (emits DeviceLock AND DeviceWake)
-    rationale: on lock the panel just freezes (no Amazon screensaver is drawn while
-      pillow is disabled); lock events are the hook for a custom screensaver later
-      (task t08). Wake keeps the full-redraw behavior.
-  - decision: t01 (WM_NAME) UAT deferred until t05 (PC:T) lands
-    rationale: with override_redirect + pillow disabled, AWM never reads the title in
-      Phase 1, so there is nothing user-visible to test yet; unit tests cover the format.
-  - decision: Phase 2 exposes the top bar via a dedicated sidebar button (assets/top.png, above the Back button) plus PC:T window title
-    rationale: User wants brightness settings reachable from the Kindle top bar without permanently eating e-ink space; top.png asset already added.
-  - decision: Verification = automated checks now (cargo tests, dev harness), on-device UAT on k2 when reachable
-    rationale: User confirmed "both, device when available"; flash.sh device used for UAT later.
+  - decision: three screens — PlayScreen (form), FriendlistScreen (opponent pick), InvitesScreen (challenges)
+    rationale: user request — friend choice extracted like OngoingGamesScreen, returns username to the Play form via pop+event; invites separated via invitation.png icon top-right of Play
+  - decision: friend selection from RelationsApi::following list, no on-screen keyboard
+    rationale: Kindle has no keyboard; building a text-input widget is out of scope
+  - decision: fixed challenge defaults — standard variant, casual (rated=false), random color
+    rationale: user decision; configurable variants/rated later
+  - decision: game mode via button group — Unlimited / Real time 10:5 (clock 600+5) / Correspondence days 1-14 via spinner
+    rationale: user decision; 10:5 is the realtime default; spinner clamps 1-14
+  - decision: incoming AND outgoing challenges on InvitesScreen with accept/decline/cancel, ~5s poll
+    rationale: user confirmed "friend-invites and inviting" both directions
+  - decision: game start (either direction accepted) pushes existing ChessGameScreen with stream
+    rationale: reuse existing live-game machinery (BoardAPI/stream_game)
+
+out_of_scope:
+  - Arbitrary-username challenges (on-screen keyboard / text input widget)
+  - Open/public challenges, bulk pairing, challenge AI
+  - Rated games, variants other than standard, configurable realtime clocks, custom FEN
+  - Rematch flow, lobby/matchmaking browser
+  - KPM packaging, WAF, C++/GTK rewrite (carried from e02)
+  - Phase 1 (on-device directory restructure) and phase 3 (i18n German) — scoped separately in specs/product/SCOPE_LATEST.yaml
+
 success_criteria:
-  - Phase 1 on-device k2: "Kindli-Chess" scriptlet appears in the library; tapping it launches fullscreen without KUAL
-  - Phase 1 on-device k1: KUAL ChessApp entry launches the app (fallback path)
-  - Both: after lock/unlock the board redraws cleanly on wake (powerd outOfScreenSaver -> full redraw); DeviceLock is observed in logs
-  - Phase 1 automated: WM_NAME/title-builder + powerd classify/debounce unit tests green; scriptlet + flash scripts syntax-checked; cargo build + cargo test green
-  - Phase 2 on-device: top.png sidebar button (above Back) toggles the PC:T status bar over the app (overlay, no layout shift, no home buttons); brightness adjustable from it
+  - cargo build (dev + cross musl) + cargo test green
+  - 'On-device k2 UAT: Play -> pick friend -> choose mode -> send -> appears on InvitesScreen as outgoing; accept incoming -> ChessGameScreen opens with live board; decline/cancel remove the row'
+  - 'Failure paths: send/decline/cancel/network errors show status line + Retry; empty friendlist shows hint'
+  - 'run-dev.sh: full flow exercisable against emulated display with a mocked/stubbed API where possible'

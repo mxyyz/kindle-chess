@@ -5,6 +5,7 @@ use litchee::{
     LichessError,
     api::gameplay::{
         board::{LichessBoardEvent, LichessGameEventPlayer, LichessGameState, LichessVariantInfo},
+        challenges::{LichessChallenge, LichessChallengeColor},
         games::LichessGameStatusName,
     },
     model::{LichessColor, LichessTitle, LichessVariantKey},
@@ -14,9 +15,9 @@ use log::warn;
 
 use crate::models::{
     board_api::{
-        ChatLineEvent, Clock, GameDataList, GameFullEvent, GameOverEvent, GameStateEvent,
-        GameStateStreamEvent, GameVariant, OpponentGoneEvent, PerfMode, PlayedBy, PlayedByAi,
-        PlayedByPlayer, Speed,
+        ChallengeMode, ChallengeSummary, ChatLineEvent, Clock, GameDataList, GameFullEvent,
+        GameOverEvent, GameStateEvent, GameStateStreamEvent, GameVariant, OpponentGoneEvent,
+        PerfMode, PlayedBy, PlayedByAi, PlayedByPlayer, Speed,
     },
     oauth::{LichessUser, UserProfile},
     puzzle::{Puzzle, PuzzleColor, PuzzleParams, PuzzleSolveRound},
@@ -294,6 +295,117 @@ impl LitcheeAdapter {
 
     pub async fn abort_game(&self, game_id: &str) -> Result<(), LichessError> {
         self.client.board().abort(game_id).await
+    }
+
+    // Relations
+    /// Usernames of the players the authenticated user follows (Lichess
+    /// "friends"). `GET /api/rel/following` streams NDJSON — one user object
+    /// per line — which we collect into a plain sorted list for the
+    /// FriendlistScreen.
+    pub async fn get_following(&self) -> Result<Vec<String>, LichessError> {
+        if self.token.is_none() {
+            return Err(LichessError::InvalidRequest(
+                "get_following requires authentication".into(),
+            ));
+        }
+        let stream = self.client.relations().following().await?;
+        tokio::pin!(stream);
+        let mut names = Vec::new();
+        while let Some(item) = stream.next().await {
+            names.push(item?.username);
+        }
+        names.sort();
+        Ok(names)
+    }
+
+    // Challenges
+    /// Send a friend challenge. Fixed defaults per e03 scope: standard variant,
+    /// casual (`rated=false`), random color; only the time control varies with
+    /// `mode`. Returns the created challenge mapped to our summary type.
+    pub async fn send_challenge(
+        &self,
+        username: &str,
+        mode: &ChallengeMode,
+    ) -> Result<ChallengeSummary, LichessError> {
+        if self.token.is_none() {
+            return Err(LichessError::InvalidRequest(
+                "send_challenge requires authentication".into(),
+            ));
+        }
+        let req = self
+            .client
+            .challenges()
+            .challenge(username)
+            .rated(false)
+            .color(LichessChallengeColor::Random);
+        let req = match mode {
+            ChallengeMode::Unlimited => req,
+            // 10:5 real-time default
+            ChallengeMode::RealTime => req.clock(600, 5),
+            ChallengeMode::Correspondence(days) => req.days(u32::from(*days)),
+        };
+        let challenge: LichessChallenge = req.send().await?;
+        Ok(map_challenge(&challenge, false))
+    }
+
+    /// List incoming + outgoing challenges, mapped to summaries.
+    pub async fn list_challenges(&self) -> Result<Vec<ChallengeSummary>, LichessError> {
+        if self.token.is_none() {
+            return Err(LichessError::InvalidRequest(
+                "list_challenges requires authentication".into(),
+            ));
+        }
+        let list = self.client.challenges().list().await?;
+        let mut out = Vec::with_capacity(list.incoming.len() + list.outgoing.len());
+        for c in &list.incoming {
+            out.push(map_challenge(c, true));
+        }
+        for c in &list.outgoing {
+            out.push(map_challenge(c, false));
+        }
+        Ok(out)
+    }
+
+    pub async fn accept_challenge(&self, challenge_id: &str) -> Result<(), LichessError> {
+        self.require_auth("accept_challenge")?;
+        self.client.challenges().accept(challenge_id, None).await
+    }
+
+    pub async fn decline_challenge(&self, challenge_id: &str) -> Result<(), LichessError> {
+        self.require_auth("decline_challenge")?;
+        self.client.challenges().decline(challenge_id, None).await
+    }
+
+    pub async fn cancel_challenge(&self, challenge_id: &str) -> Result<(), LichessError> {
+        self.require_auth("cancel_challenge")?;
+        self.client.challenges().cancel(challenge_id, None).await
+    }
+
+    fn require_auth(&self, what: &str) -> Result<(), LichessError> {
+        if self.token.is_none() {
+            return Err(LichessError::InvalidRequest(format!(
+                "{what} requires authentication"
+            )));
+        }
+        Ok(())
+    }
+}
+
+/// Map a litchee challenge to the app's summary. `incoming` is decided by the
+/// caller (send_challenge → false; list parsing → side of the list).
+fn map_challenge(c: &LichessChallenge, incoming: bool) -> ChallengeSummary {
+    let opponent = if incoming {
+        c.challenger.as_ref().map(|u| u.name.clone())
+    } else {
+        c.dest_user.as_ref().map(|u| u.name.clone())
+    }
+    .unwrap_or_default();
+    ChallengeSummary {
+        id: c.id.clone(),
+        status: format!("{:?}", c.status).to_lowercase(),
+        opponent,
+        incoming,
+        url: c.url.clone(),
     }
 }
 

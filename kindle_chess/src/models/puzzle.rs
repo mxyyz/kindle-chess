@@ -873,3 +873,45 @@ mod tests {
         assert_eq!(params.color, PuzzleColor::White);
     }
 }
+
+impl Difficulty {
+    /// Fluent key for the localized label.
+    pub fn i18n_key(self) -> &'static str {
+        match self {
+            Difficulty::Easiest => "diff-easiest",
+            Difficulty::Easier => "diff-easier",
+            Difficulty::Normal => "diff-normal",
+            Difficulty::Harder => "diff-harder",
+            Difficulty::Hardest => "diff-hardest",
+        }
+    }
+}
+
+impl PuzzlePhase {
+    /// Fluent key for the localized label.
+    pub fn i18n_key(self) -> &'static str {
+        match self {
+            PuzzlePhase::Any => "phase-any",
+            PuzzlePhase::Opening => "phase-opening",
+            PuzzlePhase::Middlegame => "phase-middlegame",
+            PuzzlePhase::Endgame => "phase-endgame",
+            PuzzlePhase::RookEndgame => "phase-rook-endgame",
+            PuzzlePhase::BishopEndgame => "phase-bishop-endgame",
+            PuzzlePhase::PawnEndgame => "phase-pawn-endgame",
+            PuzzlePhase::KnightEndgame => "phase-knight-endgame",
+            PuzzlePhase::QueenEndgame => "phase-queen-endgame",
+            PuzzlePhase::QueenRookEndgame => "phase-queen-rook-endgame",
+        }
+    }
+}
+
+impl PuzzleColor {
+    /// Fluent key for the localized label.
+    pub fn i18n_key(self) -> &'static str {
+        match self {
+            PuzzleColor::Random => "color-random",
+            PuzzleColor::White => "color-white",
+            PuzzleColor::Black => "color-black",
+        }
+    }
+}

@@ -2,7 +2,8 @@ use crate::api::litchee_adapter::LitcheeAdapter;
 use crate::app::game::player0_turn;
 use crate::models::bitboard::Bitboards;
 use crate::models::board_api::{
-    BoardAPI, GameDataList, GameStateStreamEvent, Idle, InGame, PlayedBy, Turn,
+    BoardAPI, ChallengeMode, ChallengeSummary, GameDataList, GameStateStreamEvent, Idle, InGame,
+    PlayedBy, Turn,
 };
 use crate::models::oauth::{LichessUser, TokenInfo};
 use crate::ui::events::AppEvent;
@@ -32,6 +33,38 @@ impl<S> BoardAPI<S> {
         n: u8,
     ) -> Result<GameDataList, Box<dyn std::error::Error>> {
         Ok(self.adapter.get_ongoing_games(n).await?)
+    }
+
+    /// Usernames of followed players (Lichess friends) — the FriendlistScreen's
+    /// data source for picking a challenge opponent.
+    pub async fn get_following(&self) -> Result<Vec<String>, Box<dyn std::error::Error>> {
+        Ok(self.adapter.get_following().await?)
+    }
+
+    /// Send a friend challenge with the given game mode.
+    pub async fn send_challenge(
+        &self,
+        username: &str,
+        mode: &ChallengeMode,
+    ) -> Result<ChallengeSummary, Box<dyn std::error::Error>> {
+        Ok(self.adapter.send_challenge(username, mode).await?)
+    }
+
+    /// Incoming + outgoing challenges (InvitesScreen data source).
+    pub async fn list_challenges(&self) -> Result<Vec<ChallengeSummary>, Box<dyn std::error::Error>> {
+        Ok(self.adapter.list_challenges().await?)
+    }
+
+    pub async fn accept_challenge(&self, challenge_id: &str) -> Result<(), Box<dyn std::error::Error>> {
+        Ok(self.adapter.accept_challenge(challenge_id).await?)
+    }
+
+    pub async fn decline_challenge(&self, challenge_id: &str) -> Result<(), Box<dyn std::error::Error>> {
+        Ok(self.adapter.decline_challenge(challenge_id).await?)
+    }
+
+    pub async fn cancel_challenge(&self, challenge_id: &str) -> Result<(), Box<dyn std::error::Error>> {
+        Ok(self.adapter.cancel_challenge(challenge_id).await?)
     }
 }
 

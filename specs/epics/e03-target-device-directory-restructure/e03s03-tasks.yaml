@@ -1,0 +1,23 @@
+# Story e03s03 — Phase 2 slice 2: PlayScreen form + send challenge (happy path end-to-end)
+story_id: e03s03
+title: "PlayScreen form (game-mode group + correspondence spinner + opponent field + Send) and Home 'Demo' -> 'Play'"
+status: passing
+bcps: 8
+delta: MODIFIED
+tasks:
+  - id: e03s03t01
+    description: "HomeScreen: rename chess_button label 'Demo' -> 'Play' and push PlayScreen instead of idle ChessGameScreen (still requires auth). Unit-test label + transition target."
+    verify: "cd kindle_chess && cargo test home_screen 2>&1 | tail -3 && grep -n 'Play' src/models/ui.rs | head -3"
+    status: passing
+  - id: e03s03t02
+    description: "API layer: challenge send via litchee ChallengesApi::challenge(user).rated(false).color(random).clock(600,5) / .days(n) / neither (unlimited), variant standard. Unit-test that each game mode builds the correct request params."
+    verify: "cd kindle_chess && cargo test challenge_request 2>&1 | tail -3"
+    status: passing
+  - id: e03s03t03
+    description: "PlayScreen UI (models/ui.rs + ui/screens.rs): title top-left; invitation IconButton top-right (x=914, y=24, assets/invitation.png) -> InvitesScreen; mode button group (Unlimited / Real time 10:5 / Correspondence) y~140-260; days spinner (- value +, clamp 1-14) y~260 visible in correspondence mode; opponent selector button y~400 -> pushes FriendlistScreen and handles FriendSelected; 'Send challenge' button y~530 enabled only with opponent; status line y~1240; Back bottom-left."
+    verify: "cd kindle_chess && cargo build 2>&1 | tail -1 && cargo test play_screen 2>&1 | tail -3"
+    status: passing
+  - id: e03s03t04
+    description: "Send flow: tokio::spawn challenge send -> AppEvent::ChallengeSent/ChallengeSendFailed -> status line update + push InvitesScreen on success. commit invitation.png to git (currently untracked)."
+    verify: "cd kindle_chess && cargo test challenge_sent 2>&1 | tail -3 && git ls-files --error-unmatch kindle_KUAL/hellokindle/assets/invitation.png"
+    status: passing

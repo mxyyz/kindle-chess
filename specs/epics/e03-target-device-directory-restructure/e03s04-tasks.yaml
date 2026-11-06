@@ -1,0 +1,19 @@
+# Story e03s04 — Phase 2 slice 3: InvitesScreen + accept -> live game (completes the vertical path)
+story_id: e03s04
+title: "InvitesScreen — incoming/outgoing challenges with accept/decline/cancel, poll, and accept -> ChessGameScreen live game"
+status: passing
+bcps: 8
+delta: ADDED
+tasks:
+  - id: e03s04t01
+    description: "API layer: challenge list (incoming/outgoing) via litchee ChallengesApi::list, accept/decline/cancel via id; unit-test parsing + which side a challenge is on."
+    verify: "cd kindle_chess && cargo test challenges_list 2>&1 | tail -3"
+    status: passing
+  - id: e03s04t02
+    description: "InvitesScreen UI: title, 'Incoming' rows (challenger + Accept/Decline buttons), 'Outgoing' rows (opponent + Cancel), poll every ~5s via spawned task, loading/error/empty states, Back button. Reached from PlayScreen invitation IconButton."
+    verify: "cd kindle_chess && cargo build 2>&1 | tail -1 && cargo test invites_screen 2>&1 | tail -3"
+    status: passing
+  - id: e03s04t03
+    description: "Game start: on accept (either direction) or when a listed game becomes started, push ChessGameScreen attached to the game id using existing BoardAPI::attach_game/stream_game machinery. Unit-test the transition decision."
+    verify: "cd kindle_chess && cargo test game_start 2>&1 | tail -3"
+    status: passing

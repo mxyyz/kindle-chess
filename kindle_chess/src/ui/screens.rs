@@ -1,6 +1,9 @@
-use std::sync::Arc;
+use std::sync::{Arc, RwLock};
+use std::time::{Duration, Instant};
 
 use log::{debug, error, info, warn};
+
+use crate::i18n::{self, tr};
 
 use crate::{
     api::{
@@ -10,19 +13,20 @@ use crate::{
         update::apply_update,
     },
     models::{
-        board_api::PlayedBy,
+        board_api::{ALLOWED_CORRESPONDENCE_DAYS, ChallengeMode, ChallengeSummary, PlayedBy},
         chess::ChessApp,
         oauth::TokenInfo,
         puzzle::{PuzzleParams, PuzzleSession, PuzzleStatus},
         ui::{
-            ChessAuthScreen, ChessGameScreen, Display, GameActionsScreen, HomeScreen,
-            OngoingChessGamesScreen, PuzzleScreen, PuzzleSettingsScreen, Screen, SettingsScreen,
-            Transition, UpdateScreen, UpdateState,
+            ChessAuthScreen, ChessGameScreen, Display, FriendlistScreen, GameActionsScreen,
+            HomeScreen, InvitesScreen, OngoingChessGamesScreen, PlayScreen, PuzzleScreen,
+            PuzzleSettingsScreen, Screen, SettingsScreen, Transition, UpdateScreen, UpdateState,
         },
     },
     ui::{
         events::{AppEvent, RectangleExt, Square, TouchKind},
-        renderer::DrawColor,
+        renderer::{DrawColor, Renderer},
+        events::Rectangle,
         widgets::Button,
     },
     version,
@@ -43,6 +47,15 @@ impl Screen for HomeScreen {
 
         display.renderer.clear(DrawColor::White)?;
 
+        // Localize button labels every render — cheap string lookups, and
+        // picks up a language change immediately.
+        let loc = i18n::locale_of(&self.config);
+        self.chess_button.label = tr(&loc, "home-play");
+        self.puzzle_button.label = tr(&loc, "home-puzzle");
+        self.ongoing_games_button.label = tr(&loc, "home-ongoing");
+        self.settings_button.label = tr(&loc, "home-settings");
+        self.quit_button.label = tr(&loc, "home-quit");
+
         // Logo, centred in the upper third. It was pre-scaled to its display
         // size in HomeScreen::new, so draw it at its own dimensions.
         if let Some(logo) = &self.logo {
@@ -60,6 +73,7 @@ impl Screen for HomeScreen {
         self.puzzle_button.draw(&mut display.renderer)?;
         self.ongoing_games_button.draw(&mut display.renderer)?;
         self.settings_button.draw(&mut display.renderer)?;
+        self.quit_button.draw(&mut display.renderer)?;
 
         display.renderer.present()?;
         Ok(())
@@ -83,7 +97,7 @@ impl Screen for HomeScreen {
             // QR-flow screen; on success it'll pop and re-emit ChessReady.
             AppEvent::AuthFailed(e) => {
                 warn!("Silent auth failed ({}) — pushing ChessAuthScreen", e);
-                Ok(Transition::Push(Box::new(ChessAuthScreen::new())))
+                Ok(Transition::Push(Box::new(ChessAuthScreen::new(self.config.clone()))))
             }
 
             AppEvent::Touch(touch) => {
@@ -92,7 +106,16 @@ impl Screen for HomeScreen {
                     // offline user still needs the update entry point.
                     if self.settings_button.rect.contains(touch.x, touch.y) {
                         info!("Settings button pressed");
-                        return Ok(Transition::Push(Box::new(SettingsScreen::new())));
+                        return Ok(Transition::Push(Box::new(SettingsScreen::new(
+                            self.config.clone(),
+                        ))));
+                    }
+
+                    // Quit is always available (even before auth), same as
+                    // the global triple-tap gesture.
+                    if self.quit_button.rect.contains(touch.x, touch.y) {
+                        info!("Quit button pressed");
+                        return Ok(Transition::Quit);
                     }
 
                     // Puzzle is also auth-independent: the daily puzzle needs
@@ -112,12 +135,16 @@ impl Screen for HomeScreen {
                         return Ok(Transition::Stay);
                     };
                     if self.chess_button.rect.contains(touch.x, touch.y) {
-                        info!("Chess button pressed — launching chess game");
-                        return Ok(Transition::Push(Box::new(ChessGameScreen::new(app))));
+                        info!("Play button pressed — pushing PlayScreen");
+                        return Ok(Transition::Push(Box::new(PlayScreen::new(
+                            app,
+                            self.config.clone(),
+                        ))));
                     } else if self.ongoing_games_button.rect.contains(touch.x, touch.y) {
                         info!("Ongoing-games button pressed");
                         return Ok(Transition::Push(Box::new(OngoingChessGamesScreen::new(
                             app,
+                            self.config.clone(),
                         ))));
                     }
                 }
@@ -205,6 +232,7 @@ impl Screen for ChessGameScreen {
             kick_game_stream(&self.app, display.event_tx.clone(), cancel);
         }
 
+        self.sidebar.set_locale(&i18n::locale_of(&self.config));
         self.board.render(&mut display.renderer)?;
         self.sidebar.render(&mut display.renderer)?;
         display.renderer.present()?;
@@ -241,7 +269,7 @@ impl Screen for ChessGameScreen {
                 self.board.set_flipped(!player0_white);
                 self.board.set_position(board);
                 self.board.set_last_move(last_move);
-                self.sidebar.set_turn(turn);
+                self.sidebar.set_turn(turn, &crate::i18n::locale_of(&self.config));
                 Ok(Transition::Redraw)
             }
 
@@ -253,7 +281,7 @@ impl Screen for ChessGameScreen {
                 self.app.apply_turn(turn.clone());
                 self.board.set_position(board);
                 self.board.set_last_move(last_move);
-                self.sidebar.set_turn(turn);
+                self.sidebar.set_turn(turn, &crate::i18n::locale_of(&self.config));
                 Ok(Transition::Redraw)
             }
 
@@ -328,6 +356,7 @@ impl Screen for ChessGameScreen {
                 info!("Opening game-actions screen");
                 Ok(Transition::Push(Box::new(GameActionsScreen::new(
                     self.app.clone(),
+                    self.config.clone(),
                 ))))
             }
 
@@ -576,6 +605,7 @@ impl OngoingChessGamesScreen {
             &mut self.chessgame_button_2,
             &mut self.chessgame_button_3,
         ];
+        let loc = i18n::locale_of(&self.config);
         let start = index * GAMES_PER_PAGE;
         for (k, btn) in buttons.into_iter().enumerate() {
             match games.now_playing.get(start + k) {
@@ -583,11 +613,11 @@ impl OngoingChessGamesScreen {
                     let opp = match &game.opponent {
                         PlayedBy::User(player) => player.name.clone(),
                         PlayedBy::Ai(computer) => match computer.ai_level {
-                            Some(level) => format!("AI lvl {}", level),
-                            None => String::from("AI"),
+                            Some(level) => i18n::t(&loc, "ongoing-ai-level", &[("level", &level.to_string())]),
+                            None => tr(&loc, "ongoing-ai"),
                         },
                     };
-                    let mut l = format!("VS {opp}");
+                    let mut l = i18n::t(&loc, "ongoing-vs", &[("opponent", &opp)]);
                     if game.is_my_turn {
                         l = format!("> {l} <");
                     }
@@ -626,7 +656,8 @@ impl Screen for OngoingChessGamesScreen {
         let size_px = 24.0;
 
         if let Some(err) = &self.error {
-            let label = format!("Error: {}", err);
+            let loc = i18n::locale_of(&self.config);
+            let label = i18n::t(&loc, "common-error", &[("error", err)]);
             let (tw, th) = display.renderer.measure_text(&label, size_px);
             let tx = (1072 - tw as i16) / 2;
             let ty = (1448 - th as i16) / 2;
@@ -645,13 +676,13 @@ impl Screen for OngoingChessGamesScreen {
             self.next_page_button.draw(&mut display.renderer)?;
             self.prev_page_button.draw(&mut display.renderer)?;
         } else {
-            let label = "Loading…";
-            let (tw, th) = display.renderer.measure_text(label, size_px);
+            let label = tr(&i18n::locale_of(&self.config), "common-loading");
+            let (tw, th) = display.renderer.measure_text(&label, size_px);
             let tx = (1072 - tw as i16) / 2;
             let ty = (1448 - th as i16) / 2;
             display
                 .renderer
-                .draw_text(tx, ty, label, size_px, DrawColor::Black)?;
+                .draw_text(tx, ty, &label, size_px, DrawColor::Black)?;
         }
 
         display.renderer.present()?;
@@ -729,7 +760,10 @@ impl Screen for OngoingChessGamesScreen {
                         .app
                         .clone()
                         .attach_game(game.game_id.clone(), game.is_my_turn);
-                    return Ok(Transition::Push(Box::new(ChessGameScreen::new(game_app))));
+                    return Ok(Transition::Push(Box::new(ChessGameScreen::new(
+                        game_app,
+                        self.config.clone(),
+                    ))));
                 }
                 Ok(Transition::Stay)
             }
@@ -755,20 +789,1064 @@ impl Screen for OngoingChessGamesScreen {
     }
 }
 
+// ─── PlayScreen ───────────────────────────────────────────────────────────────
+
+impl PlayScreen {
+    fn mode(&self) -> ChallengeMode {
+        match self.selected_mode {
+            ChallengeMode::Correspondence(_) => ChallengeMode::Correspondence(self.selected_days),
+            other => other,
+        }
+    }
+
+    /// Index of the currently selected days button.
+    fn selected_days_index(&self) -> usize {
+        ALLOWED_CORRESPONDENCE_DAYS
+            .iter()
+            .position(|&d| d == self.selected_days)
+            .unwrap_or(0)
+    }
+
+    /// Spawn the challenge send. Result arrives as `ChallengeSent` /
+    /// `ChallengeSendFailed` over the event channel.
+    fn kick_send(&mut self, display: &Display) {
+        let loc = i18n::locale_of(&self.config);
+        let Some(opponent) = self.opponent.clone() else {
+            self.status = Some(tr(&loc, "play-status-select-first"));
+            return;
+        };
+        let Some(api) = self.app.online_idle_api() else {
+            self.status = Some("offline backend".into());
+            return;
+        };
+        if self.sending {
+            return;
+        }
+        self.sending = true;
+        self.status = Some(i18n::t(&loc, "play-status-sending", &[("name", &opponent)]));
+        let mode = self.mode();
+        let tx = display.event_tx.clone();
+        tokio::spawn(async move {
+            match api.send_challenge(&opponent, &mode).await {
+                Ok(_) => {
+                    let _ = tx.send(AppEvent::ChallengeSent(opponent));
+                }
+                Err(e) => {
+                    let _ = tx.send(AppEvent::ChallengeSendFailed(e.to_string()));
+                }
+            }
+        });
+    }
+
+    /// The correspondence days-spinner is only shown in correspondence mode;
+    /// in other modes its row stays blank (layout positions never move).
+    fn spinner_visible(&self) -> bool {
+        matches!(self.mode(), ChallengeMode::Correspondence(_))
+    }
+
+    /// The currently selected mode button, for drawing the selection marker.
+    fn selected_mode_button(&self) -> &Button {
+        match self.selected_mode {
+            ChallengeMode::Unlimited => &self.mode_button_unlimited,
+            ChallengeMode::RealTime => &self.mode_button_realtime,
+            ChallengeMode::Correspondence(_) => &self.mode_button_correspondence,
+        }
+    }
+}
+
+/// Selected-file-style marker around `rect`: four 45° diagonal lines from
+/// each corner pointing inward — same style as the chessboard's
+/// selected-square highlight.
+fn draw_selection_marker(
+    renderer: &mut Renderer,
+    rect: &Rectangle,
+) -> Result<(), Box<dyn std::error::Error>> {
+    let l = (rect.width.min(rect.height) / 8).max(12) as i16;
+    let stroke = 4;
+    let x = rect.x;
+    let y = rect.y;
+    let w = rect.width as i16;
+    let h = rect.height as i16;
+    let cuts = [
+        (x, y, x + l, y + l),
+        (x + w, y, x + w - l, y + l),
+        (x + w, y + h, x + w - l, y + h - l),
+        (x, y + h, x + l, y + h - l),
+    ];
+    for (x1, y1, x2, y2) in cuts {
+        renderer.draw_line(x1, y1, x2, y2, DrawColor::Black, stroke)?;
+    }
+    Ok(())
+}
+
+impl Screen for PlayScreen {
+    fn render(&mut self, display: &mut Display) -> Result<(), Box<dyn std::error::Error>> {
+        use crate::ui::renderer::DrawColor;
+
+        display.renderer.clear(DrawColor::White)?;
+
+        let loc = i18n::locale_of(&self.config);
+        let title = tr(&loc, "play-title");
+        let (tw, _) = display.renderer.measure_text(&title, 36.0);
+        display.renderer.draw_text((1072 - tw as i16) / 2, 120, &title, 36.0, DrawColor::Black)?;
+
+        self.mode_button_unlimited.label = tr(&loc, "play-mode-unlimited");
+        self.mode_button_realtime.label = tr(&loc, "play-mode-realtime");
+        self.mode_button_correspondence.label = tr(&loc, "play-mode-correspondence");
+        self.send_button.label = tr(&loc, "play-send");
+
+        self.invites_button.draw(&mut display.renderer)?;
+        self.mode_button_unlimited.draw(&mut display.renderer)?;
+        self.mode_button_realtime.draw(&mut display.renderer)?;
+        self.mode_button_correspondence.draw(&mut display.renderer)?;
+        // Selection marker on the active mode button (selected-file style).
+        draw_selection_marker(&mut display.renderer, &self.selected_mode_button().rect)?;
+
+        // Days toggle group — only in correspondence mode; the row stays
+        // blank otherwise so nothing below shifts.
+        if self.spinner_visible() {
+            for btn in &self.days_buttons {
+                btn.draw(&mut display.renderer)?;
+            }
+            draw_selection_marker(
+                &mut display.renderer,
+                &self.days_buttons[self.selected_days_index()].rect,
+            )?;
+        }
+
+        self.opponent_button.label = match &self.opponent {
+            Some(name) => i18n::t(&loc, "play-opponent", &[("name", name)]),
+            None => tr(&loc, "play-opponent-none"),
+        };
+        self.opponent_button.draw(&mut display.renderer)?;
+        self.send_button.draw(&mut display.renderer)?;
+
+        if let Some(status) = &self.status {
+            let (sw, sh) = display.renderer.measure_text(status, 24.0);
+            display.renderer.draw_text(
+                (1072 - sw as i16) / 2,
+                1240 - sh as i16 / 2,
+                status,
+                24.0,
+                DrawColor::Black,
+            )?;
+        }
+
+        self.back_button.draw(&mut display.renderer)?;
+        display.renderer.present()?;
+        Ok(())
+    }
+
+    fn handle_event(
+        &mut self,
+        event: AppEvent,
+        display: &mut Display,
+    ) -> Result<Transition, Box<dyn std::error::Error>> {
+        match event {
+            // Bubbled up from the popped FriendlistScreen.
+            AppEvent::FriendSelected(name) => {
+                info!("Opponent selected: {}", name);
+                self.opponent = Some(name);
+                self.status = None;
+                Ok(Transition::Redraw)
+            }
+
+            AppEvent::ChallengeSent(opponent) => {
+                self.sending = false;
+                let loc = i18n::locale_of(&self.config);
+                self.status = Some(i18n::t(&loc, "play-status-sent", &[("name", &opponent)]));
+                // Show the pending outgoing invite on the Invites screen.
+                return Ok(Transition::Push(Box::new(InvitesScreen::new(
+                    self.app.clone(),
+                    self.config.clone(),
+                ))));
+            }
+
+            AppEvent::ChallengeSendFailed(e) => {
+                warn!("Challenge send failed: {}", e);
+                self.sending = false;
+                let loc = i18n::locale_of(&self.config);
+                self.status = Some(i18n::t(&loc, "play-status-failed", &[("error", &e)]));
+                Ok(Transition::Redraw)
+            }
+
+            AppEvent::Touch(touch) => {
+                if touch.kind != TouchKind::Up {
+                    return Ok(Transition::Stay);
+                }
+
+                if self.back_button.rect.contains(touch.x, touch.y) {
+                    return Ok(Transition::Pop);
+                }
+
+                if self.mode_button_unlimited.rect.contains(touch.x, touch.y) {
+                    self.selected_mode = ChallengeMode::Unlimited;
+                    return Ok(Transition::Redraw);
+                }
+                if self.mode_button_realtime.rect.contains(touch.x, touch.y) {
+                    self.selected_mode = ChallengeMode::RealTime;
+                    return Ok(Transition::Redraw);
+                }
+                if self.mode_button_correspondence.rect.contains(touch.x, touch.y) {
+                    self.selected_mode = ChallengeMode::Correspondence(self.selected_days);
+                    return Ok(Transition::Redraw);
+                }
+
+                // Days toggle group: one button per Lichess-allowed value.
+                for (i, btn) in self.days_buttons.iter().enumerate() {
+                    if btn.rect.contains(touch.x, touch.y) {
+                        self.selected_days = ALLOWED_CORRESPONDENCE_DAYS[i];
+                        if matches!(self.selected_mode, ChallengeMode::Correspondence(_)) {
+                            self.selected_mode = ChallengeMode::Correspondence(self.selected_days);
+                        }
+                        return Ok(Transition::Redraw);
+                    }
+                }
+
+                if self.opponent_button.rect.contains(touch.x, touch.y) {
+                    info!("Opening friend list");
+                    return Ok(Transition::Push(Box::new(FriendlistScreen::new(
+                        self.app.clone(),
+                        self.config.clone(),
+                    ))));
+                }
+
+                if self.send_button.rect.contains(touch.x, touch.y) {
+                    self.kick_send(display);
+                    return Ok(Transition::Redraw);
+                }
+
+                if self.invites_button.rect.contains(touch.x, touch.y) {
+                    info!("Invites button pressed — pushing InvitesScreen");
+                    return Ok(Transition::Push(Box::new(InvitesScreen::new(
+                        self.app.clone(),
+                        self.config.clone(),
+                    ))));
+                }
+
+                Ok(Transition::Stay)
+            }
+
+            AppEvent::Expose => Ok(Transition::Redraw),
+
+            AppEvent::WindowUnmapped => {
+                warn!("Window unmapped!");
+                Ok(Transition::Stay)
+            }
+
+            AppEvent::Quit => Ok(Transition::Quit),
+
+            _ => Ok(Transition::Stay),
+        }
+    }
+}
+
+// ─── InvitesScreen ────────────────────────────────────────────────────────────
+
+/// How often the challenge list is re-polled while the screen is visible.
+const INVITES_POLL_INTERVAL: Duration = Duration::from_secs(5);
+/// Rows per section (incoming / outgoing) per page.
+const INVITES_PER_PAGE: usize = 4;
+
+/// First accepted challenge with a game id — that's a live game to join.
+fn accepted_game(challenges: &[ChallengeSummary]) -> Option<&ChallengeSummary> {
+    challenges.iter().find(|c| c.game_id().is_some())
+}
+
+/// Which challenge action an InvitesScreen row button triggers.
+#[derive(Debug, Clone, Copy)]
+enum Action {
+    Accept,
+    Decline,
+    Cancel,
+}
+
+impl Action {
+    fn label(self) -> &'static str {
+        match self {
+            Action::Accept => "accept",
+            Action::Decline => "decline",
+            Action::Cancel => "cancel",
+        }
+    }
+}
+
+impl InvitesScreen {
+    /// Spawn the challenge-list fetch. Idempotent w.r.t. `self.loading`.
+    fn kick_fetch(&mut self, display: &Display) {
+        if self.loading {
+            return;
+        }
+        let Some(api) = self.app.online_idle_api() else {
+            self.error = Some("Offline backend has no invites".into());
+            return;
+        };
+        self.loading = true;
+        let tx = display.event_tx.clone();
+        tokio::spawn(async move {
+            match api.list_challenges().await {
+                Ok(list) => {
+                    let _ = tx.send(AppEvent::ChallengesLoaded(Arc::new(list)));
+                }
+                Err(e) => {
+                    let _ = tx.send(AppEvent::ChallengesFailed(e.to_string()));
+                }
+            }
+        });
+    }
+
+    /// Spawn an accept/decline/cancel action, then re-fetch the list so the
+    /// row disappears on success. The refreshed list arrives as
+    /// `ChallengesLoaded`.
+    fn kick_action(&mut self, display: &Display, id: String, action: Action) {
+        let Some(api) = self.app.online_idle_api() else {
+            self.status = Some("Offline backend".into());
+            return;
+        };
+        self.status = Some(format!("Sending {}…", action.label()));
+        let tx = display.event_tx.clone();
+        tokio::spawn(async move {
+            // Map the error to String immediately — `Box<dyn Error>` is not
+            // Send, so it must not be held across the next `.await`.
+            let res_msg = match action {
+                Action::Accept => api.accept_challenge(&id).await.err(),
+                Action::Decline => api.decline_challenge(&id).await.err(),
+                Action::Cancel => api.cancel_challenge(&id).await.err(),
+            }
+            .map(|e| format!("{}: {e}", action.label()));
+            match api.list_challenges().await {
+                Ok(list) => {
+                    let _ = tx.send(AppEvent::ChallengesLoaded(Arc::new(list)));
+                }
+                Err(e) => {
+                    let _ = tx.send(AppEvent::ChallengesFailed(res_msg.unwrap_or_else(|| e.to_string())));
+                }
+            }
+        });
+    }
+
+    fn incoming_page_count(&self) -> usize {
+        match &self.challenges {
+            Some(list) => list.iter().filter(|c| c.incoming).count().div_ceil(INVITES_PER_PAGE),
+            None => 0,
+        }
+    }
+
+    fn outgoing_page_count(&self) -> usize {
+        match &self.challenges {
+            Some(list) => list.iter().filter(|c| !c.incoming).count().div_ceil(INVITES_PER_PAGE),
+            None => 0,
+        }
+    }
+
+    /// Bake the current pages' challenges into the 4+4 rows. Slots past the
+    /// list end keep a "-" label and are simply not drawn.
+    fn set_rows(&mut self) {
+        let Some(list) = self.challenges.as_ref() else {
+            return;
+        };
+        let incoming: Vec<&ChallengeSummary> = list.iter().filter(|c| c.incoming).collect();
+        let outgoing: Vec<&ChallengeSummary> = list.iter().filter(|c| !c.incoming).collect();
+        let label = |src: &[&ChallengeSummary], page: usize, k: usize| {
+            match src.get(page * INVITES_PER_PAGE + k) {
+                Some(c) => format!("{} ({})", c.opponent, c.status),
+                None => "-".to_string(),
+            }
+        };
+        for k in 0..INVITES_PER_PAGE {
+            self.incoming_name[k].label = label(&incoming, self.incoming_page, k);
+            self.outgoing_name[k].label = label(&outgoing, self.outgoing_page, k);
+        }
+    }
+
+    /// Whether row `k` of the section's current page has a backing challenge —
+    /// empty rows are not rendered at all.
+    fn incoming_visible(&self, k: usize) -> bool {
+        self.incoming_at(k).is_some()
+    }
+    fn outgoing_visible(&self, k: usize) -> bool {
+        self.outgoing_at(k).is_some()
+    }
+
+    fn incoming_at(&self, k: usize) -> Option<&ChallengeSummary> {
+        self.challenges
+            .as_ref()?
+            .iter()
+            .filter(|c| c.incoming)
+            .nth(self.incoming_page * INVITES_PER_PAGE + k)
+    }
+
+    fn outgoing_at(&self, k: usize) -> Option<&ChallengeSummary> {
+        self.challenges
+            .as_ref()?
+            .iter()
+            .filter(|c| !c.incoming)
+            .nth(self.outgoing_page * INVITES_PER_PAGE + k)
+    }
+}
+
+impl Screen for InvitesScreen {
+    fn render(&mut self, display: &mut Display) -> Result<(), Box<dyn std::error::Error>> {
+        // Poll: initial fetch, then re-fetch every INVITES_POLL_INTERVAL.
+        let stale = self
+            .last_fetch
+            .map(|t| t.elapsed() >= INVITES_POLL_INTERVAL)
+            .unwrap_or(true);
+        if !self.loading && self.error.is_none() && stale {
+            self.kick_fetch(display);
+        }
+
+        display.renderer.clear(DrawColor::White)?;
+
+        let loc = i18n::locale_of(&self.config);
+        let title = tr(&loc, "invites-title");
+        let (tw, _) = display.renderer.measure_text(&title, 36.0);
+        display.renderer.draw_text((1072 - tw as i16) / 2, 120, &title, 36.0, DrawColor::Black)?;
+
+        for btn in self.incoming_accept.iter_mut() {
+            btn.label = tr(&loc, "invites-accept");
+        }
+        for btn in self.incoming_decline.iter_mut() {
+            btn.label = tr(&loc, "invites-decline");
+        }
+        for btn in self.outgoing_cancel.iter_mut() {
+            btn.label = tr(&loc, "invites-cancel");
+        }
+
+        let mut label = |y: i16, text: &str| -> Result<(), Box<dyn std::error::Error>> {
+            display.renderer.draw_text(136, y, text, 28.0, DrawColor::Black)?;
+            Ok(())
+        };
+        label(200, &tr(&loc, "invites-incoming"))?;
+        label(680, &tr(&loc, "invites-outgoing"))?;
+
+        if let Some(err) = &self.error {
+            let label = i18n::t(&i18n::locale_of(&self.config), "common-error", &[("error", err)]);
+            let (w, h) = display.renderer.measure_text(&label, 24.0);
+            display.renderer.draw_text(
+                (1072 - w as i16) / 2,
+                (1448 - h as i16) / 2,
+                &label,
+                24.0,
+                DrawColor::Black,
+            )?;
+        } else if self.challenges.is_some() {
+            // Dynamic rows: only slots backed by a challenge are drawn.
+            for k in 0..INVITES_PER_PAGE {
+                if self.incoming_visible(k) {
+                    self.incoming_name[k].draw(&mut display.renderer)?;
+                    self.incoming_accept[k].draw(&mut display.renderer)?;
+                    self.incoming_decline[k].draw(&mut display.renderer)?;
+                }
+                if self.outgoing_visible(k) {
+                    self.outgoing_name[k].draw(&mut display.renderer)?;
+                    self.outgoing_cancel[k].draw(&mut display.renderer)?;
+                }
+            }
+            self.incoming_prev.draw(&mut display.renderer)?;
+            self.incoming_next.draw(&mut display.renderer)?;
+            self.outgoing_prev.draw(&mut display.renderer)?;
+            self.outgoing_next.draw(&mut display.renderer)?;
+        } else {
+            let label = tr(&loc, "invites-loading");
+            let (w, h) = display.renderer.measure_text(&label, 24.0);
+            display.renderer.draw_text(
+                (1072 - w as i16) / 2,
+                (1448 - h as i16) / 2,
+                &label,
+                24.0,
+                DrawColor::Black,
+            )?;
+        }
+
+        if let Some(status) = &self.status {
+            let (w, h) = display.renderer.measure_text(status, 24.0);
+            display.renderer.draw_text(
+                (1072 - w as i16) / 2,
+                1240 - h as i16 / 2,
+                status,
+                24.0,
+                DrawColor::Black,
+            )?;
+        }
+
+        self.back_button.draw(&mut display.renderer)?;
+        display.renderer.present()?;
+        Ok(())
+    }
+
+    fn handle_event(
+        &mut self,
+        event: AppEvent,
+        display: &mut Display,
+    ) -> Result<Transition, Box<dyn std::error::Error>> {
+        match event {
+            AppEvent::ChallengesLoaded(list) => {
+                info!("Challenges loaded: {} entries", list.len());
+                self.last_fetch = Some(Instant::now());
+                self.loading = false;
+                self.error = None;
+                // An accepted challenge means the game has started — join it.
+                if let Some(c) = accepted_game(&list) {
+                    if let Some(game_id) = c.game_id() {
+                        let game_id = game_id.to_string();
+                        info!("Challenge {} accepted — joining game {}", c.id, game_id);
+                        let game_app = self.app.clone().attach_game(game_id, false);
+                        return Ok(Transition::Push(Box::new(ChessGameScreen::new(
+                            game_app,
+                            self.config.clone(),
+                        ))));
+                    }
+                }
+                self.challenges = Some(list);
+                self.set_rows();
+                Ok(Transition::Redraw)
+            }
+
+            AppEvent::ChallengesFailed(e) => {
+                warn!("Challenge list fetch failed: {}", e);
+                self.error = Some(e);
+                self.loading = false;
+                Ok(Transition::Redraw)
+            }
+
+            AppEvent::Touch(touch) => {
+                if touch.kind != TouchKind::Up {
+                    return Ok(Transition::Stay);
+                }
+                if self.back_button.rect.contains(touch.x, touch.y) {
+                    return Ok(Transition::Pop);
+                }
+
+                // Per-section pagination: each section pages independently.
+                if self.incoming_next.rect.contains(touch.x, touch.y) {
+                    let last = self.incoming_page_count().saturating_sub(1);
+                    if self.incoming_page < last {
+                        self.incoming_page += 1;
+                        self.set_rows();
+                        return Ok(Transition::Redraw);
+                    }
+                    return Ok(Transition::Stay);
+                }
+                if self.incoming_prev.rect.contains(touch.x, touch.y) {
+                    if self.incoming_page > 0 {
+                        self.incoming_page -= 1;
+                        self.set_rows();
+                        return Ok(Transition::Redraw);
+                    }
+                    return Ok(Transition::Stay);
+                }
+                if self.outgoing_next.rect.contains(touch.x, touch.y) {
+                    let last = self.outgoing_page_count().saturating_sub(1);
+                    if self.outgoing_page < last {
+                        self.outgoing_page += 1;
+                        self.set_rows();
+                        return Ok(Transition::Redraw);
+                    }
+                    return Ok(Transition::Stay);
+                }
+                if self.outgoing_prev.rect.contains(touch.x, touch.y) {
+                    if self.outgoing_page > 0 {
+                        self.outgoing_page -= 1;
+                        self.set_rows();
+                        return Ok(Transition::Redraw);
+                    }
+                    return Ok(Transition::Stay);
+                }
+
+                // Resolve the tapped row to (challenge id, action) first, so
+                // the immutable button borrows end before `kick_action` borrows
+                // `self` mutably. Empty slots are inert (not rendered, no hit).
+                let mut pending: Option<(String, Action)> = None;
+                for (k, btn) in self.incoming_accept.iter().enumerate() {
+                    if btn.rect.contains(touch.x, touch.y) {
+                        pending = self.incoming_at(k).map(|c| (c.id.clone(), Action::Accept));
+                        break;
+                    }
+                }
+                if pending.is_none() {
+                    for (k, btn) in self.incoming_decline.iter().enumerate() {
+                        if btn.rect.contains(touch.x, touch.y) {
+                            pending = self.incoming_at(k).map(|c| (c.id.clone(), Action::Decline));
+                            break;
+                        }
+                    }
+                }
+                if pending.is_none() {
+                    for (k, btn) in self.outgoing_cancel.iter().enumerate() {
+                        if btn.rect.contains(touch.x, touch.y) {
+                            pending = self.outgoing_at(k).map(|c| (c.id.clone(), Action::Cancel));
+                            break;
+                        }
+                    }
+                }
+                if let Some((id, action)) = pending {
+                    self.kick_action(display, id, action);
+                    return Ok(Transition::Redraw);
+                }
+                Ok(Transition::Stay)
+            }
+
+            AppEvent::Expose => Ok(Transition::Redraw),
+
+            AppEvent::WindowUnmapped => {
+                warn!("Window unmapped!");
+                Ok(Transition::Stay)
+            }
+
+            AppEvent::Quit => Ok(Transition::Quit),
+
+            _ => Ok(Transition::Stay),
+        }
+    }
+
+    fn on_reveal(&mut self) {
+        // Returning to this screen: force a refetch on next render.
+        self.last_fetch = None;
+        self.challenges = None;
+        self.error = None;
+    }
+}
+
+#[cfg(test)]
+pub(crate) fn test_config() -> Arc<RwLock<crate::utils::config::AppConfig>> {
+    Arc::new(RwLock::new(crate::utils::config::AppConfig::default()))
+}
+
+#[cfg(test)]
+mod invites_tests {
+    use super::*;
+    use crate::models::board_api::ChallengeSummary;
+
+    fn ch(id: &str, status: &str, url: &str, incoming: bool) -> ChallengeSummary {
+        ChallengeSummary {
+            id: id.into(),
+            status: status.into(),
+            opponent: "X".into(),
+            incoming,
+            url: url.into(),
+        }
+    }
+
+    #[test]
+    fn accepted_game_finds_only_accepted_with_url() {
+        let list = vec![
+            ch("a", "created", "https://lichess.org/", true),
+            ch("b", "accepted", "https://lichess.org/gameB", false),
+            ch("c", "accepted", "https://lichess.org/", true), // empty id segment
+        ];
+        let found = accepted_game(&list).unwrap();
+        assert_eq!(found.id, "b");
+        assert_eq!(found.game_id(), Some("gameB"));
+    }
+
+    #[test]
+    fn no_accepted_means_no_game() {
+        let list = vec![ch("a", "created", "https://lichess.org/", true)];
+        assert!(accepted_game(&list).is_none());
+    }
+
+    #[test]
+    fn rows_split_incoming_outgoing_and_hide_empty_slots() {
+        let mut s = InvitesScreen::new(ChessApp::new_offline(), test_config());
+        s.challenges = Some(Arc::new(vec![
+            ch("in1", "created", "u", true),
+            ch("out1", "created", "u", false),
+            ch("in2", "created", "u", true),
+        ]));
+        s.set_rows();
+        assert_eq!(s.incoming_name[0].label, "X (created)");
+        assert_eq!(s.incoming_name[1].label, "X (created)");
+        assert!(s.incoming_visible(0));
+        assert!(s.incoming_visible(1));
+        assert!(!s.incoming_visible(2)); // not rendered
+        assert!(s.outgoing_visible(0));
+        assert!(!s.outgoing_visible(1));
+        assert_eq!(s.incoming_at(0).unwrap().id, "in1");
+        assert_eq!(s.incoming_at(2), None);
+        assert_eq!(s.outgoing_at(0).unwrap().id, "out1");
+        assert_eq!(s.incoming_page_count(), 1);
+        assert_eq!(s.outgoing_page_count(), 1);
+    }
+
+    #[test]
+    fn pagination_is_separate_per_section() {
+        let mut s = InvitesScreen::new(ChessApp::new_offline(), test_config());
+        let mut list = Vec::new();
+        for i in 0..5 {
+            list.push(ch(&format!("in{i}"), "created", "u", true));
+        }
+        for i in 0..2 {
+            list.push(ch(&format!("out{i}"), "created", "u", false));
+        }
+        s.challenges = Some(Arc::new(list));
+        // Incoming has 5 -> 2 pages; outgoing has 2 -> 1 page.
+        assert_eq!(s.incoming_page_count(), 2);
+        assert_eq!(s.outgoing_page_count(), 1);
+        // Paging incoming does not touch outgoing's page.
+        s.incoming_page = 1;
+        s.set_rows();
+        assert!(s.incoming_visible(0)); // 5th invite
+        assert!(!s.incoming_visible(1));
+        assert_eq!(s.incoming_at(0).unwrap().id, "in4");
+        assert_eq!(s.outgoing_page, 0);
+        assert!(s.outgoing_visible(0));
+        assert!(s.outgoing_visible(1));
+        assert!(!s.outgoing_visible(2));
+    }
+}
+
+#[cfg(test)]
+mod play_screen_tests {
+    use super::*;
+    use crate::models::chess::ChessApp;
+
+    #[test]
+    fn opponent_label_reflects_selection() {
+        let mut s = PlayScreen::new(ChessApp::new_offline(), test_config());
+        assert_eq!(s.opponent_label(), "Opponent: -");
+        s.opponent = Some("Alice42".into());
+        assert_eq!(s.opponent_label(), "Opponent: Alice42");
+    }
+
+    #[test]
+    fn mode_tracks_selected_days_in_correspondence() {
+        let mut s = PlayScreen::new(ChessApp::new_offline(), test_config());
+        s.selected_mode = ChallengeMode::Correspondence(s.selected_days);
+        s.selected_days = 10;
+        assert_eq!(s.mode(), ChallengeMode::Correspondence(10));
+        s.selected_mode = ChallengeMode::RealTime;
+        assert_eq!(s.mode(), ChallengeMode::RealTime);
+    }
+
+    #[test]
+    fn days_group_only_visible_in_correspondence_mode() {
+        let mut s = PlayScreen::new(ChessApp::new_offline(), test_config());
+        s.selected_mode = ChallengeMode::RealTime;
+        assert!(!s.spinner_visible());
+        s.selected_mode = ChallengeMode::Correspondence(3);
+        assert!(s.spinner_visible());
+        s.selected_mode = ChallengeMode::Unlimited;
+        assert!(!s.spinner_visible());
+    }
+
+    #[test]
+    fn correspondence_days_are_always_lichess_allowed() {
+        let s = PlayScreen::new(ChessApp::new_offline(), test_config());
+        // Default and every selectable button map to an allowed value.
+        assert!(ALLOWED_CORRESPONDENCE_DAYS.contains(&s.selected_days));
+        for (i, btn) in s.days_buttons.iter().enumerate() {
+            assert_eq!(
+                btn.label.parse::<u8>().unwrap(),
+                ALLOWED_CORRESPONDENCE_DAYS[i]
+            );
+        }
+        // Selected index tracks selected_days.
+        let mut s2 = PlayScreen::new(ChessApp::new_offline(), test_config());
+        s2.selected_days = 14;
+        assert_eq!(s2.selected_days_index(), 6);
+        assert_eq!(s2.mode().days_value(), 0); // mode is RealTime by default
+        s2.selected_mode = ChallengeMode::Correspondence(14);
+        assert_eq!(s2.mode().days_value(), 14);
+    }
+
+    #[test]
+    fn selected_mode_button_tracks_selection() {
+        let mut s = PlayScreen::new(ChessApp::new_offline(), test_config());
+        s.selected_mode = ChallengeMode::Unlimited;
+        assert!(std::ptr::eq(s.selected_mode_button(), &s.mode_button_unlimited));
+        s.selected_mode = ChallengeMode::Correspondence(3);
+        assert!(std::ptr::eq(
+            s.selected_mode_button(),
+            &s.mode_button_correspondence
+        ));
+    }
+}
+
+// ─── FriendlistScreen ─────────────────────────────────────────────────────────
+
+const FRIENDS_PER_PAGE: usize = 4;
+
+impl FriendlistScreen {
+    /// Spawn the friends fetch onto the tokio runtime. Idempotent w.r.t.
+    /// `self.loading` — call from `render` (initial load) only. Result is
+    /// delivered as `FriendsLoaded` / `FriendsFailed` over the event channel.
+    fn kick_fetch(&mut self, display: &Display) {
+        if self.loading {
+            return;
+        }
+        let Some(api) = self.app.online_idle_api() else {
+            self.error = Some("Offline backend has no friend list".into());
+            return;
+        };
+        self.loading = true;
+        let tx = display.event_tx.clone();
+        tokio::spawn(async move {
+            match api.get_following().await {
+                Ok(names) => {
+                    let _ = tx.send(AppEvent::FriendsLoaded(Arc::new(names)));
+                }
+                Err(e) => {
+                    let _ = tx.send(AppEvent::FriendsFailed(e.to_string()));
+                }
+            }
+        });
+    }
+
+    fn page_count(&self) -> usize {
+        match &self.friends {
+            Some(f) => f.len().div_ceil(FRIENDS_PER_PAGE),
+            None => 0,
+        }
+    }
+
+    /// Bake labels for `index`'s page of friends into the four buttons and
+    /// update `self.page_index`. Slots past the list end get "-" (inert).
+    fn set_page(&mut self, index: usize) {
+        self.page_index = index;
+        let Some(friends) = self.friends.as_ref() else {
+            return;
+        };
+        let buttons: [&mut Button; 4] = [
+            &mut self.friend_button_0,
+            &mut self.friend_button_1,
+            &mut self.friend_button_2,
+            &mut self.friend_button_3,
+        ];
+        let start = index * FRIENDS_PER_PAGE;
+        for (k, btn) in buttons.into_iter().enumerate() {
+            match friends.get(start + k) {
+                Some(name) => btn.label = name.clone(),
+                None => btn.label = "-".to_string(),
+            }
+        }
+    }
+
+    /// Which friend `friend_button_{k}` currently maps to, given the page.
+    /// `None` for inert "-" slots.
+    fn friend_at_slot(&self, k: usize) -> Option<&String> {
+        self.friends
+            .as_ref()?
+            .get(self.page_index * FRIENDS_PER_PAGE + k)
+    }
+}
+
+impl Screen for FriendlistScreen {
+    fn render(&mut self, display: &mut Display) -> Result<(), Box<dyn std::error::Error>> {
+        use crate::ui::renderer::DrawColor;
+
+        // First paint after Push: kick off the async fetch once.
+        if self.friends.is_none() && self.error.is_none() && !self.loading {
+            self.kick_fetch(display);
+        }
+
+        display.renderer.clear(DrawColor::White)?;
+
+        // Title strip
+        let loc = i18n::locale_of(&self.config);
+        let title = tr(&loc, "friends-title");
+        let (tw, _) = display.renderer.measure_text(&title, 36.0);
+        display.renderer.draw_text(
+            (1072 - tw as i16) / 2,
+            120,
+            &title,
+            36.0,
+            DrawColor::Black,
+        )?;
+
+        let size_px = 24.0;
+        if let Some(err) = &self.error {
+            let label = i18n::t(&i18n::locale_of(&self.config), "common-error", &[("error", err)]);
+            let (tw, th) = display.renderer.measure_text(&label, size_px);
+            display.renderer.draw_text(
+                (1072 - tw as i16) / 2,
+                (1448 - th as i16) / 2,
+                &label,
+                size_px,
+                DrawColor::Black,
+            )?;
+        } else if let Some(friends) = &self.friends {
+            if friends.is_empty() {
+                let label = tr(&loc, "friends-empty");
+                let (tw, th) = display.renderer.measure_text(&label, size_px);
+                display.renderer.draw_text(
+                    (1072 - tw as i16) / 2,
+                    (1448 - th as i16) / 2,
+                    &label,
+                    size_px,
+                    DrawColor::Black,
+                )?;
+            } else {
+                self.friend_button_0.draw(&mut display.renderer)?;
+                self.friend_button_1.draw(&mut display.renderer)?;
+                self.friend_button_2.draw(&mut display.renderer)?;
+                self.friend_button_3.draw(&mut display.renderer)?;
+            }
+            self.back_button.draw(&mut display.renderer)?;
+            self.next_page_button.draw(&mut display.renderer)?;
+            self.prev_page_button.draw(&mut display.renderer)?;
+        } else {
+            let label = tr(&loc, "friends-loading");
+            let (tw, th) = display.renderer.measure_text(&label, size_px);
+            display.renderer.draw_text(
+                (1072 - tw as i16) / 2,
+                (1448 - th as i16) / 2,
+                &label,
+                size_px,
+                DrawColor::Black,
+            )?;
+            self.back_button.draw(&mut display.renderer)?;
+        }
+
+        display.renderer.present()?;
+        Ok(())
+    }
+
+    fn handle_event(
+        &mut self,
+        event: AppEvent,
+        display: &mut Display,
+    ) -> Result<Transition, Box<dyn std::error::Error>> {
+        match event {
+            AppEvent::FriendsLoaded(names) => {
+                info!("Friends loaded: {} entries", names.len());
+                self.friends = Some(names);
+                self.loading = false;
+                self.set_page(self.page_index);
+                Ok(Transition::Redraw)
+            }
+
+            AppEvent::FriendsFailed(e) => {
+                warn!("Friends fetch failed: {}", e);
+                self.error = Some(e);
+                self.loading = false;
+                Ok(Transition::Redraw)
+            }
+
+            AppEvent::Touch(touch) => {
+                if touch.kind != TouchKind::Up {
+                    return Ok(Transition::Stay);
+                }
+
+                if self.back_button.rect.contains(touch.x, touch.y) {
+                    return Ok(Transition::Pop);
+                }
+
+                if self.next_page_button.rect.contains(touch.x, touch.y) {
+                    let last = self.page_count().saturating_sub(1);
+                    if self.page_index < last {
+                        self.set_page(self.page_index + 1);
+                        return Ok(Transition::Redraw);
+                    }
+                    return Ok(Transition::Stay);
+                }
+
+                if self.prev_page_button.rect.contains(touch.x, touch.y) {
+                    if self.page_index > 0 {
+                        self.set_page(self.page_index - 1);
+                        return Ok(Transition::Redraw);
+                    }
+                    return Ok(Transition::Stay);
+                }
+
+                let friend_buttons = [
+                    &self.friend_button_0,
+                    &self.friend_button_1,
+                    &self.friend_button_2,
+                    &self.friend_button_3,
+                ];
+                for (k, btn) in friend_buttons.into_iter().enumerate() {
+                    if !btn.rect.contains(touch.x, touch.y) {
+                        continue;
+                    }
+                    let Some(name) = self.friend_at_slot(k).cloned() else {
+                        return Ok(Transition::Stay);
+                    };
+                    info!("Friend selected: {}", name);
+                    // Bubble the pick to the screen below before popping —
+                    // it becomes top-of-stack and receives this event next.
+                    let _ = display.event_tx.send(AppEvent::FriendSelected(name));
+                    return Ok(Transition::Pop);
+                }
+                Ok(Transition::Stay)
+            }
+
+            AppEvent::Expose => Ok(Transition::Redraw),
+
+            AppEvent::WindowUnmapped => {
+                warn!("Window unmapped!");
+                Ok(Transition::Stay)
+            }
+
+            AppEvent::Quit => Ok(Transition::Quit),
+
+            _ => Ok(Transition::Stay),
+        }
+    }
+
+    fn on_reveal(&mut self) {
+        // Returning to this screen from a pushed one: refetch so the list is
+        // current.
+        self.friends = None;
+        self.error = None;
+    }
+}
+
+#[cfg(test)]
+mod friendlist_tests {
+    use super::*;
+    use crate::models::chess::ChessApp;
+
+    fn screen_with_friends(names: &[&str]) -> FriendlistScreen {
+        let mut s = FriendlistScreen::new(ChessApp::new_offline(), test_config());
+        s.friends = Some(Arc::new(names.iter().map(|n| n.to_string()).collect()));
+        s.set_page(0);
+        s
+    }
+
+    #[test]
+    fn pagination_pages_of_four() {
+        let s = screen_with_friends(&["a", "b", "c", "d", "e"]);
+        assert_eq!(s.page_count(), 2);
+        assert_eq!(s.friend_button_0.label, "a");
+        assert_eq!(s.friend_button_3.label, "d");
+    }
+
+    #[test]
+    fn set_page_second_page_and_inert_slots() {
+        let mut s = screen_with_friends(&["a", "b", "c", "d", "e"]);
+        s.set_page(1);
+        assert_eq!(s.friend_button_0.label, "e");
+        assert_eq!(s.friend_button_1.label, "-");
+        assert_eq!(s.friend_at_slot(0).map(|s| s.as_str()), Some("e"));
+        assert_eq!(s.friend_at_slot(1), None);
+    }
+
+    #[test]
+    fn empty_friend_list_has_one_empty_page() {
+        let s = screen_with_friends(&[]);
+        assert_eq!(s.page_count(), 0);
+    }
+}
+
 // ─── SettingsScreen ───────────────────────────────────────────────────────────
 
 impl Screen for SettingsScreen {
     fn render(&mut self, display: &mut Display) -> Result<(), Box<dyn std::error::Error>> {
         display.renderer.clear(DrawColor::White)?;
 
-        // Title
-        let title = "Settings";
+        // Title + localized button labels
+        let loc = i18n::locale_of(&self.config);
+        self.language_button.label = i18n::t(&loc, "settings-language", &[("lang", &loc.to_uppercase())]);
+        self.check_update_button.label = tr(&loc, "settings-check-update");
+        self.back_button.label = tr(&loc, "settings-back");
+        let title = tr(&loc, "home-settings");
         let title_size = 56.0;
-        let (tw, _) = display.renderer.measure_text(title, title_size);
+        let (tw, _) = display.renderer.measure_text(&title, title_size);
         display.renderer.draw_text(
             (1072 - tw as i16) / 2,
             120,
-            title,
+            &title,
             title_size,
             DrawColor::Black,
         )?;
@@ -788,6 +1866,7 @@ impl Screen for SettingsScreen {
             y += 40;
         }
 
+        self.language_button.draw(&mut display.renderer)?;
         self.check_update_button.draw(&mut display.renderer)?;
         self.back_button.draw(&mut display.renderer)?;
         display.renderer.present()?;
@@ -804,9 +1883,25 @@ impl Screen for SettingsScreen {
                 if touch.kind != TouchKind::Up {
                     return Ok(Transition::Stay);
                 }
+                if self.language_button.rect.contains(touch.x, touch.y) {
+                    // Cycle through the shipped locales: en -> de -> en …
+                    let next = {
+                        let cur = i18n::locale_of(&self.config);
+                        let idx = i18n::LOCALES.iter().position(|l| *l == cur).unwrap_or(0);
+                        i18n::LOCALES[(idx + 1) % i18n::LOCALES.len()].to_string()
+                    };
+                    info!("Language switched to {next}");
+                    if let Ok(mut c) = self.config.write() {
+                        c.language = next;
+                        c.save();
+                    }
+                    return Ok(Transition::Redraw);
+                }
                 if self.check_update_button.rect.contains(touch.x, touch.y) {
                     info!("Check-for-updates pressed");
-                    return Ok(Transition::Push(Box::new(UpdateScreen::new())));
+                    return Ok(Transition::Push(Box::new(UpdateScreen::new(
+                        self.config.clone(),
+                    ))));
                 }
                 if self.back_button.rect.contains(touch.x, touch.y) {
                     return Ok(Transition::Pop);
@@ -837,52 +1932,50 @@ impl Screen for UpdateScreen {
         display.renderer.clear(DrawColor::White)?;
 
         // Title
-        let title = "Update";
+        let title = tr(&i18n::locale_of(&self.config), "update-title");
         let title_size = 56.0;
-        let (tw, _) = display.renderer.measure_text(title, title_size);
+        let (tw, _) = display.renderer.measure_text(&title, title_size);
         display.renderer.draw_text(
             (1072 - tw as i16) / 2,
             120,
-            title,
+            &title,
             title_size,
             DrawColor::Black,
         )?;
 
         // State-driven body. The action button is only drawn (and only live in
         // the touch handler) when there is something meaningful to do.
+        let loc = i18n::locale_of(&self.config);
         let (lines, action_label, action_visible) = match &self.state {
-            UpdateState::Checking => (vec!["Checking for updates…".to_string()], "Apply", false),
+            UpdateState::Checking => (vec![tr(&loc, "update-checking")], tr(&loc, "update-apply"), false),
             UpdateState::UpToDate => (
-                vec![format!("You're up to date — v{}", version::VERSION)],
-                "Apply",
+                vec![i18n::t(&loc, "update-uptodate", &[("version", version::VERSION)])],
+                tr(&loc, "update-apply"),
                 false,
             ),
             UpdateState::Available(info) => (
                 vec![
-                    format!("Update available: v{} → v{}", info.current, info.latest),
-                    format!("({} bytes)", info.asset_size),
+                    i18n::t(&loc, "update-available", &[("current", &info.current.to_string()), ("latest", &info.latest.to_string())]),
+                    i18n::t(&loc, "update-size", &[("bytes", &info.asset_size.to_string())]),
                     String::new(),
                     info.release_name.clone(),
                 ],
-                "Apply",
+                tr(&loc, "update-apply"),
                 true,
             ),
             UpdateState::Downloading => (
-                vec!["Downloading and verifying…".to_string()],
-                "Apply",
+                vec![tr(&loc, "update-downloading")],
+                tr(&loc, "update-apply"),
                 false,
             ),
             UpdateState::Applied => (
-                vec![
-                    "Update applied.".to_string(),
-                    "Quit and relaunch from the KUAL menu.".to_string(),
-                ],
-                "Quit",
+                vec![tr(&loc, "update-applied"), tr(&loc, "update-relaunch")],
+                tr(&loc, "update-quit"),
                 true,
             ),
             UpdateState::Failed(err) => (
-                vec!["Update failed:".to_string(), err.clone()],
-                "Apply",
+                vec![tr(&loc, "update-failed"), err.clone()],
+                tr(&loc, "update-apply"),
                 false,
             ),
         };
@@ -925,7 +2018,7 @@ impl Screen for UpdateScreen {
             }
             AppEvent::UpdateCheckFailed(e) => {
                 warn!("Update check failed: {}", e);
-                self.state = UpdateState::Failed(format!("Check failed: {}", e));
+                self.state = UpdateState::Failed(i18n::t(&i18n::locale_of(&self.config), "update-check-failed", &[("error", &e.to_string())]));
                 Ok(Transition::Redraw)
             }
             AppEvent::UpdateApplied => {
@@ -935,7 +2028,7 @@ impl Screen for UpdateScreen {
             }
             AppEvent::UpdateApplyFailed(e) => {
                 warn!("Update apply failed: {}", e);
-                self.state = UpdateState::Failed(format!("Apply failed: {}", e));
+                self.state = UpdateState::Failed(i18n::t(&i18n::locale_of(&self.config), "update-apply-failed", &[("error", &e.to_string())]));
                 Ok(Transition::Redraw)
             }
 
@@ -1043,6 +2136,7 @@ impl Screen for PuzzleScreen {
             kick_home_puzzle(self.token.clone(), self.params, display.event_tx.clone());
         }
 
+        self.sidebar.set_locale(&i18n::locale_of(&self.config));
         self.board.render(&mut display.renderer)?;
         self.sidebar.render(&mut display.renderer)?;
         display.renderer.present()?;
@@ -1193,7 +2287,7 @@ impl Screen for PuzzleScreen {
 
             // The sidebar's "Next puzzle" button — refetch with current params.
             AppEvent::NextPuzzle => {
-                self.sidebar.set_message("Loading…");
+                self.sidebar.set_message(&tr(&i18n::locale_of(&self.config), "common-loading"));
                 // Clear the previous puzzle's rating/themes immediately at
                 // press time (not when the new puzzle arrives) — an info change
                 // triggers a full sidebar repaint, so no residue is left.
@@ -1206,7 +2300,7 @@ impl Screen for PuzzleScreen {
             // params and fetch a puzzle with them.
             AppEvent::ApplyPuzzleParams(params) => {
                 self.params = params;
-                self.sidebar.set_message("Loading…");
+                self.sidebar.set_message(&tr(&i18n::locale_of(&self.config), "common-loading"));
                 self.sidebar.set_puzzle_info(0, &[], &PuzzleStatus::Solving);
                 kick_next_puzzle(self.token.clone(), self.params, display.event_tx.clone());
                 Ok(Transition::Redraw)
@@ -1287,16 +2381,37 @@ impl Screen for PuzzleSettingsScreen {
     fn render(&mut self, display: &mut Display) -> Result<(), Box<dyn std::error::Error>> {
         display.renderer.clear(DrawColor::White)?;
 
-        let title = "Puzzle Settings";
+        // Localize all labels every render (cheap lookups; picks up language
+        // switches and the current param values).
+        let loc = i18n::locale_of(&self.config);
+        let title = tr(&loc, "puzzle-settings-title");
         let title_size = 56.0;
-        let (tw, _) = display.renderer.measure_text(title, title_size);
+        let (tw, _) = display.renderer.measure_text(&title, title_size);
         display.renderer.draw_text(
             (1072 - tw as i16) / 2,
             150,
-            title,
+            &title,
             title_size,
             DrawColor::Black,
         )?;
+
+        self.difficulty_button.label = i18n::t(
+            &loc,
+            "puzzle-difficulty",
+            &[("value", &tr(&loc, self.params.difficulty.i18n_key()))],
+        );
+        self.phase_button.label = i18n::t(
+            &loc,
+            "puzzle-phase",
+            &[("value", &tr(&loc, self.params.phase.i18n_key()))],
+        );
+        self.color_button.label = i18n::t(
+            &loc,
+            "puzzle-color",
+            &[("value", &tr(&loc, self.params.color.i18n_key()))],
+        );
+        self.fetch_button.label = tr(&loc, "puzzle-fetch");
+        self.back_button.label = tr(&loc, "settings-back");
 
         self.difficulty_button.draw(&mut display.renderer)?;
         self.phase_button.draw(&mut display.renderer)?;
@@ -1323,17 +2438,17 @@ impl Screen for PuzzleSettingsScreen {
                 if self.difficulty_button.rect.contains(touch.x, touch.y) {
                     self.params.difficulty = self.params.difficulty.next();
                     self.difficulty_button.label =
-                        format!("Difficulty: {}", self.params.difficulty.label());
+                        i18n::t(&i18n::locale_of(&self.config), "puzzle-difficulty", &[("value", &tr(&i18n::locale_of(&self.config), self.params.difficulty.i18n_key()))]);
                     return Ok(Transition::Redraw);
                 }
                 if self.phase_button.rect.contains(touch.x, touch.y) {
                     self.params.phase = self.params.phase.next();
-                    self.phase_button.label = format!("Phase: {}", self.params.phase.label());
+                    self.phase_button.label = i18n::t(&i18n::locale_of(&self.config), "puzzle-phase", &[("value", &tr(&i18n::locale_of(&self.config), self.params.phase.i18n_key()))]);
                     return Ok(Transition::Redraw);
                 }
                 if self.color_button.rect.contains(touch.x, touch.y) {
                     self.params.color = self.params.color.next();
-                    self.color_button.label = format!("Color: {}", self.params.color.label());
+                    self.color_button.label = i18n::t(&i18n::locale_of(&self.config), "puzzle-color", &[("value", &tr(&i18n::locale_of(&self.config), self.params.color.i18n_key()))]);
                     return Ok(Transition::Redraw);
                 }
 
@@ -1344,7 +2459,10 @@ impl Screen for PuzzleSettingsScreen {
                 if self.fetch_button.rect.contains(touch.x, touch.y) {
                     info!("Fetching puzzle with {:?}", self.params);
                     match self.config.write() {
-                        Ok(mut config) => config.puzzle = self.params,
+                        Ok(mut config) => {
+                            config.puzzle = self.params;
+                            config.save();
+                        }
                         Err(e) => {
                             warn!("Config store poisoned; puzzle params not persisted: {}", e)
                         }
@@ -1380,13 +2498,17 @@ impl Screen for GameActionsScreen {
     fn render(&mut self, display: &mut Display) -> Result<(), Box<dyn std::error::Error>> {
         display.renderer.clear(DrawColor::White)?;
 
-        let title = "Game Actions";
+        let loc = i18n::locale_of(&self.config);
+        self.resign_button.label = tr(&loc, "game-resign");
+        self.abort_button.label = tr(&loc, "game-abort");
+        self.back_button.label = tr(&loc, "settings-back");
+        let title = tr(&loc, "game-actions-title");
         let title_size = 56.0;
-        let (tw, _) = display.renderer.measure_text(title, title_size);
+        let (tw, _) = display.renderer.measure_text(&title, title_size);
         display.renderer.draw_text(
             (1072 - tw as i16) / 2,
             160,
-            title,
+            &title,
             title_size,
             DrawColor::Black,
         )?;
@@ -1456,5 +2578,30 @@ impl Screen for GameActionsScreen {
 
             _ => Ok(Transition::Stay),
         }
+    }
+}
+
+#[cfg(test)]
+mod home_screen_tests {
+    use super::*;
+
+    #[test]
+    fn home_has_five_buttons_all_on_canvas_quit_at_bottom() {
+        let s = HomeScreen::new(test_config());
+        let buttons = [
+            &s.chess_button,
+            &s.puzzle_button,
+            &s.ongoing_games_button,
+            &s.settings_button,
+            &s.quit_button,
+        ];
+        for (i, b) in buttons.iter().enumerate() {
+            assert!(b.rect.y >= 0 && b.rect.y + b.rect.height as i16 <= 1448, "btn {i} off-canvas");
+            if i > 0 {
+                assert!(b.rect.y > buttons[i - 1].rect.y, "btn {i} not below previous");
+            }
+        }
+        // Quit is the last (bottom-most) button.
+        assert!(s.quit_button.rect.y > s.settings_button.rect.y);
     }
 }

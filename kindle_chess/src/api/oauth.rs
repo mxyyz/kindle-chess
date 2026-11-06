@@ -73,6 +73,7 @@ impl OAuth2Client {
             .filter_map(|s| match s.as_str() {
                 "challenge:read" => Some(litchee::api::auth::oauth::Scope::ChallengeRead),
                 "challenge:write" => Some(litchee::api::auth::oauth::Scope::ChallengeWrite),
+                "follow:read" => Some(litchee::api::auth::oauth::Scope::FollowRead),
                 "bot:play" => Some(litchee::api::auth::oauth::Scope::BotPlay),
                 "board:play" => Some(litchee::api::auth::oauth::Scope::BoardPlay),
                 "puzzle:read" => Some(litchee::api::auth::oauth::Scope::PuzzleRead),

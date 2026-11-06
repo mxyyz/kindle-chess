@@ -1,0 +1,96 @@
+# German locale
+home-play = Spielen
+home-puzzle = Aufgabe
+home-ongoing = Laufende Partien
+home-settings = Einstellungen
+
+play-title = Gegen Freund spielen
+play-mode-unlimited = Unbegrenzt
+play-mode-realtime = Echtzeit 10:5
+play-mode-correspondence = Fernschach
+play-opponent = Gegner: {$name}
+play-opponent-none = Gegner: -
+play-send = Herausforderung senden
+play-status-sent = Herausforderung an {$name} gesendet
+play-status-select-first = Zuerst Gegner wählen
+play-status-sending = Sende Herausforderung an {$name}…
+play-status-failed = Senden fehlgeschlagen: {$error}
+
+friends-title = Gegner wählen
+friends-empty = Noch keine Freunde — auf lichess.org hinzufügen
+friends-loading = Lädt…
+
+invites-title = Einladungen
+invites-incoming = Eingehend
+invites-outgoing = Ausgehend
+invites-accept = Annehmen
+invites-decline = Ablehnen
+invites-cancel = Abbrechen
+invites-loading = Lädt…
+
+settings-language = Sprache: {$lang}
+settings-check-update = Nach Updates suchen
+settings-back = zurück
+
+common-loading = Lädt…
+common-error = Fehler: {$error}
+
+ongoing-vs = Gegen {$opponent}
+ongoing-ai = KI
+ongoing-ai-level = KI Stufe {$level}
+
+game-actions-title = Partie-Aktionen
+game-resign = Aufgeben
+game-abort = Abbrechen
+game-over = Partie beendet
+game-won = {$winner} hat gewonnen!
+game-turn-playing = Du bist dran
+game-turn-waiting = Warten auf Gegner
+game-try-again = Versuch es noch einmal
+
+puzzle-next = Nächste Aufgabe
+puzzle-status-solving = Finde den besten Zug
+puzzle-status-correct = Richtiger Zug
+puzzle-status-wrong = Versuch es noch einmal
+puzzle-status-solved = Aufgabe gelöst
+puzzle-phase = Phase: {$value}
+puzzle-color = Farbe: {$value}
+puzzle-difficulty = Schwierigkeit: {$value}
+phase-any = Beliebig
+phase-opening = Eröffnung
+phase-middlegame = Mittelspiel
+phase-endgame = Endspiel
+phase-rook-endgame = Turmendspiel
+phase-bishop-endgame = Läuferendspiel
+phase-pawn-endgame = Bauernendspiel
+diff-easiest = Leichteste
+diff-easier = Leichter
+diff-normal = Normal
+diff-harder = Schwerer
+diff-hardest = Schwerste
+color-random = Zufällig
+color-white = Weiß
+color-black = Schwarz
+
+update-checking = Suche nach Updates…
+update-uptodate = Du bist aktuell — v{$version}
+update-available = Update verfügbar: v{$current} → v{$latest}
+update-size = ({$bytes} Bytes)
+update-downloading = Lade herunter und prüfe…
+update-applied = Update installiert.
+update-relaunch = Beenden und über das KUAL-Menü neu starten.
+update-failed = Update fehlgeschlagen:
+update-check-failed = Prüfung fehlgeschlagen: {$error}
+update-apply-failed = Anwenden fehlgeschlagen: {$error}
+update-apply = Anwenden
+
+update-title = Update
+update-quit = Beenden
+phase-knight-endgame = Springerendspiel
+phase-queen-endgame = Damenendspiel
+phase-queen-rook-endgame = Dame & Turm
+
+puzzle-settings-title = Aufgaben-Einstellungen
+puzzle-fetch = Neue Aufgabe holen
+
+home-quit = Beenden

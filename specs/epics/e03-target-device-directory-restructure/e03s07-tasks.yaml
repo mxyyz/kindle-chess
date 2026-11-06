@@ -1,0 +1,26 @@
+# Story e03s07 — carried from e02, sits at the END of epic e03 per user decision
+story_id: e03s07
+title: "t07-phase2-uat — on-device UAT of e02 chrome mode on k2 (moved from e02-native-kindle-integration)"
+status: passing
+bcps: 2
+delta: ADDED
+tasks:
+  - id: t07-phase2-uat
+    title: On-device UAT of chrome mode on k2 (moved from e02)
+    description: |
+      Manual UAT on k2 (working scriptlets): scriptlet launch, top bar reachable via
+      top.png button, brightness adjustable, home button exits, lock/unlock redraw,
+      PC:N fallback flag works. Log results in specs/verifications/.
+      Moved from e02-native-kindle-integration to the end of this epic per session
+      decision; e02 is merged to main with this task still open.
+    acceptance_criteria:
+      - all UAT scenarios pass or have logged follow-up bugs
+    files_created:
+      - specs/verifications/e02-phase2-uat.md
+    files_modified: []
+    dependencies:
+      - e02/t05-pc-t-title
+      - e02/t06-topbar-sidebar-button
+    verify: "verify-script: on-device UAT on k2 via flash.sh deploy; record results in specs/verifications/e02-phase2-uat.md"
+    blocker: false
+    status: passing
