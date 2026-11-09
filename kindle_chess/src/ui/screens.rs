@@ -24,9 +24,9 @@ use crate::{
         },
     },
     ui::{
+        events::Rectangle,
         events::{AppEvent, RectangleExt, Square, TouchKind},
         renderer::{DrawColor, Renderer},
-        events::Rectangle,
         widgets::Button,
     },
     version,
@@ -97,7 +97,9 @@ impl Screen for HomeScreen {
             // QR-flow screen; on success it'll pop and re-emit ChessReady.
             AppEvent::AuthFailed(e) => {
                 warn!("Silent auth failed ({}) — pushing ChessAuthScreen", e);
-                Ok(Transition::Push(Box::new(ChessAuthScreen::new(self.config.clone()))))
+                Ok(Transition::Push(Box::new(ChessAuthScreen::new(
+                    self.config.clone(),
+                ))))
             }
 
             AppEvent::Touch(touch) => {
@@ -269,7 +271,8 @@ impl Screen for ChessGameScreen {
                 self.board.set_flipped(!player0_white);
                 self.board.set_position(board);
                 self.board.set_last_move(last_move);
-                self.sidebar.set_turn(turn, &crate::i18n::locale_of(&self.config));
+                self.sidebar
+                    .set_turn(turn, &crate::i18n::locale_of(&self.config));
                 Ok(Transition::Redraw)
             }
 
@@ -281,7 +284,8 @@ impl Screen for ChessGameScreen {
                 self.app.apply_turn(turn.clone());
                 self.board.set_position(board);
                 self.board.set_last_move(last_move);
-                self.sidebar.set_turn(turn, &crate::i18n::locale_of(&self.config));
+                self.sidebar
+                    .set_turn(turn, &crate::i18n::locale_of(&self.config));
                 Ok(Transition::Redraw)
             }
 
@@ -613,7 +617,9 @@ impl OngoingChessGamesScreen {
                     let opp = match &game.opponent {
                         PlayedBy::User(player) => player.name.clone(),
                         PlayedBy::Ai(computer) => match computer.ai_level {
-                            Some(level) => i18n::t(&loc, "ongoing-ai-level", &[("level", &level.to_string())]),
+                            Some(level) => {
+                                i18n::t(&loc, "ongoing-ai-level", &[("level", &level.to_string())])
+                            }
                             None => tr(&loc, "ongoing-ai"),
                         },
                     };
@@ -888,7 +894,9 @@ impl Screen for PlayScreen {
         let loc = i18n::locale_of(&self.config);
         let title = tr(&loc, "play-title");
         let (tw, _) = display.renderer.measure_text(&title, 36.0);
-        display.renderer.draw_text((1072 - tw as i16) / 2, 120, &title, 36.0, DrawColor::Black)?;
+        display
+            .renderer
+            .draw_text((1072 - tw as i16) / 2, 120, &title, 36.0, DrawColor::Black)?;
 
         self.mode_button_unlimited.label = tr(&loc, "play-mode-unlimited");
         self.mode_button_realtime.label = tr(&loc, "play-mode-realtime");
@@ -898,7 +906,8 @@ impl Screen for PlayScreen {
         self.invites_button.draw(&mut display.renderer)?;
         self.mode_button_unlimited.draw(&mut display.renderer)?;
         self.mode_button_realtime.draw(&mut display.renderer)?;
-        self.mode_button_correspondence.draw(&mut display.renderer)?;
+        self.mode_button_correspondence
+            .draw(&mut display.renderer)?;
         // Selection marker on the active mode button (selected-file style).
         draw_selection_marker(&mut display.renderer, &self.selected_mode_button().rect)?;
 
@@ -987,7 +996,11 @@ impl Screen for PlayScreen {
                     self.selected_mode = ChallengeMode::RealTime;
                     return Ok(Transition::Redraw);
                 }
-                if self.mode_button_correspondence.rect.contains(touch.x, touch.y) {
+                if self
+                    .mode_button_correspondence
+                    .rect
+                    .contains(touch.x, touch.y)
+                {
                     self.selected_mode = ChallengeMode::Correspondence(self.selected_days);
                     return Ok(Transition::Redraw);
                 }
@@ -1119,7 +1132,9 @@ impl InvitesScreen {
                     let _ = tx.send(AppEvent::ChallengesLoaded(Arc::new(list)));
                 }
                 Err(e) => {
-                    let _ = tx.send(AppEvent::ChallengesFailed(res_msg.unwrap_or_else(|| e.to_string())));
+                    let _ = tx.send(AppEvent::ChallengesFailed(
+                        res_msg.unwrap_or_else(|| e.to_string()),
+                    ));
                 }
             }
         });
@@ -1127,14 +1142,22 @@ impl InvitesScreen {
 
     fn incoming_page_count(&self) -> usize {
         match &self.challenges {
-            Some(list) => list.iter().filter(|c| c.incoming).count().div_ceil(INVITES_PER_PAGE),
+            Some(list) => list
+                .iter()
+                .filter(|c| c.incoming)
+                .count()
+                .div_ceil(INVITES_PER_PAGE),
             None => 0,
         }
     }
 
     fn outgoing_page_count(&self) -> usize {
         match &self.challenges {
-            Some(list) => list.iter().filter(|c| !c.incoming).count().div_ceil(INVITES_PER_PAGE),
+            Some(list) => list
+                .iter()
+                .filter(|c| !c.incoming)
+                .count()
+                .div_ceil(INVITES_PER_PAGE),
             None => 0,
         }
     }
@@ -1147,11 +1170,11 @@ impl InvitesScreen {
         };
         let incoming: Vec<&ChallengeSummary> = list.iter().filter(|c| c.incoming).collect();
         let outgoing: Vec<&ChallengeSummary> = list.iter().filter(|c| !c.incoming).collect();
-        let label = |src: &[&ChallengeSummary], page: usize, k: usize| {
-            match src.get(page * INVITES_PER_PAGE + k) {
-                Some(c) => format!("{} ({})", c.opponent, c.status),
-                None => "-".to_string(),
-            }
+        let label = |src: &[&ChallengeSummary], page: usize, k: usize| match src
+            .get(page * INVITES_PER_PAGE + k)
+        {
+            Some(c) => format!("{} ({})", c.opponent, c.status),
+            None => "-".to_string(),
         };
         for k in 0..INVITES_PER_PAGE {
             self.incoming_name[k].label = label(&incoming, self.incoming_page, k);
@@ -1201,7 +1224,9 @@ impl Screen for InvitesScreen {
         let loc = i18n::locale_of(&self.config);
         let title = tr(&loc, "invites-title");
         let (tw, _) = display.renderer.measure_text(&title, 36.0);
-        display.renderer.draw_text((1072 - tw as i16) / 2, 120, &title, 36.0, DrawColor::Black)?;
+        display
+            .renderer
+            .draw_text((1072 - tw as i16) / 2, 120, &title, 36.0, DrawColor::Black)?;
 
         for btn in self.incoming_accept.iter_mut() {
             btn.label = tr(&loc, "invites-accept");
@@ -1214,14 +1239,20 @@ impl Screen for InvitesScreen {
         }
 
         let mut label = |y: i16, text: &str| -> Result<(), Box<dyn std::error::Error>> {
-            display.renderer.draw_text(136, y, text, 28.0, DrawColor::Black)?;
+            display
+                .renderer
+                .draw_text(136, y, text, 28.0, DrawColor::Black)?;
             Ok(())
         };
         label(200, &tr(&loc, "invites-incoming"))?;
         label(680, &tr(&loc, "invites-outgoing"))?;
 
         if let Some(err) = &self.error {
-            let label = i18n::t(&i18n::locale_of(&self.config), "common-error", &[("error", err)]);
+            let label = i18n::t(
+                &i18n::locale_of(&self.config),
+                "common-error",
+                &[("error", err)],
+            );
             let (w, h) = display.renderer.measure_text(&label, 24.0);
             display.renderer.draw_text(
                 (1072 - w as i16) / 2,
@@ -1554,7 +1585,10 @@ mod play_screen_tests {
     fn selected_mode_button_tracks_selection() {
         let mut s = PlayScreen::new(ChessApp::new_offline(), test_config());
         s.selected_mode = ChallengeMode::Unlimited;
-        assert!(std::ptr::eq(s.selected_mode_button(), &s.mode_button_unlimited));
+        assert!(std::ptr::eq(
+            s.selected_mode_button(),
+            &s.mode_button_unlimited
+        ));
         s.selected_mode = ChallengeMode::Correspondence(3);
         assert!(std::ptr::eq(
             s.selected_mode_button(),
@@ -1646,17 +1680,17 @@ impl Screen for FriendlistScreen {
         let loc = i18n::locale_of(&self.config);
         let title = tr(&loc, "friends-title");
         let (tw, _) = display.renderer.measure_text(&title, 36.0);
-        display.renderer.draw_text(
-            (1072 - tw as i16) / 2,
-            120,
-            &title,
-            36.0,
-            DrawColor::Black,
-        )?;
+        display
+            .renderer
+            .draw_text((1072 - tw as i16) / 2, 120, &title, 36.0, DrawColor::Black)?;
 
         let size_px = 24.0;
         if let Some(err) = &self.error {
-            let label = i18n::t(&i18n::locale_of(&self.config), "common-error", &[("error", err)]);
+            let label = i18n::t(
+                &i18n::locale_of(&self.config),
+                "common-error",
+                &[("error", err)],
+            );
             let (tw, th) = display.renderer.measure_text(&label, size_px);
             display.renderer.draw_text(
                 (1072 - tw as i16) / 2,
@@ -1837,7 +1871,8 @@ impl Screen for SettingsScreen {
 
         // Title + localized button labels
         let loc = i18n::locale_of(&self.config);
-        self.language_button.label = i18n::t(&loc, "settings-language", &[("lang", &loc.to_uppercase())]);
+        self.language_button.label =
+            i18n::t(&loc, "settings-language", &[("lang", &loc.to_uppercase())]);
         self.check_update_button.label = tr(&loc, "settings-check-update");
         self.back_button.label = tr(&loc, "settings-back");
         let title = tr(&loc, "home-settings");
@@ -1947,16 +1982,35 @@ impl Screen for UpdateScreen {
         // the touch handler) when there is something meaningful to do.
         let loc = i18n::locale_of(&self.config);
         let (lines, action_label, action_visible) = match &self.state {
-            UpdateState::Checking => (vec![tr(&loc, "update-checking")], tr(&loc, "update-apply"), false),
+            UpdateState::Checking => (
+                vec![tr(&loc, "update-checking")],
+                tr(&loc, "update-apply"),
+                false,
+            ),
             UpdateState::UpToDate => (
-                vec![i18n::t(&loc, "update-uptodate", &[("version", version::VERSION)])],
+                vec![i18n::t(
+                    &loc,
+                    "update-uptodate",
+                    &[("version", version::VERSION)],
+                )],
                 tr(&loc, "update-apply"),
                 false,
             ),
             UpdateState::Available(info) => (
                 vec![
-                    i18n::t(&loc, "update-available", &[("current", &info.current.to_string()), ("latest", &info.latest.to_string())]),
-                    i18n::t(&loc, "update-size", &[("bytes", &info.asset_size.to_string())]),
+                    i18n::t(
+                        &loc,
+                        "update-available",
+                        &[
+                            ("current", &info.current.to_string()),
+                            ("latest", &info.latest.to_string()),
+                        ],
+                    ),
+                    i18n::t(
+                        &loc,
+                        "update-size",
+                        &[("bytes", &info.asset_size.to_string())],
+                    ),
                     String::new(),
                     info.release_name.clone(),
                 ],
@@ -2018,7 +2072,11 @@ impl Screen for UpdateScreen {
             }
             AppEvent::UpdateCheckFailed(e) => {
                 warn!("Update check failed: {}", e);
-                self.state = UpdateState::Failed(i18n::t(&i18n::locale_of(&self.config), "update-check-failed", &[("error", &e.to_string())]));
+                self.state = UpdateState::Failed(i18n::t(
+                    &i18n::locale_of(&self.config),
+                    "update-check-failed",
+                    &[("error", &e.to_string())],
+                ));
                 Ok(Transition::Redraw)
             }
             AppEvent::UpdateApplied => {
@@ -2028,7 +2086,11 @@ impl Screen for UpdateScreen {
             }
             AppEvent::UpdateApplyFailed(e) => {
                 warn!("Update apply failed: {}", e);
-                self.state = UpdateState::Failed(i18n::t(&i18n::locale_of(&self.config), "update-apply-failed", &[("error", &e.to_string())]));
+                self.state = UpdateState::Failed(i18n::t(
+                    &i18n::locale_of(&self.config),
+                    "update-apply-failed",
+                    &[("error", &e.to_string())],
+                ));
                 Ok(Transition::Redraw)
             }
 
@@ -2287,7 +2349,8 @@ impl Screen for PuzzleScreen {
 
             // The sidebar's "Next puzzle" button — refetch with current params.
             AppEvent::NextPuzzle => {
-                self.sidebar.set_message(&tr(&i18n::locale_of(&self.config), "common-loading"));
+                self.sidebar
+                    .set_message(&tr(&i18n::locale_of(&self.config), "common-loading"));
                 // Clear the previous puzzle's rating/themes immediately at
                 // press time (not when the new puzzle arrives) — an info change
                 // triggers a full sidebar repaint, so no residue is left.
@@ -2300,7 +2363,8 @@ impl Screen for PuzzleScreen {
             // params and fetch a puzzle with them.
             AppEvent::ApplyPuzzleParams(params) => {
                 self.params = params;
-                self.sidebar.set_message(&tr(&i18n::locale_of(&self.config), "common-loading"));
+                self.sidebar
+                    .set_message(&tr(&i18n::locale_of(&self.config), "common-loading"));
                 self.sidebar.set_puzzle_info(0, &[], &PuzzleStatus::Solving);
                 kick_next_puzzle(self.token.clone(), self.params, display.event_tx.clone());
                 Ok(Transition::Redraw)
@@ -2437,18 +2501,41 @@ impl Screen for PuzzleSettingsScreen {
                 // Tap-to-cycle option buttons.
                 if self.difficulty_button.rect.contains(touch.x, touch.y) {
                     self.params.difficulty = self.params.difficulty.next();
-                    self.difficulty_button.label =
-                        i18n::t(&i18n::locale_of(&self.config), "puzzle-difficulty", &[("value", &tr(&i18n::locale_of(&self.config), self.params.difficulty.i18n_key()))]);
+                    self.difficulty_button.label = i18n::t(
+                        &i18n::locale_of(&self.config),
+                        "puzzle-difficulty",
+                        &[(
+                            "value",
+                            &tr(
+                                &i18n::locale_of(&self.config),
+                                self.params.difficulty.i18n_key(),
+                            ),
+                        )],
+                    );
                     return Ok(Transition::Redraw);
                 }
                 if self.phase_button.rect.contains(touch.x, touch.y) {
                     self.params.phase = self.params.phase.next();
-                    self.phase_button.label = i18n::t(&i18n::locale_of(&self.config), "puzzle-phase", &[("value", &tr(&i18n::locale_of(&self.config), self.params.phase.i18n_key()))]);
+                    self.phase_button.label = i18n::t(
+                        &i18n::locale_of(&self.config),
+                        "puzzle-phase",
+                        &[(
+                            "value",
+                            &tr(&i18n::locale_of(&self.config), self.params.phase.i18n_key()),
+                        )],
+                    );
                     return Ok(Transition::Redraw);
                 }
                 if self.color_button.rect.contains(touch.x, touch.y) {
                     self.params.color = self.params.color.next();
-                    self.color_button.label = i18n::t(&i18n::locale_of(&self.config), "puzzle-color", &[("value", &tr(&i18n::locale_of(&self.config), self.params.color.i18n_key()))]);
+                    self.color_button.label = i18n::t(
+                        &i18n::locale_of(&self.config),
+                        "puzzle-color",
+                        &[(
+                            "value",
+                            &tr(&i18n::locale_of(&self.config), self.params.color.i18n_key()),
+                        )],
+                    );
                     return Ok(Transition::Redraw);
                 }
 
@@ -2596,9 +2683,15 @@ mod home_screen_tests {
             &s.quit_button,
         ];
         for (i, b) in buttons.iter().enumerate() {
-            assert!(b.rect.y >= 0 && b.rect.y + b.rect.height as i16 <= 1448, "btn {i} off-canvas");
+            assert!(
+                b.rect.y >= 0 && b.rect.y + b.rect.height as i16 <= 1448,
+                "btn {i} off-canvas"
+            );
             if i > 0 {
-                assert!(b.rect.y > buttons[i - 1].rect.y, "btn {i} not below previous");
+                assert!(
+                    b.rect.y > buttons[i - 1].rect.y,
+                    "btn {i} not below previous"
+                );
             }
         }
         // Quit is the last (bottom-most) button.

@@ -51,19 +51,30 @@ impl<S> BoardAPI<S> {
     }
 
     /// Incoming + outgoing challenges (InvitesScreen data source).
-    pub async fn list_challenges(&self) -> Result<Vec<ChallengeSummary>, Box<dyn std::error::Error>> {
+    pub async fn list_challenges(
+        &self,
+    ) -> Result<Vec<ChallengeSummary>, Box<dyn std::error::Error>> {
         Ok(self.adapter.list_challenges().await?)
     }
 
-    pub async fn accept_challenge(&self, challenge_id: &str) -> Result<(), Box<dyn std::error::Error>> {
+    pub async fn accept_challenge(
+        &self,
+        challenge_id: &str,
+    ) -> Result<(), Box<dyn std::error::Error>> {
         Ok(self.adapter.accept_challenge(challenge_id).await?)
     }
 
-    pub async fn decline_challenge(&self, challenge_id: &str) -> Result<(), Box<dyn std::error::Error>> {
+    pub async fn decline_challenge(
+        &self,
+        challenge_id: &str,
+    ) -> Result<(), Box<dyn std::error::Error>> {
         Ok(self.adapter.decline_challenge(challenge_id).await?)
     }
 
-    pub async fn cancel_challenge(&self, challenge_id: &str) -> Result<(), Box<dyn std::error::Error>> {
+    pub async fn cancel_challenge(
+        &self,
+        challenge_id: &str,
+    ) -> Result<(), Box<dyn std::error::Error>> {
         Ok(self.adapter.cancel_challenge(challenge_id).await?)
     }
 }

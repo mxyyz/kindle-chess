@@ -18,7 +18,9 @@ fn load_bundle(locale: &str) -> FluentBundle<FluentResource> {
     };
     let resource = FluentResource::try_new(source.to_string())
         .unwrap_or_else(|_| FluentResource::try_new(String::new()).unwrap());
-    let mut bundle = FluentBundle::new(vec![locale.parse().unwrap_or_else(|_| "en".parse().unwrap())]);
+    let mut bundle = FluentBundle::new(vec![
+        locale.parse().unwrap_or_else(|_| "en".parse().unwrap()),
+    ]);
     bundle.set_use_isolating(false);
     let _ = bundle.add_resource(resource);
     bundle

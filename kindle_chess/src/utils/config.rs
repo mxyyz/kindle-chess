@@ -268,8 +268,8 @@ mod config_tests {
 
 #[cfg(test)]
 mod persistence_tests {
-    use crate::models::puzzle::Difficulty;
     use super::*;
+    use crate::models::puzzle::Difficulty;
 
     #[test]
     fn language_and_puzzle_survive_save_load_roundtrip() {
@@ -291,7 +291,8 @@ mod persistence_tests {
 
     #[test]
     fn save_to_creates_missing_parent_dirs() {
-        let dir = std::env::temp_dir().join(format!("kindle-chess-persist-{}", uuid::Uuid::new_v4()));
+        let dir =
+            std::env::temp_dir().join(format!("kindle-chess-persist-{}", uuid::Uuid::new_v4()));
         let path = dir.join("config").join("default_cfg.json");
         AppConfig::default().save_to(&path).unwrap();
         assert!(path.exists());

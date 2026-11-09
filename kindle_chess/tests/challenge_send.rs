@@ -130,7 +130,13 @@ async fn every_lichess_allowed_days_value_is_sent_verbatim() {
         .map(|r| String::from_utf8_lossy(&r.body).to_string())
         .collect();
     for (d, body) in ALLOWED_CORRESPONDENCE_DAYS.iter().zip(bodies.iter()) {
-        assert!(body.contains(&format!("days={d}")), "days={d} missing in {body}");
-        assert!(!body.contains("clock"), "clock leaked into correspondence body: {body}");
+        assert!(
+            body.contains(&format!("days={d}")),
+            "days={d} missing in {body}"
+        );
+        assert!(
+            !body.contains("clock"),
+            "clock leaked into correspondence body: {body}"
+        );
     }
 }

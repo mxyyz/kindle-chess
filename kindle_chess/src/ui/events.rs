@@ -32,7 +32,7 @@ pub enum AppEvent {
     FriendSelected(String),
 
     // Challenge send from PlayScreen
-    ChallengeSent(String),   // opponent username
+    ChallengeSent(String), // opponent username
     ChallengeSendFailed(String),
 
     // InvitesScreen challenge list
