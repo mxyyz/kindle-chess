@@ -2,16 +2,20 @@
 session:
   active_flow: planning
   active_epic: e04-e01-leftovers
-  phase: Plan (e04 sliced into 6 stories; plan-work next)
+  active_story: e04s01
+  phase: Initiate (kickoff done; develop-tdd e04s01 next)
 
 vcs:
   kind: git
-  branch: main
-  head: da6c845
+  branch: e04-e01-leftovers
+  head: 3ee4ec0
+  worktree: /home/mxy/repos/e04-e01-leftovers
+  # KICKOFF 2026-11-05 from main @ da6c845. Preflight green: cargo build
+  # clean, 150 tests pass. plan-work skipped (user): story specs per story.
 
 handoff:
   last_step_completed: >-
-    slice-tasks e04 -> specs/epics/e04-e01-leftovers/ (6 stories, 22 BCP)
+    kickoff-branch e04-e01-leftovers; preflight green (150 tests)
   open_decisions:
     - >-
       e04 decisions (user): add clippy + fmt + cache to CI; coverage
@@ -23,7 +27,7 @@ handoff:
     - CLAUDE.md
     - specs/product/SCOPE_LATEST.yaml
     - specs/epics/e04-e01-leftovers/epic.yaml
-  next_skill: plan-work
+  next_skill: develop-tdd (e04s01)
 
 notes:
   e02: merged to main (PR #35)
