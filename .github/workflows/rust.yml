@@ -18,6 +18,13 @@ jobs:
 
     steps:
     - uses: actions/checkout@v4
+    - uses: Swatinem/rust-cache@v2
+    - name: Format check
+      working-directory: kindle_chess
+      run: cargo fmt --check
+    - name: Clippy
+      working-directory: kindle_chess
+      run: cargo clippy --all-targets -- -D warnings
     - name: Test
       working-directory: kindle_chess
       run: cargo test --verbose

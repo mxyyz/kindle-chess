@@ -253,8 +253,10 @@ mod config_tests {
 
     #[test]
     fn language_field_survives_serde_roundtrip_and_missing_field_defaults() {
-        let mut cfg = AppConfig::default();
-        cfg.language = "de".into();
+        let cfg = AppConfig {
+            language: "de".into(),
+            ..Default::default()
+        };
         let s = serde_json::to_string(&cfg).unwrap();
         assert!(s.contains("\"language\":\"de\""));
         let back: AppConfig = serde_json::from_str(&s).unwrap();
@@ -277,9 +279,14 @@ mod persistence_tests {
             "kindle-chess-persist-{}.json",
             uuid::Uuid::new_v4()
         ));
-        let mut cfg = AppConfig::default();
-        cfg.language = "de".into();
-        cfg.puzzle.difficulty = Difficulty::Hardest;
+        let cfg = AppConfig {
+            language: "de".into(),
+            puzzle: crate::models::puzzle::PuzzleParams {
+                difficulty: Difficulty::Hardest,
+                ..Default::default()
+            },
+            ..Default::default()
+        };
         cfg.save_to(&path).unwrap();
 
         let loaded = AppConfig::load_from(&path).unwrap();

@@ -1,4 +1,4 @@
-use std::sync::{Arc, RwLock};
+use std::sync::Arc;
 use std::time::{Duration, Instant};
 
 use log::{debug, error, info, warn};
@@ -7,7 +7,7 @@ use crate::i18n::{self, tr};
 
 use crate::{
     api::{
-        api::{get_home_puzzle, get_next_puzzle, post_puzzle_solution},
+        client::{get_home_puzzle, get_next_puzzle, post_puzzle_solution},
         github::{UpdateInfo, check_for_update},
         oauth::{authenticate, get_user_info, load_token},
         update::apply_update,
@@ -965,10 +965,10 @@ impl Screen for PlayScreen {
                 let loc = i18n::locale_of(&self.config);
                 self.status = Some(i18n::t(&loc, "play-status-sent", &[("name", &opponent)]));
                 // Show the pending outgoing invite on the Invites screen.
-                return Ok(Transition::Push(Box::new(InvitesScreen::new(
+                Ok(Transition::Push(Box::new(InvitesScreen::new(
                     self.app.clone(),
                     self.config.clone(),
-                ))));
+                ))))
             }
 
             AppEvent::ChallengeSendFailed(e) => {
@@ -1318,16 +1318,16 @@ impl Screen for InvitesScreen {
                 self.loading = false;
                 self.error = None;
                 // An accepted challenge means the game has started — join it.
-                if let Some(c) = accepted_game(&list) {
-                    if let Some(game_id) = c.game_id() {
-                        let game_id = game_id.to_string();
-                        info!("Challenge {} accepted — joining game {}", c.id, game_id);
-                        let game_app = self.app.clone().attach_game(game_id, false);
-                        return Ok(Transition::Push(Box::new(ChessGameScreen::new(
-                            game_app,
-                            self.config.clone(),
-                        ))));
-                    }
+                if let Some(c) = accepted_game(&list)
+                    && let Some(game_id) = c.game_id()
+                {
+                    let game_id = game_id.to_string();
+                    info!("Challenge {} accepted — joining game {}", c.id, game_id);
+                    let game_app = self.app.clone().attach_game(game_id, false);
+                    return Ok(Transition::Push(Box::new(ChessGameScreen::new(
+                        game_app,
+                        self.config.clone(),
+                    ))));
                 }
                 self.challenges = Some(list);
                 self.set_rows();
@@ -1440,8 +1440,10 @@ impl Screen for InvitesScreen {
 }
 
 #[cfg(test)]
-pub(crate) fn test_config() -> Arc<RwLock<crate::utils::config::AppConfig>> {
-    Arc::new(RwLock::new(crate::utils::config::AppConfig::default()))
+pub(crate) fn test_config() -> Arc<std::sync::RwLock<crate::utils::config::AppConfig>> {
+    Arc::new(std::sync::RwLock::new(
+        crate::utils::config::AppConfig::default(),
+    ))
 }
 
 #[cfg(test)]

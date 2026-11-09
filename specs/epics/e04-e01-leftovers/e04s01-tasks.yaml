@@ -3,7 +3,7 @@
 # every later story). Baseline 2026-11-05: 42 rustfmt diffs, 8 clippy warnings.
 story_id: e04s01
 title: "CI gate: fmt + clippy -D warnings + cache in rust.yml, code made green"
-status: pending
+status: passing
 bcps: 2
 delta: MODIFIED
 tasks:
@@ -11,7 +11,7 @@ tasks:
     description: >-
       Run cargo fmt on the crate (format-only commit, no logic change).
     verify: "cd kindle_chess && cargo fmt --check"
-    status: pending
+    status: passing
   - id: e04s01t02
     description: >-
       Fix the current clippy warnings (unused imports, needless return,
@@ -20,7 +20,7 @@ tasks:
     verify: >-
       cd kindle_chess && cargo clippy --all-targets -- -D warnings
       && cargo test 2>&1 | grep -q "test result: ok"
-    status: pending
+    status: passing
   - id: e04s01t03
     description: >-
       rust.yml test job: add Swatinem/rust-cache, cargo fmt --check and
@@ -29,4 +29,4 @@ tasks:
       grep -q "fmt --check" .github/workflows/rust.yml
       && grep -q "clippy" .github/workflows/rust.yml
       && grep -q "rust-cache" .github/workflows/rust.yml
-    status: pending
+    status: passing

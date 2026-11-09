@@ -10,7 +10,7 @@
 mod helpers;
 
 use helpers::mock_http::MockFetcher;
-use kindli_chess::api::api::{get_daily_puzzle_with, get_puzzle_by_id_with};
+use kindli_chess::api::client::{get_daily_puzzle_with, get_puzzle_by_id_with};
 use kindli_chess::api::litchee_adapter::LitcheeAdapter;
 use kindli_chess::models::puzzle::PuzzleParams;
 use wiremock::matchers::{method, path, query_param};
@@ -346,7 +346,7 @@ async fn adapter_post_puzzle_solution_errors_on_403() {
 #[tokio::test]
 async fn post_puzzle_solution_without_token_is_ok_none() {
     // Anonymous users have no account to post to — a no-op, not an error.
-    use kindli_chess::api::api::post_puzzle_solution;
+    use kindli_chess::api::client::post_puzzle_solution;
 
     let result = post_puzzle_solution(None, PuzzleParams::default(), "test123", true)
         .await

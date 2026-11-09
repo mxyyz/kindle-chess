@@ -12,7 +12,7 @@ use image::{ImageBuffer, Luma};
 use crate::{
     api::github::UpdateInfo,
     models::{
-        board_api::{ALLOWED_CORRESPONDENCE_DAYS, ChallengeMode, ChallengeSummary, GameDataList},
+        board_api::{ChallengeMode, ChallengeSummary, GameDataList},
         chess::ChessApp,
         oauth::TokenInfo,
         puzzle::{PuzzleParams, PuzzleSession},
