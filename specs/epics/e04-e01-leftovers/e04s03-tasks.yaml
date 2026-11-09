@@ -1,0 +1,42 @@
+---
+# Story e04s03 — split models/ui.rs (~840 lines) + ui/screens.rs (~2600).
+# Merges e01 t05+t06: struct and its impl Screen move together once, so
+# nothing is moved twice. Pure move; no logic change.
+story_id: e04s03
+title: "One file per screen under ui/screens/ (struct + impl Screen together)"
+status: pending
+bcps: 5
+delta: MODIFIED
+tasks:
+  - id: e04s03t01
+    description: >-
+      Create ui/screens/mod.rs (re-exports) and move HomeScreen as the
+      tracer: struct + inherent impl + impl Screen into ui/screens/home.rs;
+      app.rs and other users keep compiling via re-exports.
+    verify: >-
+      cd kindle_chess && cargo build 2>&1 | tail -1 && cargo test 2>&1 | grep -q
+      'test result: ok'
+    status: pending
+  - id: e04s03t02
+    description: >-
+      Move the remaining screens the same way: chess_game, chess_auth,
+      ongoing_games, play, invites, friendlist, settings, update, puzzle,
+      puzzle_settings, game_actions. Their tests move with them.
+    verify: >-
+      cd kindle_chess && test $(wc -l < src/ui/screens/mod.rs) -lt 150
+      && cargo test 2>&1 | grep -q 'test result: ok'
+    status: pending
+  - id: e04s03t03
+    description: >-
+      models/ui.rs keeps only shared types (Display, Transition); update
+      CLAUDE.md "Adding a new screen" + module layout notes.
+    verify: >-
+      cd kindle_chess && test $(wc -l < src/models/ui.rs) -lt 150
+      && ! grep -q "pub struct .*Screen " src/models/ui.rs
+    status: pending
+  - id: e04s03t04
+    description: >-
+      Pixel check: run-dev.sh screenshots of every screen before and after
+      are identical (steps in story file).
+    verify: "verify-script: compare run-dev.sh screenshots per screen"
+    status: pending

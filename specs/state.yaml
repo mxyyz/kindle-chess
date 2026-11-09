@@ -1,54 +1,37 @@
 # bigpowers session source-of-truth. See survey-context / session-state.
 session:
   active_flow: planning
-  active_epic: e03-target-device-directory-restructure
-  phase: Discover (scope-work on the target-device directory restructure)
+  active_epic: e04-e01-leftovers
+  phase: Plan (e04 sliced into 6 stories; plan-work next)
 
 vcs:
   kind: git
-  branch: e03-target-device-restructure
-  head: d86b90f
-  # KICKOFF 2026-11-05: worktree /home/mxy/repos/e03-target-device-restructure on
-  # branch e03-target-device-restructure (from main @ d86b90f). Preflight green:
-  # cargo build clean, 112 tests pass. e02 landed; t07 moved to e03s07 (end of e03).
+  branch: main
+  head: da6c845
 
 handoff:
-  last_step_completed: "develop-tdd e03s01..e03s06 DONE — restructure + phase-2 play flow + i18n; 114 lib + integration green; user UAT commit bf50805 on top"
+  last_step_completed: >-
+    slice-tasks e04 -> specs/epics/e04-e01-leftovers/ (6 stories, 22 BCP)
   open_decisions:
-    - "BUG-2026-11-04T184513 (post-puzzle-solutions) fix lives on branch fix-post-puzzle-solutions off api-migration, not on main — still effectively open"
+    - >-
+      e04 decisions (user): add clippy + fmt + cache to CI; coverage
+      report only, no gate; ChessError at api/ boundary only
+    - >-
+      stale worktree /home/mxy/repos/e03-target-device-restructure
+      (64b6c70) can be removed
   required_reading:
     - CLAUDE.md
     - specs/product/SCOPE_LATEST.yaml
-    - specs/planning-context.yaml
-    - specs/epics/e03-target-device-directory-restructure.md
-  next_skill: "user pushes branch + opens PR (no GitHub credentials in this env); title/body prepared in state notes"
+    - specs/epics/e04-e01-leftovers/epic.yaml
+  next_skill: plan-work
 
 notes:
-  e02: merged to main (PR #35); all tasks complete except t07 (moved to e03)
-  ci: partial
+  e02: merged to main (PR #35)
+  e03: merged to main (PR #37), released 0.3.0 (ca1c424)
+  ci: .github/workflows/rust.yml — cargo test + cross build on push/PR
 
 metrics:
   reconciled: 2026-11-05T00:00:00Z
 
 release:
-  branch: e03-target-device-restructure
-  head: f6f9410
-  pr_title: "feat(e03): on-device restructure to /mnt/us/kindlichess + live-game friend invites + EN/DE i18n"
-  pr_body: |
-    ## Summary
-    <!-- bigpowers-provenance: agent-generated -->
-
-    Epic e03 (7 stories, all verified):
-    - Phase 1: on-device app root renamed hellokindle -> kindlichess (repo dir mirrors device 1:1; ROOT_DIR, flash scripts, launchers, KUAL menu updated; unneeded test scripts removed; new deploys only)
-    - Phase 2: Home "Demo" -> "Play" flow: FriendlistScreen (Lichess friends), game-mode group (Unlimited / Real time 10:5 / Correspondence with Lichess-allowed day values), send challenge, InvitesScreen (incoming accept/decline, outgoing cancel, 5s poll) -> live ChessGameScreen
-    - Phase 3: fluent-rs i18n, EN/DE locales embedded, runtime language setting in Settings, persisted to disk (new save()); puzzle params now truly persistent too
-    - Bugfix: correspondence challenges 400 (Lichess only allows days 1,2,3,5,7,10,14) — toggle group instead of arbitrary values; follow:read scope added
-    - Home screen Quit button
-    - Carried t07-phase2-uat from e02: on-device UAT confirmed by user
-
-    ## Test plan
-    - cargo test: 150 passed / 0 failed (single run, exit 0) — terminal verdict in specs/verifications/e03-verify.yaml
-    - cargo build + --release clean; release binary bakes /mnt/us/kindlichess
-    - sh -n on all deploy scripts; specs YAML validated
-    - On-device k2 UAT done by user (scriptlet launch, top bar, lock/unlock, invite flow)
-    - Security review: specs/security/REVIEW.md — no HIGH findings
+  last_tag: v0.3.0

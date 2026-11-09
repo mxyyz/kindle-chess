@@ -1,0 +1,114 @@
+---
+# Archived e03 scope (was specs/product/SCOPE_LATEST.yaml).
+# specs/product/SCOPE_LATEST.yaml — bounded PRD for the current initiative (e03)
+# Written by scope-work. Consumed by slice-tasks / plan-work.
+feature_name: "e03-target-device-directory-restructure (3 phases)"
+core_value: >-
+  Make kindle-chess a cleanly installed Kindle app (sensible on-device directory
+  layout) and grow it beyond the demo into a live-game and localized experience.
+summary: >-
+  Epic e03 has three phases plus one carried-over task. Phase 1 restructures the
+  on-device directories: the app root /mnt/us/hellokindle is renamed to
+  /mnt/us/kindlichess and the now-unneeded on-device scripts are removed (only
+  chess_app.sh stays as the launcher). This is new-deploys-only —
+  already-deployed devices (k1/k2) are not migrated. All touchpoints of the
+  compile-time ROOT_DIR and the deploy scripts must move together. Phase 2
+  replaces the "Demo" screen / home-screen button with a flow that leads the
+  user into a live online game, scoped to friend invites and inviting only;
+  exact screen layouts and flow are defined in a follow-up elaborate-spec. Phase
+  3 adds language settings with German as the first alternative language, using
+  a pure-Rust i18n crate that cross-compiles to armv7-unknown-linux-musleabi.
+  Carried over from e02: t07-phase2-uat (on-device UAT of chrome mode on k2),
+  executed at the END of this epic.
+in_scope:
+  - >-
+    phase-1 (stories e03-p1-*): rename on-device app root /mnt/us/hellokindle ->
+    /mnt/us/kindlichess across .env.release ROOT_DIR, build.rs consumers,
+    flash.sh / flash_usb.sh deploy paths, kindle_KUAL/hellokindle/chess_app.sh,
+    scriptlet/kindle-chess.sh, menu.json; remove unneeded on-device scripts
+    (app_test.sh, display_test.sh, eips_test.sh, oldx11test.sh, x11test.sh),
+    keep chess_app.sh
+  - >-
+    phase-1: preserve the secrets/token.json mv-aside dance in flash scripts
+    across the rename
+  - >-
+    phase-2 (stories e03-p2-*): replace Demo screen + home button with a
+    live-online-game flow, friend invites / inviting only (exact layouts + flow
+    TBD in elaborate-spec follow-up)
+  - >-
+    phase-3 (stories e03-p3-*): language settings UI + German locale via
+    pure-Rust i18n crate (recommendation: fluent-rs — pure Rust, no system libs,
+    static-musl/armv7 safe, runtime locale switching; rust-i18n as
+    compile-time-only fallback)
+  - >-
+    carried: t07-phase2-uat (from e02) at the end of
+    specs/epics/e03-target-device-directory-restructure/tasks.yaml
+out_of_scope:
+  - >-
+    Repo-side directory layout changes — only the on-device (/mnt/us) layout
+    changes (user decision)
+  - >-
+    Migrating already-deployed k1/k2 installs to the new layout — new deploys
+    only (user decision)
+  - >-
+    Removing the KUAL bundle as a launch path — chess_app.sh stays and KUAL
+    remains the fallback launcher (e02 decision, still active)
+  - >-
+    Phase-2 scope beyond friend invites / inviting (no open matchmaking, lobby
+    browser, rematch flow, etc. until separately scoped)
+  - >-
+    gettext-rs / libintl-based i18n — requires system gettext libraries, breaks
+    static musl armv7 cross-compile
+  - >-
+    KPM .kpkg packaging, WAF config.xml / kindle.* JS APIs, C++/GTK rewrite
+    (carried from specs/planning-context.yaml)
+  - "appreg.db registration (deferred in e02, still deferred)"
+trade_offs:
+  - >-
+    New-deploys-only migration: excluded because the user confirmed deployed
+    devices keep the old layout; avoids a risky on-device migration script
+    touching token.json
+  - >-
+    Repo layout untouched: excluded so the change stays reviewable as
+    deploy-path + config changes only
+  - >-
+    gettext-rs: excluded — needs libintl at link time, incompatible with
+    crt-static musl target
+  - >-
+    Phase 2 limited to friend invites: excluded the rest of the live-game
+    surface to keep the flow small and testable on-device
+constraints:
+  - >-
+    Static musl armv7-unknown-linux-musleabi release build unchanged; i18n crate
+    must be pure Rust
+  - >-
+    ROOT_DIR stays a compile-time constant via build.rs/.env (value changes,
+    mechanism does not)
+  - "flash.sh / flash_usb.sh token.json mv-aside dance must not break"
+  - >-
+    run-dev.sh / Xephyr dev harness must keep working; 1072x1448 absolute canvas
+    unchanged
+  - On-device layout after phase 1: >-
+      /mnt/us/kindlichess/{assets,bin,config,log,secrets,settings.toml,chess_app.sh}
+      + scriptlet in /mnt/us/documents
+  - "All AWM/lipc calls degrade to no-ops off-device"
+success_criteria:
+  - >-
+    All launch paths work after the restructure: KUAL menu entry, scriptlet in
+    the library, and ./run-dev.sh on the dev machine (user-selected criterion)
+  - "cargo build (dev + cross musl) and cargo test green after every phase"
+  - >-
+    flash script syntax checks pass; a deploy smoke test on k2 lands in the new
+    layout with token.json preserved
+  - Phase 2: >-
+      user can reach a live online game via friend invite/invite flow on-device
+  - Phase 3: >-
+      language setting switches UI strings between English and German at runtime
+references:
+  - "CLAUDE.md (ROOT_DIR, flash scripts, module layout)"
+  - "specs/planning-context.yaml (e02 constraints still active)"
+  - "specs/epics/e03-target-device-directory-restructure.md + tasks.yaml"
+  - "specs/epics/e02-native-kindle-integration/tasks.yaml (t07 origin)"
+  - >-
+    https://lib.rs/crates/fluent-bundle , https://lib.rs/crates/rust-i18n (i18n
+    crate research)
