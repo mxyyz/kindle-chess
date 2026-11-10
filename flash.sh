@@ -5,26 +5,25 @@ cd crate
 echo "Building Binaries"
 RUSTFLAGS="-C target-feature=+crt-static" cross build --target armv7-unknown-linux-musleabi --release
 
-echo "Copying Binaries to local KUAL-App"
-yes | cp -r ./target/armv7-unknown-linux-musleabi/release/kindle-hello ../kindle_KUAL/kindlichess/bin/
+echo "Copying Binaries to local app bundle"
+yes | cp -r ./target/armv7-unknown-linux-musleabi/release/kindle-hello ../kindlichess/bin/
 
 cd ..
 
 echo "Deleting Logs before copying.."
-yes | rm ./kindle_KUAL/kindlichess/log/*
+yes | rm ./kindlichess/log/*
 
 echo "Temporarly moving token before copying.."
-mv ./kindle_KUAL/kindlichess/secrets/token.json ./
+mv ./kindlichess/secrets/token.json ./
 
-echo "Flashing local KUAL-App to Kindle"
-# kindle_KUAL/* maps 1:1 onto /mnt/us — app root lands at /mnt/us/kindlichess,
-# KUAL wiring at /mnt/us/extensions/hellokindle. New deploys only — an old
-# /mnt/us/hellokindle install on the device is left untouched.
-scp -r ./kindle_KUAL/* root@kindle:/mnt/us
+echo "Flashing local app bundle to Kindle"
+# kindlichess/* maps 1:1 onto /mnt/us — app root lands at /mnt/us/kindlichess,
+# Scriptlet at /mnt/us/documents/kindlichess.sh is the launch entry point.
+scp -r ./kindlichess/* root@kindle:/mnt/us
 
 echo "Deploying scriptlet to /mnt/us/documents (SH_Integration auto-registers it)"
 scp ./scriptlet/kindlichess.sh root@kindle:/mnt/us/documents/
 
 echo "Moving token back.."
-mv ./token.json ./kindle_KUAL/kindlichess/secrets/
+mv ./token.json ./kindlichess/secrets/
 echo "Done flashing!"
