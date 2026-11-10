@@ -1,3 +1,4 @@
+use crate::error::ChessError;
 // In-app updater. Streams a new binary from a GitHub release asset, verifies
 // it against the SHA256 sidecar, and parks the verified file at
 // `<current_exe>.new`.
@@ -25,7 +26,7 @@ use crate::version;
 /// Downloads the new binary, verifies its SHA256 against the sidecar, and
 /// renames it over the running executable. On verification failure the
 /// `.new` file is deleted and the original binary is left untouched.
-pub async fn apply_update(info: &UpdateInfo) -> Result<(), Box<dyn std::error::Error>> {
+pub async fn apply_update(info: &UpdateInfo) -> Result<(), ChessError> {
     let exe = std::env::current_exe()?;
     let new_path: PathBuf = exe.with_extension("new");
 
@@ -80,7 +81,7 @@ async fn download_and_hash(
     client: &reqwest::Client,
     url: &str,
     dest: &PathBuf,
-) -> Result<String, Box<dyn std::error::Error>> {
+) -> Result<String, ChessError> {
     let response = client.get(url).send().await?;
     if !response.status().is_success() {
         return Err(format!("Asset download returned {}", response.status()).into());
@@ -101,10 +102,7 @@ async fn download_and_hash(
     Ok(format!("{:x}", hasher.finalize()))
 }
 
-async fn fetch_expected_hash(
-    client: &reqwest::Client,
-    url: &str,
-) -> Result<String, Box<dyn std::error::Error>> {
+async fn fetch_expected_hash(client: &reqwest::Client, url: &str) -> Result<String, ChessError> {
     let body = client
         .get(url)
         .send()

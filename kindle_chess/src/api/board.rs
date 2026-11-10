@@ -1,5 +1,6 @@
 use crate::api::litchee_adapter::LitcheeAdapter;
 use crate::app::game::player0_turn;
+use crate::error::ChessError;
 use crate::models::bitboard::Bitboards;
 use crate::models::board_api::{
     BoardAPI, ChallengeMode, ChallengeSummary, GameDataList, GameStateStreamEvent, Idle, InGame,
@@ -28,16 +29,13 @@ pub enum StreamEnd {
 // State-agnostic operations: ongoing-games list and the account event stream
 // are valid in both Idle and InGame.
 impl<S> BoardAPI<S> {
-    pub async fn get_ongoing_games(
-        &self,
-        n: u8,
-    ) -> Result<GameDataList, Box<dyn std::error::Error>> {
+    pub async fn get_ongoing_games(&self, n: u8) -> Result<GameDataList, ChessError> {
         Ok(self.adapter.get_ongoing_games(n).await?)
     }
 
     /// Usernames of followed players (Lichess friends) — the FriendlistScreen's
     /// data source for picking a challenge opponent.
-    pub async fn get_following(&self) -> Result<Vec<String>, Box<dyn std::error::Error>> {
+    pub async fn get_following(&self) -> Result<Vec<String>, ChessError> {
         Ok(self.adapter.get_following().await?)
     }
 
@@ -46,35 +44,24 @@ impl<S> BoardAPI<S> {
         &self,
         username: &str,
         mode: &ChallengeMode,
-    ) -> Result<ChallengeSummary, Box<dyn std::error::Error>> {
+    ) -> Result<ChallengeSummary, ChessError> {
         Ok(self.adapter.send_challenge(username, mode).await?)
     }
 
     /// Incoming + outgoing challenges (InvitesScreen data source).
-    pub async fn list_challenges(
-        &self,
-    ) -> Result<Vec<ChallengeSummary>, Box<dyn std::error::Error>> {
+    pub async fn list_challenges(&self) -> Result<Vec<ChallengeSummary>, ChessError> {
         Ok(self.adapter.list_challenges().await?)
     }
 
-    pub async fn accept_challenge(
-        &self,
-        challenge_id: &str,
-    ) -> Result<(), Box<dyn std::error::Error>> {
+    pub async fn accept_challenge(&self, challenge_id: &str) -> Result<(), ChessError> {
         Ok(self.adapter.accept_challenge(challenge_id).await?)
     }
 
-    pub async fn decline_challenge(
-        &self,
-        challenge_id: &str,
-    ) -> Result<(), Box<dyn std::error::Error>> {
+    pub async fn decline_challenge(&self, challenge_id: &str) -> Result<(), ChessError> {
         Ok(self.adapter.decline_challenge(challenge_id).await?)
     }
 
-    pub async fn cancel_challenge(
-        &self,
-        challenge_id: &str,
-    ) -> Result<(), Box<dyn std::error::Error>> {
+    pub async fn cancel_challenge(&self, challenge_id: &str) -> Result<(), ChessError> {
         Ok(self.adapter.cancel_challenge(challenge_id).await?)
     }
 }
@@ -125,15 +112,15 @@ impl BoardAPI<InGame> {
         &self.state.turn
     }
 
-    pub async fn move_piece(&self, board_move: &str) -> Result<(), Box<dyn std::error::Error>> {
+    pub async fn move_piece(&self, board_move: &str) -> Result<(), ChessError> {
         Ok(self.adapter.move_piece(self.game_id(), board_move).await?)
     }
 
-    pub async fn resign_game(&self) -> Result<(), Box<dyn std::error::Error>> {
+    pub async fn resign_game(&self) -> Result<(), ChessError> {
         Ok(self.adapter.resign_game(self.game_id()).await?)
     }
 
-    pub async fn abort_game(&self) -> Result<(), Box<dyn std::error::Error>> {
+    pub async fn abort_game(&self) -> Result<(), ChessError> {
         Ok(self.adapter.abort_game(self.game_id()).await?)
     }
 
@@ -154,7 +141,7 @@ impl BoardAPI<InGame> {
         &mut self,
         tx: Sender<AppEvent>,
         cancel: Arc<AtomicBool>,
-    ) -> Result<StreamEnd, Box<dyn std::error::Error>> {
+    ) -> Result<StreamEnd, ChessError> {
         let mut stream = self.adapter.stream_game(self.game_id()).await?;
 
         let mut got_any = false;
@@ -198,7 +185,7 @@ impl BoardAPI<InGame> {
         &mut self,
         event: GameStateStreamEvent,
         tx: &Sender<AppEvent>,
-    ) -> Result<(), Box<dyn std::error::Error>> {
+    ) -> Result<(), ChessError> {
         match event {
             GameStateStreamEvent::GameFull(full) => {
                 let player0_white =

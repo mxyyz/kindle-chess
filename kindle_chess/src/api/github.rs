@@ -1,3 +1,4 @@
+use crate::error::ChessError;
 // GitHub Releases client. Used by the in-app updater to learn whether a newer
 // binary has been published and where to fetch it from.
 //
@@ -52,7 +53,7 @@ pub struct UpdateInfo {
 }
 
 /// Hits `releases/latest` and returns the parsed JSON.
-pub async fn fetch_latest_release() -> Result<Release, Box<dyn std::error::Error>> {
+pub async fn fetch_latest_release() -> Result<Release, ChessError> {
     let url = format!(
         "https://api.github.com/repos/{}/{}/releases/latest",
         OWNER, REPO
@@ -94,7 +95,7 @@ pub fn parse_tag_version(tag: &str) -> Option<Version> {
 /// `release.yml` is still cross-building — etc.). The UI shows `Ok(None)`
 /// as "up to date" and `Err(_)` as "Check failed: <reason>", so we want the
 /// "release exists but isn't yet usable" cases to land in the latter.
-pub async fn check_for_update() -> Result<Option<UpdateInfo>, Box<dyn std::error::Error>> {
+pub async fn check_for_update() -> Result<Option<UpdateInfo>, ChessError> {
     let release = fetch_latest_release().await?;
 
     let latest = match parse_tag_version(&release.tag_name) {

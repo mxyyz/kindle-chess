@@ -1,3 +1,4 @@
+use crate::error::ChessError;
 use crate::{
     api::litchee_adapter::LitcheeAdapter,
     models::oauth::{
@@ -23,7 +24,7 @@ use std::fs::{File, remove_file, write};
 use std::io::prelude::Read;
 
 impl OAuth2Client {
-    pub fn new(config: AuthConfig) -> Result<Self, Box<dyn std::error::Error>> {
+    pub fn new(config: AuthConfig) -> Result<Self, ChessError> {
         let host_ip = Self::pick_callback_host_ip()?;
         let redirect_uri = format!("http://{}:{}/callback", host_ip, config.redirect_port);
         info!("OAuth redirect URI: {redirect_uri}");
@@ -42,7 +43,7 @@ impl OAuth2Client {
     /// usbnet gadget up at once (e.g. while plugged in for flashing). Prefer a
     /// wifi-named interface when one exists; log all candidates either way so the
     /// on-device log shows what was available when auth started.
-    fn pick_callback_host_ip() -> Result<std::net::IpAddr, Box<dyn std::error::Error>> {
+    fn pick_callback_host_ip() -> Result<std::net::IpAddr, ChessError> {
         let candidates: Vec<(String, std::net::IpAddr)> = local_ip_address::list_afinet_netifas()?
             .into_iter()
             .filter(|(name, ip)| ip.is_ipv4() && !ip.is_loopback() && name != "lo")
@@ -59,7 +60,7 @@ impl OAuth2Client {
             .ok_or_else(|| "no usable IPv4 network interface for OAuth callback".into())
     }
 
-    pub async fn start_auth_flow(&self) -> Result<AuthState, Box<dyn std::error::Error>> {
+    pub async fn start_auth_flow(&self) -> Result<AuthState, ChessError> {
         // Create a fresh client for this request
         let client = litchee::LichessClient::new();
         let redirect_uri = self.redirect_url.to_string();
@@ -116,7 +117,7 @@ impl OAuth2Client {
         &self,
         code: String,
         state: String,
-    ) -> Result<TokenInfo, Box<dyn std::error::Error + Send + Sync>> {
+    ) -> Result<TokenInfo, ChessError> {
         // Verify state
         let state_lock = self.state.lock().await;
         let stored_state = state_lock.as_ref().ok_or("No auth state found")?;
@@ -157,7 +158,7 @@ impl OAuth2Client {
 pub async fn run_auth_server(
     oauth_client: Arc<OAuth2Client>,
     shutdown_rx: oneshot::Receiver<TokenInfo>,
-) -> Result<TokenInfo, Box<dyn std::error::Error>> {
+) -> Result<TokenInfo, ChessError> {
     let (tx, rx) = oneshot::channel::<TokenInfo>();
 
     let app = Router::new()
@@ -342,9 +343,7 @@ async fn root_handler() -> Html<String> {
     )
 }
 
-pub fn generate_qr_code(
-    url: &str,
-) -> Result<ImageBuffer<Luma<u8>, Vec<u8>>, Box<dyn std::error::Error>> {
+pub fn generate_qr_code(url: &str) -> Result<ImageBuffer<Luma<u8>, Vec<u8>>, ChessError> {
     let code = QrCode::new(url)?;
     let image = code.render::<Luma<u8>>().build();
 
@@ -353,28 +352,28 @@ pub fn generate_qr_code(
 
 pub async fn start_auth(
     oauth_client: Arc<OAuth2Client>,
-) -> Result<(AuthState, ImageBuffer<Luma<u8>, Vec<u8>>), Box<dyn std::error::Error + Send + Sync>> {
+) -> Result<(AuthState, ImageBuffer<Luma<u8>, Vec<u8>>), ChessError> {
     let auth_state = oauth_client.start_auth_flow().await.unwrap();
     info!("Auth URL: {}", auth_state.auth_url);
     let qr = generate_qr_code(&auth_state.auth_url).unwrap();
     Ok((auth_state, qr))
 }
 
-pub async fn get_user_info(token: &str) -> Result<LichessUser, Box<dyn std::error::Error>> {
+pub async fn get_user_info(token: &str) -> Result<LichessUser, ChessError> {
     /*! Tests success of authentication with privileged request (without wrapper) */
     Ok(LitcheeAdapter::new(token)?.get_user_info().await?)
 }
 
 pub async fn authenticate(
     tx: std::sync::mpsc::Sender<crate::ui::events::AppEvent>,
-) -> Result<(TokenInfo, LichessUser), Box<dyn std::error::Error>> {
+) -> Result<(TokenInfo, LichessUser), ChessError> {
     /*! Starts authentication flow */
     let config = AuthConfig::default();
     let oauth_client = Arc::new(OAuth2Client::new(config)?);
 
     let (_auth_state, qr) = start_auth(oauth_client.clone())
         .await
-        .map_err(|e| -> Box<dyn std::error::Error> { e.to_string().into() })?;
+        .map_err(|e| -> ChessError { e.to_string().into() })?;
 
     let _ = tx.send(AppEvent::QrReady(qr));
 
@@ -393,7 +392,7 @@ pub async fn authenticate(
     Ok((token, user))
 }
 
-pub fn load_token() -> Result<Option<TokenInfo>, Box<dyn std::error::Error>> {
+pub fn load_token() -> Result<Option<TokenInfo>, ChessError> {
     /*! Loads auth-token from disk */
     let path = std::path::Path::new(env!("AUTH_TOKEN"));
 

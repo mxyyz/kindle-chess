@@ -1,5 +1,6 @@
 use crate::api::litchee_adapter::LitcheeAdapter;
 use crate::api::traits::PuzzleFetcher;
+use crate::error::ChessError;
 use crate::models::oauth::TokenInfo;
 use crate::models::puzzle::{Puzzle, PuzzleParams, PuzzleResponse, PuzzleSolveRound};
 
@@ -9,7 +10,7 @@ use log::warn;
 
 /// GET /api/puzzle/daily — the daily puzzle. No authentication required. This
 /// endpoint includes the puzzle `fen` directly.
-pub async fn get_daily_puzzle() -> Result<Puzzle, Box<dyn std::error::Error>> {
+pub async fn get_daily_puzzle() -> Result<Puzzle, ChessError> {
     LitcheeAdapter::anonymous()
         .get_daily_puzzle()
         .await
@@ -17,9 +18,7 @@ pub async fn get_daily_puzzle() -> Result<Puzzle, Box<dyn std::error::Error>> {
 }
 
 /// `get_daily_puzzle` with an injected fetcher (for testing the parse).
-pub async fn get_daily_puzzle_with(
-    fetcher: &impl PuzzleFetcher,
-) -> Result<Puzzle, Box<dyn std::error::Error>> {
+pub async fn get_daily_puzzle_with(fetcher: &impl PuzzleFetcher) -> Result<Puzzle, ChessError> {
     let url = format!("{}/puzzle/daily", env!("LICHESS_API_BASE"));
     let body = fetcher.get(&url).await.map_err(|e| e.to_string())?;
     let response: PuzzleResponse = serde_json::from_str(&body)?;
@@ -28,7 +27,7 @@ pub async fn get_daily_puzzle_with(
 
 /// GET /api/puzzle/{id} — a puzzle by id. No authentication required. Unlike
 /// `/puzzle/next`, this endpoint includes the `fen` and `lastMove` fields.
-pub async fn get_puzzle_by_id(id: &str) -> Result<Puzzle, Box<dyn std::error::Error>> {
+pub async fn get_puzzle_by_id(id: &str) -> Result<Puzzle, ChessError> {
     Ok(LitcheeAdapter::anonymous().get_puzzle_by_id(id).await?)
 }
 
@@ -36,7 +35,7 @@ pub async fn get_puzzle_by_id(id: &str) -> Result<Puzzle, Box<dyn std::error::Er
 pub async fn get_puzzle_by_id_with(
     fetcher: &impl PuzzleFetcher,
     id: &str,
-) -> Result<Puzzle, Box<dyn std::error::Error>> {
+) -> Result<Puzzle, ChessError> {
     let url = format!("{}/puzzle/{}", env!("LICHESS_API_BASE"), id);
     let body = fetcher.get(&url).await.map_err(|e| e.to_string())?;
     let response: PuzzleResponse = serde_json::from_str(&body)?;
@@ -56,7 +55,7 @@ pub async fn get_puzzle_by_id_with(
 pub async fn get_next_puzzle(
     token: Option<TokenInfo>,
     params: PuzzleParams,
-) -> Result<Puzzle, Box<dyn std::error::Error>> {
+) -> Result<Puzzle, ChessError> {
     let next_id = match &token {
         Some(t) => {
             let adapter = LitcheeAdapter::new(&t.access_token)?;
@@ -93,7 +92,7 @@ pub async fn post_puzzle_solution(
     params: PuzzleParams,
     id: &str,
     win: bool,
-) -> Result<Option<Vec<PuzzleSolveRound>>, Box<dyn std::error::Error>> {
+) -> Result<Option<Vec<PuzzleSolveRound>>, ChessError> {
     let Some(t) = token else {
         return Ok(None);
     };
@@ -124,7 +123,7 @@ pub async fn post_puzzle_solution(
 pub async fn get_home_puzzle(
     token: Option<TokenInfo>,
     params: PuzzleParams,
-) -> Result<Puzzle, Box<dyn std::error::Error>> {
+) -> Result<Puzzle, ChessError> {
     match &token {
         Some(t) => {
             let adapter = LitcheeAdapter::new(&t.access_token)?;

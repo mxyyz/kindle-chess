@@ -11,7 +11,7 @@
 
 use crate::models::oauth::TokenInfo;
 
-type BoxError = Box<dyn std::error::Error + Send + Sync>;
+type BoxError = crate::error::ChessError;
 
 /// Fetches HTTP response bodies. One method per request shape used by the
 /// puzzle endpoints: anonymous GET and bearer-authenticated GET.

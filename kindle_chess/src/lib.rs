@@ -13,6 +13,7 @@ pub mod api {
     pub mod update;
 }
 pub mod app;
+pub mod error;
 pub mod i18n;
 pub mod local;
 pub mod models;
