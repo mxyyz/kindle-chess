@@ -111,7 +111,10 @@ pub async fn check_for_update() -> Result<Option<UpdateInfo>, ChessError> {
 /// Pure resolver: given a parsed release and the running version, decide
 /// whether an update is available and which assets to use. Extracted from
 /// `check_for_update` so it can be unit-tested without network.
-pub fn resolve_update_info(release: &Release, current: &Version) -> Result<Option<UpdateInfo>, ChessError> {
+pub fn resolve_update_info(
+    release: &Release,
+    current: &Version,
+) -> Result<Option<UpdateInfo>, ChessError> {
     let latest = match parse_tag_version(&release.tag_name) {
         Some(v) => v,
         None => {
@@ -166,7 +169,10 @@ pub fn resolve_update_info(release: &Release, current: &Version) -> Result<Optio
     Ok(Some(UpdateInfo {
         current: current.clone(),
         latest,
-        release_name: release.name.clone().unwrap_or_else(|| release.tag_name.clone()),
+        release_name: release
+            .name
+            .clone()
+            .unwrap_or_else(|| release.tag_name.clone()),
         release_notes: release.body.clone().unwrap_or_default(),
         asset_url,
         sha256_url,
@@ -227,12 +233,18 @@ mod tests {
         let info = resolve_update_info(&rel, &cur).unwrap().unwrap();
         assert!(!info.is_bundle);
         assert_eq!(info.bundle_url, None);
-        assert_eq!(info.asset_url, "https://example.com/kindle-chess-armv7-musl");
+        assert_eq!(
+            info.asset_url,
+            "https://example.com/kindle-chess-armv7-musl"
+        );
     }
 
     #[test]
     fn up_to_date_returns_none() {
-        let rel = release_with("v0.4.0", vec![asset(BUNDLE_NAME, 100), asset(BUNDLE_SHA_NAME, 64)]);
+        let rel = release_with(
+            "v0.4.0",
+            vec![asset(BUNDLE_NAME, 100), asset(BUNDLE_SHA_NAME, 64)],
+        );
         let cur = Version::new(0, 4, 0);
         assert!(resolve_update_info(&rel, &cur).unwrap().is_none());
     }
@@ -255,7 +267,10 @@ mod tests {
     fn parse_tag_version_handles_prefixes() {
         assert_eq!(parse_tag_version("v0.4.0").unwrap(), Version::new(0, 4, 0));
         assert_eq!(parse_tag_version("0.4.0").unwrap(), Version::new(0, 4, 0));
-        assert_eq!(parse_tag_version("release-0.4.0").unwrap(), Version::new(0, 4, 0));
+        assert_eq!(
+            parse_tag_version("release-0.4.0").unwrap(),
+            Version::new(0, 4, 0)
+        );
         assert!(parse_tag_version("garbage").is_none());
     }
 }

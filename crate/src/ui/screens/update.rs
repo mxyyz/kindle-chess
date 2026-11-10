@@ -30,7 +30,7 @@ use crate::{
 pub enum UpdateState {
     Checking,
     UpToDate,
-    Available(UpdateInfo),
+    Available(Box<UpdateInfo>),
     Downloading,
     Applied,
     Failed(String),
@@ -190,7 +190,7 @@ impl Screen for UpdateScreen {
         match event {
             AppEvent::UpdateAvailable(info) => {
                 info!("Update available: v{} → v{}", info.current, info.latest);
-                self.state = UpdateState::Available(info);
+                self.state = UpdateState::Available(Box::new(info));
                 Ok(Transition::Redraw)
             }
             AppEvent::UpdateUpToDate => {
@@ -231,7 +231,7 @@ impl Screen for UpdateScreen {
                 if self.action_button.rect.contains(touch.x, touch.y) {
                     match &self.state {
                         UpdateState::Available(info) => {
-                            let info = info.clone();
+                            let info = (**info).clone();
                             self.state = UpdateState::Downloading;
                             kick_update_apply(info, display.event_tx.clone());
                             return Ok(Transition::Redraw);
