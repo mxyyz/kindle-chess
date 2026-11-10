@@ -1,23 +1,18 @@
-# Security review — e03-target-device-restructure (main...HEAD @ f6f9410)
+# Security review — e05-safe-inapp-update (branch e05-safe-inapp-update vs main @ 86a426d)
 
-Scope: 88 files, +2843/−500. Rust X11 client + shell deploy scripts + specs.
+Scope: e05 code changes — `crate/src/api/github.rs`, `crate/src/api/update.rs`, `crate/src/ui/screens/update.rs`, `kindlichess/chess_app.sh`, `.github/workflows/release.yml`, `.github/workflows/rust.yml`, `flash.sh`, `flash_usb.sh`, `run-dev.sh`.
 
 ## Findings
 
-- **Secrets exposure:** none. `secrets/` and `token.json` remain gitignored; diff
-  touches only `.env.debug`'s ROOT_DIR path (no credentials). Token is read from
-  disk at runtime, sent as Bearer over HTTPS only.
-- **Command injection (shell scripts):** none. flash.sh / flash_usb.sh use fixed
-  paths and a fixed `root@kindle` scp target; the token mv-aside is path-fixed.
-  The user's rename commit (bf50805) updated flash_usb.sh; flash.sh was fixed in
-  verify (f6f9410).
-- **Auth/OAuth:** PKCE S256 flow unchanged; scopes widened with `follow:read`
-  (read-only, no new write surface beyond existing challenge:write).
-- **SSRF/path traversal:** none — all API calls go to the compile-time
-  `LICHESS_API_BASE` (https) or the litchee client's fixed base; challenge/game
-  ids are used in URL paths via litchee's `http::segment` encoding.
-- **Unsafe deserialization:** serde JSON only, all DTOs typed.
+- **Secrets exposure:** none. `secrets/token.json` remains gitignored; flash scripts' token-aside dance uses fixed paths only (`kindlichess/secrets/token.json`). No credentials in diff.
+- **Command injection (shell):** `chess_app.sh` trampoline runs `tar -xzf "$BUNDLE_NEW" -C "$STAGING"` and `sha256sum -c`. `$BUNDLE_NEW` is a fixed path derived from `$APP_DIR` (env-overridable only for testing). The bundle content is sha256-verified (sidecar) + MANIFEST-verified before install, and originates from GitHub Releases over HTTPS. No attacker-controlled input reaches a shell sink. **Verdict: safe.**
+- **Tar path traversal (defense-in-depth note):** busybox tar 1.34.1 strips leading `/`; `../` entries would be extracted relative to `$STAGING`. Mitigated by the sha256 sidecar + MANIFEST chain — only bundles produced by our own release.yml pass verification. LOW severity, confidence 6 — noted, not blocking. Hardening idea for a future epic: add `--no-same-owner` and a post-extract path check in the trampoline.
+- **Path traversal in `verify_manifest` (Rust):** `staging.join(rel_path)` does not canonicalize; a MANIFEST entry with `../` could read outside staging. Same trust chain applies (MANIFEST is inside the sha256-verified bundle). LOW, confidence 6 — noted. Hardening: canonicalize + prefix-check before `fs::read`.
+- **SSRF / URL injection:** `update.rs`/`github.rs` fetch URLs from GitHub's API response (`browser_download_url`), not user input. Base URL is hardcoded `api.github.com`. **Safe.**
+- **CI workflow injection:** `release.yml` uses `${{ steps.tag.outputs.name }}` from `github.ref` (tag push) or a quoted `workflow_dispatch` input in `gh release` commands — quoted properly. `permissions: contents: write` scoped to the job. **Safe.**
+- **Unsafe deserialization:** serde JSON only, all DTOs typed. The bundle MANIFEST is parsed by our own `parse_manifest_line` (hex-length check). **Safe.**
+- **OAuth/auth:** unchanged from e04 (PKCE, token on disk gitignored). **Safe.**
 
 ## Verdict
 
-No HIGH findings. Gate: PASS.
+No HIGH findings (confidence ≥ 8). Two LOW defense-in-depth notes (tar path traversal, manifest join canonicalization) — both mitigated by the sha256 verification chain; hardening deferred to a future epic. Gate: **PASS**.

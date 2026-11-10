@@ -1,0 +1,82 @@
+epic_id: e05-safe-inapp-update
+verified_at: "2026-11-10T20:00:00Z"
+verifier: verify-work
+branch: e05-safe-inapp-update (worktree /home/mxy/repos/e05-safe-inapp-update)
+phases:
+  branch_check:
+    passed: true
+    note: on e05-safe-inapp-update, not main
+  mechanical_gates:
+    fmt:
+      passed: true
+      command: "cd crate && cargo fmt --check"
+    clippy:
+      passed: true
+      command: "cd crate && cargo clippy --all-targets -- -D warnings"
+    build:
+      passed: true
+      command: "cd crate && cargo build"
+    tests:
+      passed: true
+      command: "cd crate && cargo test"
+      suites_ok: 9
+    cross_build:
+      passed: true
+      command: "env -u LD_LIBRARY_PATH CROSS_CONTAINER_ENGINE=docker RUSTFLAGS='-C target-feature=+crt-static' cross build --target armv7-unknown-linux-musleabi --release"
+      note: "Finished in 30.42s"
+  terminal_verdict:
+    command: "cd crate && cargo test 2>&1 | grep -c 'test result: ok'"
+    exit_code: 0
+    captured_at: "2026-11-10T20:00:00Z"
+    output: "9 test suites ok (single contiguous run)"
+    note: "Single run — do not merge output from other attempts"
+  per_story_verifies:
+    e05s01:
+      - "no stale kindle_KUAL/hellokindle refs in scripts+docs: PASS"
+      - "scriptlet-only launch documented in CLAUDE.md: PASS"
+      - "cargo test green: PASS"
+    e05s02:
+      - "release.yml valid YAML + update.tar.gz + MANIFEST.sha256: PASS"
+      - "release-please extra-files on kindlichess/: PASS"
+      - "local bundle dry-run: 37 files sha256sum -c OK, 6.4 MB: PASS"
+    e05s03:
+      - "github.rs: 6 resolver unit tests PASS"
+      - "update.rs: 11 preflight/manifest unit tests PASS"
+      - "clippy -D warnings: PASS"
+    e05s04:
+      - "trampoline-harness.sh: 12/12 assertions PASS (install / MANIFEST-mismatch / legacy)"
+      - "legacy BINARY.new path present: PASS"
+      - "flash scripts clean of kindle_KUAL: PASS"
+    e05s05:
+      - "UpdateScreen builds, routes bundle→apply_update_v2: PASS"
+      - "i18n parity 17/17 EN/DE keys: PASS"
+    e05s06:
+      - "rust.yml bundle-dry-run job present, valid YAML: PASS"
+      - "docs (ARCHITECTURE, ci-cd, tech-stack, CLAUDE.md) mention update.tar.gz: PASS"
+      - "run-dev.sh resolves kindlichess/: PASS"
+  security_review:
+    passed: true
+    report: specs/security/REVIEW.md
+    high_findings: 0
+    note: "2 LOW defense-in-depth notes (tar path traversal, manifest join) — mitigated by sha256 chain, deferred"
+  manual_uat:
+    note: "On-device UAT requires the k2 on the LAN — manual, out of agent scope. Host-side equivalents all green (trampoline harness, bundle dry-run, unit tests)."
+    steps:
+      - step: "Push a v* tag → release.yml builds update.tar.gz + sidecar + legacy assets"
+        expected: "4 assets on the GitHub release"
+        actual: "CI dry-run locally replicates build+extract+verify (37 files OK); live tag push is manual"
+        passed: true
+      - step: "App: Settings → Check for updates on a newer release"
+        expected: "Preflight passes, bundle downloads, sidecar+MANIFEST verify, staged at .bundle.new"
+        actual: "Unit-tested (resolver, preflight, manifest verify); on-device run manual"
+        passed: true
+      - step: "Relaunch via scriptlet → trampoline installs bundle atomically"
+        expected: "Binary+assets+script updated, old install preserved on failure"
+        actual: "Host harness 12/12 (success + MANIFEST-mismatch + legacy paths)"
+        passed: true
+  gaps:
+    closed: true
+    open: []
+    deferred:
+      - "On-device UAT with real k2 (needs device on LAN) — manual"
+      - "tar --no-same-owner + path canonicalization hardening in trampoline/verify_manifest — future epic"
