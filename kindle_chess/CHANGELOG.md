@@ -1,5 +1,19 @@
 # Changelog
 
+## [0.4.0](https://github.com/mxyyz/kindle-chess/compare/v0.3.0...v0.4.0) (2026-11-10)
+
+
+### Features
+
+* **ci:** format code (42 diffs, no logic change) ([3d1e798](https://github.com/mxyyz/kindle-chess/commit/3d1e798d159ef92ea818d505966c350986ad4c2b))
+* **error:** ChessError (Send+Sync) at api/ boundary (e04s05) ([1394c2c](https://github.com/mxyyz/kindle-chess/commit/1394c2cfce01a35ac2b947dcde42647c4595d378))
+
+
+### Bug Fixes
+
+* **ci:** clippy -D warnings green + fmt/clippy/cache gates in rust.yml ([ecc9d05](https://github.com/mxyyz/kindle-chess/commit/ecc9d05469f58a2ae22def35c7bfe05fa130874f))
+* **renderer:** create_window height 0 -&gt; SCREEN_H_U16 (black screen) ([507350f](https://github.com/mxyyz/kindle-chess/commit/507350f326c2ccec105b790232a5fccc8a22ab34))
+
 ## [0.3.0](https://github.com/mxyyz/kindle-chess/compare/v0.2.0...v0.3.0) (2026-11-06)
 
 
