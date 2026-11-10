@@ -10,8 +10,7 @@ vcs:
   head: 86a426d
   worktree: /home/mxy/repos/e05-safe-inapp-update
 handoff:
-  last_step_completed: 'verify-work e05: PASS — 9 test suites, fmt/clippy/cross green, harness 12/12, bundle dry-run 37 files,
-    security no HIGH, evidence persisted'
+  last_step_completed: 'audit-code e05: PASS (AUDIT-e05.md); Boy Scout cleanup applied (chess_app.sh dead block removed)'
   open_decisions:
   - 'e09 "random" opponent: create_open vs seek — decide during e06s01 plan-work (both verified in litchee 0.2.2)'
   - e10 license choice (MIT vs Apache 2.0) — ADR written during e10s01, user approves
@@ -22,7 +21,7 @@ handoff:
   - specs/planning-context.yaml
   - specs/release-plan.yaml
   - specs/epics/e05-safe-inapp-update/epic.yaml
-  next_skill: audit-code, then release-branch (open PR)
+  next_skill: commit-message, then release-branch (open PR)
 notes:
   e02: merged to main (PR
   e03: merged to main (PR
