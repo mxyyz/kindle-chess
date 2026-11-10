@@ -41,7 +41,9 @@ jobs:
         tool: cargo-llvm-cov
     - name: Generate coverage (lcov + html)
       working-directory: kindle_chess
-      run: cargo llvm-cov --lcov --output-path lcov.info --html
+      run: |
+        cargo llvm-cov --lcov --output-path lcov.info
+        cargo llvm-cov --html
     - uses: actions/upload-artifact@v4
       with:
         name: coverage-report
