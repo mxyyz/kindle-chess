@@ -26,7 +26,7 @@ epics:
       - { id: e03s06, title: "Phase 3: apply EN/DE locale strings to all remaining screens", bcps: 3, delta: MODIFIED }
       - { id: e03s07, title: "Carried from e02: t07-phase2-uat on-device UAT of chrome mode on k2 (END of epic)", bcps: 2, delta: ADDED }
   - id: e04-e01-leftovers
-    status: active
+    status: done
     wsjf_order: 1
     scope: specs/product/SCOPE_LATEST.yaml
     origin: specs/epics/e01-refactor-and-tests/tasks.yaml (t05-t15)

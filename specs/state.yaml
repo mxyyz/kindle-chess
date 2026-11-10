@@ -1,14 +1,14 @@
 # bigpowers session source-of-truth. See survey-context / session-state.
 session:
-  active_flow: planning
+  active_flow: review
   active_epic: e04-e01-leftovers
-  active_story: e04s01
-  phase: Initiate (kickoff done; develop-tdd e04s01 next)
+  active_story: null (e04 complete)
+  phase: Review (all 6 stories done; ready for PR)
 
 vcs:
   kind: git
   branch: e04-e01-leftovers
-  head: 3ee4ec0
+  head: 38568e4
   worktree: /home/mxy/repos/e04-e01-leftovers
   # KICKOFF 2026-11-05 from main @ da6c845. Preflight green: cargo build
   # clean, 150 tests pass. plan-work skipped (user): story specs per story.
@@ -27,7 +27,7 @@ handoff:
     - CLAUDE.md
     - specs/product/SCOPE_LATEST.yaml
     - specs/epics/e04-e01-leftovers/epic.yaml
-  next_skill: develop-tdd (e04s01)
+  next_skill: release-branch (user handles push + PR)
 
 notes:
   e02: merged to main (PR #35)
