@@ -6,7 +6,7 @@
 # Logs:    log/app.log (written by the binary itself via log4rs)
 # Secrets: secrets/token.json
 
-APP_DIR="/mnt/us/kindlichess"
+APP_DIR="${KINDLECHESS_APP_DIR:-/mnt/us/kindlichess}"
 BINARY="$APP_DIR/bin/kindle-hello"
 SCRIPT_LOG="$APP_DIR/log/launch.log"
 PID_FILE="/tmp/chess_app.pid"
@@ -45,12 +45,59 @@ if [ -f "$PID_FILE" ]; then
     rm -f "$PID_FILE"
 fi
 
-# ─── Update trampoline ────────────────────────────────────────────────────────
-# The in-app updater stages a verified new binary at $BINARY.new (it does not
-# replace the running ELF directly because /mnt/us is VFAT). At launch time —
-# while no instance is running — we move it into place. If the swap fails,
-# leave the existing binary untouched and continue.
-if [ -f "$BINARY.new" ]; then
+# ─── Update trampoline v2 ─────────────────────────────────────────────────────
+# Runs at launch while no instance is running — the safe point to install.
+#
+# Bundle flow (e05+): the in-app updater stages a verified update.tar.gz at
+# $BINARY.bundle.new. Extract to .staging, verify MANIFEST, install binary +
+# assets atomically, self-update this script if it changed, then re-exec.
+#
+# Legacy flow (0.4.0 clients): $BINARY.new staged by the old updater — just mv.
+#
+# Any failure removes the partial files and continues with the old install.
+
+STAGING="$APP_DIR/.staging"
+BUNDLE_NEW="$BINARY.bundle.new"
+
+if [ -f "$BUNDLE_NEW" ]; then
+    echo "Bundle update staged at $BUNDLE_NEW — installing" >> "$SCRIPT_LOG"
+    rm -rf "$STAGING"
+    mkdir -p "$STAGING"
+    if tar -xzf "$BUNDLE_NEW" -C "$STAGING" 2>>"$SCRIPT_LOG" \
+       && (cd "$STAGING" && sha256sum -c MANIFEST.sha256 >>"$SCRIPT_LOG" 2>&1); then
+        # Install binary atomically (tmp + mv so a failed copy keeps the old one)
+        if [ -f "$STAGING/bin/kindle-hello" ]; then
+            if cp "$STAGING/bin/kindle-hello" "$BINARY.tmp" 2>>"$SCRIPT_LOG" \
+               && mv "$BINARY.tmp" "$BINARY"; then
+                chmod +x "$BINARY"
+                echo "Binary updated" >> "$SCRIPT_LOG"
+            else
+                rm -f "$BINARY.tmp"
+                echo "WARNING: binary install failed — keeping old binary" >> "$SCRIPT_LOG"
+            fi
+        fi
+        # Install assets
+        if [ -d "$STAGING/assets" ]; then
+            cp -f "$STAGING/assets/"* "$APP_DIR/assets/" 2>>"$SCRIPT_LOG" \
+                && echo "Assets updated" >> "$SCRIPT_LOG"
+        fi
+        # Self-update this script if the bundle ships a different one
+        if [ -f "$STAGING/chess_app.sh" ] && ! cmp -s "$STAGING/chess_app.sh" "$APP_DIR/chess_app.sh"; then
+            cp "$STAGING/chess_app.sh" "$APP_DIR/chess_app.sh.new" \
+                && mv "$APP_DIR/chess_app.sh.new" "$APP_DIR/chess_app.sh" \
+                && chmod +x "$APP_DIR/chess_app.sh"
+            rm -rf "$STAGING" "$BUNDLE_NEW"
+            echo "Script self-updated — re-exec" >> "$SCRIPT_LOG"
+            exec "$APP_DIR/chess_app.sh" "$@"
+        fi
+        rm -rf "$STAGING" "$BUNDLE_NEW"
+        echo "Bundle update installed" >> "$SCRIPT_LOG"
+    else
+        echo "WARNING: bundle verify/install failed — keeping old install" >> "$SCRIPT_LOG"
+        rm -rf "$STAGING" "$BUNDLE_NEW"
+    fi
+elif [ -f "$BINARY.new" ]; then
+    # Legacy binary-only trampoline (0.4.0 clients)
     echo "Update staged at $BINARY.new — installing" >> "$SCRIPT_LOG"
     if mv "$BINARY.new" "$BINARY"; then
         chmod +x "$BINARY"
@@ -58,6 +105,12 @@ if [ -f "$BINARY.new" ]; then
     else
         echo "WARNING: failed to install $BINARY.new — keeping current binary" >> "$SCRIPT_LOG"
     fi
+fi
+
+# Test hook: harness runs the script with --trampoline-test to exercise only
+# the trampoline block above, then exit before touching the display/binary.
+if [ "${1:-}" = "--trampoline-test" ]; then
+    exit 0
 fi
 
 
