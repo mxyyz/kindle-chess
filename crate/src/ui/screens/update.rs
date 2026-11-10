@@ -8,7 +8,7 @@ use crate::ui::layout;
 use crate::{
     api::{
         github::{UpdateInfo, check_for_update},
-        update::apply_update,
+        update::{apply_update, apply_update_v2},
     },
     models::ui::{Display, Screen, Transition},
     ui::{
@@ -123,8 +123,10 @@ impl Screen for UpdateScreen {
                 tr(&loc, "update-apply"),
                 false,
             ),
-            UpdateState::Available(info) => (
-                vec![
+            UpdateState::Available(info) => {
+                let size = info.bundle_size.unwrap_or(info.asset_size);
+                let mb = size / 1_048_576;
+                let mut lines = vec![
                     i18n::t(
                         &loc,
                         "update-available",
@@ -133,24 +135,28 @@ impl Screen for UpdateScreen {
                             ("latest", &info.latest.to_string()),
                         ],
                     ),
-                    i18n::t(
-                        &loc,
-                        "update-size",
-                        &[("bytes", &info.asset_size.to_string())],
-                    ),
-                    String::new(),
-                    info.release_name.clone(),
-                ],
-                tr(&loc, "update-apply"),
-                true,
-            ),
+                    i18n::t(&loc, "update-size-mb", &[("mb", &mb.to_string())]),
+                ];
+                if info.is_bundle {
+                    lines.push(tr(&loc, "update-bundle-contents"));
+                }
+                lines.push(String::new());
+                lines.push(info.release_name.clone());
+                (lines, tr(&loc, "update-apply"), true)
+            }
             UpdateState::Downloading => (
-                vec![tr(&loc, "update-downloading")],
+                vec![
+                    tr(&loc, "update-downloading"),
+                    tr(&loc, "update-bundle-hint"),
+                ],
                 tr(&loc, "update-apply"),
                 false,
             ),
             UpdateState::Applied => (
-                vec![tr(&loc, "update-applied"), tr(&loc, "update-relaunch")],
+                vec![
+                    tr(&loc, "update-applied"),
+                    tr(&loc, "update-staged-relaunch"),
+                ],
                 tr(&loc, "update-quit"),
                 true,
             ),
@@ -277,7 +283,14 @@ fn kick_update_check(tx: Sender<AppEvent>) {
 
 fn kick_update_apply(info: UpdateInfo, tx: Sender<AppEvent>) {
     tokio::spawn(async move {
-        match apply_update(&info).await {
+        // Bundle releases (e05+) go through the staged bundle flow; legacy
+        // binary-only releases keep the old single-file path.
+        let result = if info.is_bundle {
+            apply_update_v2(&info).await
+        } else {
+            apply_update(&info).await
+        };
+        match result {
             Ok(()) => {
                 let _ = tx.send(AppEvent::UpdateApplied);
             }
