@@ -8,7 +8,7 @@ A KUAL launcher for jailbroken Amazon Kindles that talks to the Lichess API. Wri
 
 ## Common commands
 
-All `cargo` commands run from `kindle_chess/` — that's the crate root, the repo root is just a container.
+All `cargo` commands run from `crate/` — that's the crate root, the repo root is just a container.
 
 ```bash
 # Local dev build + run against emulated 1072×1448 e-ink display
@@ -17,7 +17,7 @@ All `cargo` commands run from `kindle_chess/` — that's the crate root, the rep
 ./run-dev.sh --viewer xephyr       # force a specific viewer
 
 # Cross-compile for Kindle (requires `cross` and Docker/Podman)
-cd kindle_chess && RUSTFLAGS="-C target-feature=+crt-static" \
+cd crate && RUSTFLAGS="-C target-feature=+crt-static" \
     cross build --target armv7-unknown-linux-musleabi --release
 
 # Deploy to a Kindle on the LAN (scp to root@192.168.15.244 — edit IP in flash.sh)
@@ -40,7 +40,7 @@ There is no test suite, no linter config beyond `cargo`, and no formatter config
 
 ## Architecture
 
-### Screen-stack runtime (`kindle_chess/src/app/app.rs`)
+### Screen-stack runtime (`crate/src/app/app.rs`)
 
 `App::run()` is a single-threaded event loop. A background thread blocks on `conn.wait_for_event()` and forwards X11 events into an mpsc channel. The main loop drains the channel and routes each event to the screen on top of `screen_stack: Vec<Box<dyn Screen>>`. Screens return a `Transition` (`Stay` / `Redraw` / `Push` / `Pop` / `Quit`) which the loop applies. A global triple-tap detector (within 50 px / 500 ms, three taps) short-circuits to quit on any screen.
 

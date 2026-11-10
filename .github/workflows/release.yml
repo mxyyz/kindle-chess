@@ -45,7 +45,7 @@ jobs:
           fetch-depth: 0
 
       - name: Sanity-check tag matches Cargo.toml version
-        working-directory: kindle_chess
+        working-directory: crate
         run: |
           TAG_VERSION="${{ steps.tag.outputs.name }}"
           TAG_VERSION="${TAG_VERSION#v}"
@@ -60,13 +60,13 @@ jobs:
         run: cargo install cross --git https://github.com/cross-rs/cross --locked
 
       - name: Cross-compile (armv7-musl, release)
-        working-directory: kindle_chess
+        working-directory: crate
         run: |
           RUSTFLAGS="-C target-feature=+crt-static" \
             cross build --target "$TARGET" --release
 
       - name: Stage release assets
-        working-directory: kindle_chess
+        working-directory: crate
         run: |
           mkdir -p ../dist
           cp "target/${TARGET}/release/kindle-hello" "../dist/${ASSET_NAME}"

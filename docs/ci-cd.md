@@ -43,7 +43,7 @@ merge its release PR.
 
 Triggers on push and PR to `main`. Two independent jobs, run in parallel:
 
-**`test`** — `cargo test` from `kindle_chess/`, on the runner's **native** target. No
+**`test`** — `cargo test` from `crate/`, on the runner's **native** target. No
 `cross`, no emulation: everything under test (`models/bitboard.rs`, `models/puzzle.rs`) is
 pure logic with no X11, no network and no asset files, so the host target is sufficient and
 the job finishes in well under a minute. It is the fast-feedback half of CI.
@@ -51,7 +51,7 @@ the job finishes in well under a minute. It is the fast-feedback half of CI.
 **`build`** — installs `cross`, then
 
 ```sh
-cd ./kindle_chess && RUSTFLAGS="-C target-feature=+crt-static" \
+cd ./crate && RUSTFLAGS="-C target-feature=+crt-static" \
   cross build --target armv7-unknown-linux-musleabi --release
 ```
 
@@ -70,8 +70,8 @@ Triggers on every push to `main`. Runs `googleapis/release-please-action@v4` wit
 
 On each push it scans Conventional Commit messages since the last release tag and either:
 
-- opens or updates a **release PR** that bumps `kindle_chess/Cargo.toml`, regenerates
-  `kindle_chess/CHANGELOG.md`, and updates the manifest; or
+- opens or updates a **release PR** that bumps `crate/Cargo.toml`, regenerates
+  `crate/CHANGELOG.md`, and updates the manifest; or
 - if such a PR was just merged, **pushes the matching `v*` tag** and creates the GitHub
   release.
 
@@ -83,11 +83,11 @@ Config (`release-please-config.json`):
 | `bump-minor-pre-major` | `true` | pre-1.0, `feat:` bumps **minor** |
 | `bump-patch-for-minor-pre-major` | `false` | ″ |
 | `include-v-in-tag` | `true` | tags are `v0.1.2`, not `0.1.2` |
-| `packages.kindle_chess.package-name` | `kindli_chess` | matches the crate name (note the spelling) |
+| `packages.crate.package-name` | `kindli_chess` | matches the crate name (note the spelling) |
 | `include-component-in-tag` | `false` | tag is `v0.1.2`, not `kindli_chess-v0.1.2` |
 
 `.release-please-manifest.json` is the source of truth for the last released version —
-currently `{"kindle_chess": "0.1.2"}`.
+currently `{"crate": "0.1.2"}`.
 
 Commit-message prefixes that matter: `feat:` → minor bump, `fix:` → patch,
 `feat!:` / `BREAKING CHANGE:` → would be major (but pre-1.0 rules apply),
@@ -117,7 +117,7 @@ Steps:
 1. Resolve the tag (from the ref, or from the dispatch input).
 2. Checkout that tag with `fetch-depth: 0` — full history, so `build.rs` can resolve a real
    git short SHA rather than baking in `"unknown"`.
-3. **Sanity-check** that the tag matches `kindle_chess/Cargo.toml`'s `version`, and fail
+3. **Sanity-check** that the tag matches `crate/Cargo.toml`'s `version`, and fail
    loudly if not. This is what catches a hand-pushed tag that skipped release-please.
 4. `cargo install cross --locked`, then cross-build `armv7-unknown-linux-musleabi --release`
    with `RUSTFLAGS="-C target-feature=+crt-static"`.

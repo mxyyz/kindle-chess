@@ -11,7 +11,7 @@ pixel-identically, because every layout is absolute against a hard-coded 1072 ×
 
 ```
 kindle-chess/
-├── kindle_chess/            ← the crate. All cargo commands run from here.
+├── crate/            ← the crate. All cargo commands run from here.
 │   ├── build.rs             ← bakes .env.* + git SHA + build timestamp into the binary
 │   ├── .env.debug/.release  ← ROOT_DIR per profile
 │   └── src/
@@ -173,14 +173,14 @@ longer exists. (`flash_display.sh`, which deployed that binary, was deleted in `
 - `authenticated_request`'s non-GET arms `.unwrap()` on transport errors.
 
 **Repo hygiene:**
-- `kindle_chess/Cargo.lock` is now tracked, so CI resolves the same dependency versions
+- `crate/Cargo.lock` is now tracked, so CI resolves the same dependency versions
   you build against. (It was gitignored until 2026-08-24.)
 - `CLAUDE.md` is listed in `.gitignore`, so it does **not** travel with a clone. Anything
   that must survive a move to another machine belongs in `docs/` or a module README,
   not in `CLAUDE.md`.
 - A committed ARM binary lives at `kindle_KUAL/kindlichess/bin/kindle-hello` (~10 MB) and
   is re-committed on every flash.
-- There is a stray, remote-less `kindle_chess/.git/` directory. The crate's files are
+- There is a stray, remote-less `crate/.git/` directory. The crate's files are
   tracked by the outer repo; this nested git dir is inert leftover but can confuse tooling.
 
 ## Setting up on a second machine
@@ -188,7 +188,7 @@ longer exists. (`flash_display.sh`, which deployed that binary, was deleted in `
 1. `git clone git@github.com:mxyyz/kindle-chess.git`
 2. `rustup target add armv7-unknown-linux-musleabi`
 3. `cargo install cross --git https://github.com/cross-rs/cross` (needs Docker or Podman)
-4. **Edit `kindle_chess/.env.debug`** — `ROOT_DIR` must be the absolute path of *that*
+4. **Edit `crate/.env.debug`** — `ROOT_DIR` must be the absolute path of *that*
    checkout's `kindle_KUAL/kindlichess/` directory, with a trailing slash.
 5. Dev harness deps (Arch): `xorg-server-xvfb`, plus `xorg-server-xephyr` (recommended).
 6. `./run-dev.sh`
@@ -204,7 +204,7 @@ longer exists. (`flash_display.sh`, which deployed that binary, was deleted in `
 > After editing `.env.debug`, confirm the value actually landed in the binary:
 >
 > ```sh
-> cd kindle_chess && cargo build
+> cd crate && cargo build
 > strings target/debug/kindle-hello | grep hellokindle/
 > ```
 >

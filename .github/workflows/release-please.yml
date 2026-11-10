@@ -2,7 +2,7 @@ name: Release Please
 
 # On every push to main, release-please scans Conventional-Commit messages
 # since the last release tag and either:
-#   - opens / updates a "release PR" that bumps kindle_chess/Cargo.toml +
+#   - opens / updates a "release PR" that bumps crate/Cargo.toml +
 #     CHANGELOG.md, or
 #   - if such a PR was just merged, pushes the matching v* tag and creates
 #     the GitHub release. That tag push is what fires release.yml, which

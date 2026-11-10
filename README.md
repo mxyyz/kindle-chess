@@ -19,12 +19,12 @@ KUAL-app written in Rust, implementing the free and open lichess APIs to enable 
 | [`docs/ci-cd.md`](docs/ci-cd.md) | GitHub Actions release pipeline and the in-app updater |
 
 Per-module docs live next to the code:
-[`api`](kindle_chess/src/api/README.md) ·
-[`app`](kindle_chess/src/app/README.md) ·
-[`models`](kindle_chess/src/models/README.md) ·
-[`ui`](kindle_chess/src/ui/README.md) ·
-[`local`](kindle_chess/src/local/README.md) ·
-[`examples`](kindle_chess/src/examples/README.md)
+[`api`](crate/src/api/README.md) ·
+[`app`](crate/src/app/README.md) ·
+[`models`](crate/src/models/README.md) ·
+[`ui`](crate/src/ui/README.md) ·
+[`local`](crate/src/local/README.md) ·
+[`examples`](crate/src/examples/README.md)
 
 # Coverage
 

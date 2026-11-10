@@ -1,6 +1,6 @@
 #!/bin/sh
 sudo mount /dev/sdb1 /mnt/tmp
-cd kindle_chess
+cd crate
 
 echo "Building Binaries"
 RUSTFLAGS="-C target-feature=+crt-static" cross build --target armv7-unknown-linux-musleabi --release
