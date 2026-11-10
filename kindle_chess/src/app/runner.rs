@@ -8,9 +8,10 @@ use x11rb::{connection::Connection, protocol::Event as X11Event};
 use crate::{
     models::{
         app::App,
-        ui::{Display, HomeScreen, Screen, Transition},
+        ui::{Display, Screen, Transition},
     },
     ui::events::{AppEvent, TouchEvent, TouchKind},
+    ui::screens::HomeScreen,
     utils::config::AppConfig,
 };
 

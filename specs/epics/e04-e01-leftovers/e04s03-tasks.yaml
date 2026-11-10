@@ -4,7 +4,7 @@
 # nothing is moved twice. Pure move; no logic change.
 story_id: e04s03
 title: "One file per screen under ui/screens/ (struct + impl Screen together)"
-status: pending
+status: in_progress
 bcps: 5
 delta: MODIFIED
 tasks:
@@ -16,7 +16,7 @@ tasks:
     verify: >-
       cd kindle_chess && cargo build 2>&1 | tail -1 && cargo test 2>&1 | grep -q
       'test result: ok'
-    status: pending
+    status: passing
   - id: e04s03t02
     description: >-
       Move the remaining screens the same way: chess_game, chess_auth,
@@ -25,7 +25,7 @@ tasks:
     verify: >-
       cd kindle_chess && test $(wc -l < src/ui/screens/mod.rs) -lt 150
       && cargo test 2>&1 | grep -q 'test result: ok'
-    status: pending
+    status: passing
   - id: e04s03t03
     description: >-
       models/ui.rs keeps only shared types (Display, Transition); update
@@ -33,10 +33,10 @@ tasks:
     verify: >-
       cd kindle_chess && test $(wc -l < src/models/ui.rs) -lt 150
       && ! grep -q "pub struct .*Screen " src/models/ui.rs
-    status: pending
+    status: passing
   - id: e04s03t04
     description: >-
       Pixel check: run-dev.sh screenshots of every screen before and after
       are identical (steps in story file).
     verify: "verify-script: compare run-dev.sh screenshots per screen"
-    status: pending
+    
