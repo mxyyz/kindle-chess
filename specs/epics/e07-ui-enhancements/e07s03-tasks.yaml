@@ -1,0 +1,25 @@
+---
+# Story e07s03 — invites pagination overlap bug fix.
+story_id: e07s03
+title: "Bug fix: invites pagination buttons overlap with accept/decline rows"
+status: todo
+bcps: 3
+delta: MODIFIED
+tasks:
+  - id: e07s03t01
+    description: >-
+      invites.rs: reposition incoming_prev/next and outgoing_prev/next IconButtons
+      so they don't overlap with incoming_accept/decline or outgoing_cancel
+      button rows; move them to the section label row or below the rows.
+    verify: "cd crate && cargo build 2>&1 | tail -1 | grep -q 'Finished'"
+    status: todo
+  - id: e07s03t02
+    description: >-
+      Unit test: verify pagination button rects don't intersect any action button
+      rects (assert no overlap in layout constants).
+    verify: "cd crate && cargo test --lib invites 2>&1 | grep -q 'test result: ok'"
+    status: todo
+  - id: e07s03t03
+    description: "Visual smoke: run-dev.sh renders invites without overlap"
+    verify: "cd crate && cargo build 2>&1 | tail -1 | grep -q 'Finished'"
+    status: todo

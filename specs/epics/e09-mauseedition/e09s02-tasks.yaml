@@ -1,0 +1,27 @@
+---
+# Story e09s02 — Mauseedition main screen.
+story_id: e09s02
+title: "Mauseedition main screen: progress, collected letters, sentence reveal"
+status: todo
+bcps: 8
+delta: ADDED
+tasks:
+  - id: e09s02t01
+    description: >-
+      New screen ui/screens/mauseedition.rs: grid of puzzle slots (solved/unsolved
+      indicators), letter bank showing unlocked letters, sentence area that
+      reveals completed sentence; back button.
+    verify: "cd crate && cargo build 2>&1 | tail -1 | grep -q 'Finished'"
+    status: todo
+  - id: e09s02t02
+    description: "Register screen in mod.rs + HomeScreen entry (locked/unlocked state)"
+    verify: 'cd crate && grep -q ''mauseedition'' crate/src/ui/screens/mod.rs && grep -q ''mauseedition\|Mauseedition'' crate/src/ui/screens/home.rs'
+    status: todo
+  - id: e09s02t03
+    description: "EN/DE i18n for all Mauseedition strings"
+    verify: "grep -rn 'mauseedition' crate/assets/locales/ 2>/dev/null | wc -l | grep -q '[1-9]'"
+    status: todo
+  - id: e09s02t04
+    description: "Unit tests: screen state transitions, puzzle slot tap -> PuzzleScreen"
+    verify: "cd crate && cargo test --lib mauseedition 2>&1 | grep -q 'test result: ok'"
+    status: todo

@@ -1,45 +1,49 @@
 # bigpowers session source-of-truth. See survey-context / session-state.
 session:
   active_flow: planning
-  active_epic: e05-safe-inapp-update (sliced; plan-work pending)
+  active_epic: e05-safe-inapp-update (planned; ready for kickoff-branch) — release cycle 2 (e06-e10) also sliced
   active_story: null
-  phase: Discover complete — e05 sliced (6 stories, 31 bcps); next plan-work then kickoff-branch
+  phase: >-
+    e05 plan-work complete — 6 story specs + refined tasks (risk/allure/status:failing);
+    next kickoff-branch → develop-tdd e05s01→e05s06. Release cycle 2 (e06-e10) sliced,
+    plan-work pending per epic.
 
 vcs:
   kind: git
   branch: main
   head: 1b4d141
   worktree: /home/mxy/repos/kindle-chess
-  # On main with uncommitted structural changes: kindle_KUAL/ removed,
-  # kindlichess/ at repo root, crate root renamed kindle_chess -> crate
-  # (all references updated; cargo build + 167 tests green from crate/).
 
 handoff:
   last_step_completed: >-
-    e04 merged (PR #39, release 0.4.0); structural rename kindle_chess ->
-    crate done and verified (build + tests green)
+    Release cycle 2 discover phase complete (2026-11-10): e06-e10 sliced via
+    run-planning; release-plan.yaml updated with WSJF order e05→e06→e07→e08→e09→e10;
+    epic capsules under specs/epics/e06..e10/ with per-story -tasks.yaml
   open_decisions:
     - >-
-      flash.sh / flash_usb.sh / CLAUDE.md module-layout / docs still mention
-      the removed kindle_KUAL/ tree (on-device layout after restructure) —
-      needs a decision on where extensions/hellokindle went
+      e09 "random" opponent: create_open vs seek — decide during e06s01 plan-work
+      (both verified in litchee 0.2.2)
     - >-
-      stale worktree /home/mxy/repos/e03-target-device-restructure
-      (64b6c70) can be removed
+      e10 license choice (MIT vs Apache 2.0) — ADR written during e10s01, user
+      approves
+    - >-
+      stale worktree /home/mxy/repos/e03-target-device-restructure (64b6c70) can
+      be removed
   required_reading:
     - CLAUDE.md
     - specs/product/SCOPE_LATEST.yaml
     - specs/planning-context.yaml
-    - specs/archive/spikes/SPIKE-e05-update-bundle.md
+    - specs/release-plan.yaml
     - specs/epics/e05-safe-inapp-update/epic.yaml
-  next_skill: plan-work (e05), then kickoff-branch for build
-  # discover cycle 2026-11-10 done via run-planning; spike spike/e05-update-bundle
-  # proved device tar roundtrip + embed feasibility (worktree kept until e05 lands)
+  next_skill: kickoff-branch (e05), then develop-tdd per story
+  # plan-work e05 done 2026-11-10: 6 story specs + tasks with risk/allure/status:failing;
+  # impact assessed (specs/IMPACT_LATEST.md, risk Medium); ready for kickoff-branch
 
 notes:
   e02: merged to main (PR #35)
   e03: merged to main (PR #37), released 0.3.0 (ca1c424)
   e04: merged to main (PR #39), released 0.4.0 (e2ad161)
+  e05-e10: sliced 2026-11-10 (release cycle 2), plan-work pending
   ci: ".github/workflows/rust.yml — cargo test + cross build on push/PR (working-directory: crate)"
 
 metrics:

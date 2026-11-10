@@ -1,8 +1,9 @@
 ---
-# Story e05s05 — UpdateScreen UX + i18n for the bundle flow.
+# Story e05s05 — plan-work refined 2026-11-10 (status: failing until verify exits 0).
+# UpdateScreen UX + i18n for the bundle flow.
 story_id: e05s05
 title: "UpdateScreen: bundle size/contents, preflight failure reasons, progress, Applied->relaunch; EN/DE"
-status: todo
+status: failing
 bcps: 5
 delta: MODIFIED
 tasks:
@@ -13,7 +14,11 @@ tasks:
       (binary/assets/launcher); Downloading shows progress (bytes so far /
       total); Applied -> "relaunch to finish" hint.
     verify: "cd crate && cargo build 2>&1 | tail -1 && cargo test --lib ui 2>&1 | grep -q 'test result: ok'"
-    status: todo
+    risk: P1
+    status: failing
+    allure:
+      severity: high
+      categories: ["e05-update-bundle", "ui", "update-screen"]
   - id: e05s05t02
     description: >-
       i18n: new keys in crate/i18n/en.ftl and de.ftl for the new states
@@ -22,8 +27,16 @@ tasks:
     verify: >-
       cd crate && for k in $(grep -o 'update-[a-z-]*' i18n/en.ftl | sort -u); do grep -q "^$k" i18n/de.ftl || exit 1; done
       && cargo test --lib i18n 2>&1 | grep -q 'test result: ok'
-    status: todo
+    risk: P1
+    status: failing
+    allure:
+      severity: high
+      categories: ["e05-update-bundle", "ui", "i18n"]
   - id: e05s05t03
     description: "fmt + clippy clean"
     verify: "cd crate && cargo fmt --check && cargo clippy --all-targets -- -D warnings"
-    status: todo
+    risk: P2
+    status: failing
+    allure:
+      severity: normal
+      categories: ["e05-update-bundle", "ui", "lint"]

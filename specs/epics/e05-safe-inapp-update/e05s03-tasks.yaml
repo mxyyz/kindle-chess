@@ -1,9 +1,10 @@
 ---
-# Story e05s03 — app-side update client v2 (github.rs + update.rs).
+# Story e05s03 — plan-work refined 2026-11-10 (status: failing until verify exits 0).
+# App-side update client v2: bundle lookup, preflight, staged verified download, unit tests.
 # Stages <exe>.bundle.new; never touches the running install.
 story_id: e05s03
 title: "App update client v2: bundle lookup, preflight, staged verified download, unit tests"
-status: todo
+status: failing
 bcps: 8
 delta: MODIFIED
 tasks:
@@ -13,7 +14,11 @@ tasks:
       update.tar.gz{,.sha256} (falls back to legacy asset pair if bundle absent);
       UpdateInfo gains bundle_url, bundle_sha256_url, bundle_size.
     verify: "cd crate && cargo test --lib api::github 2>&1 | grep -q 'test result: ok'"
-    status: todo
+    risk: P0
+    status: failing
+    allure:
+      severity: critical
+      categories: ["e05-update-bundle", "update-client", "api"]
   - id: e05s03t02
     description: >-
       update.rs preflight(): arch check (asset name contains armv7 AND runtime
@@ -22,26 +27,41 @@ tasks:
       parsed, require avail >= 2 * bundle_size + 10% margin. Returns
       Result<Preflight, ChessError> with human-readable reason.
     verify: "cd crate && cargo test --lib api::update 2>&1 | grep -q 'test result: ok'"
-    status: todo
+    risk: P0
+    status: failing
+    allure:
+      severity: critical
+      categories: ["e05-update-bundle", "update-client", "preflight"]
   - id: e05s03t03
     description: >-
       Unit tests: parse_df_k (normal/1K-blocks/fsp lines), manifest verify
       (sha256sum -c format, ok + mismatch + missing file), preflight
-      allow/deny cases with injected values (no real fs needed).
+      allow/deny cases with injected values (no real fs needed). wiremock for
+      GitHub API bundle-asset lookup.
     verify: "cd crate && cargo test --lib 2>&1 | grep -qE 'test result: ok' && cargo clippy --all-targets -- -D warnings"
-    status: todo
+    risk: P0
+    status: failing
+    allure:
+      severity: critical
+      categories: ["e05-update-bundle", "update-client", "unit-test"]
   - id: e05s03t04
     description: >-
       apply_update v2: preflight -> stream download to <exe>.bundle.new hashing
-      -> fetch sidecar -> compare -> extract to <exe>.bundle.staging/ -> verify
-      MANIFEST.sha256 per file (spawn sha256sum -c or pure-Rust sha2 verify) ->
-      on any error remove .new/.staging and return Err, original untouched.
-      Extraction via device tar? No — pure Rust: bundle is tar.gz; use flate2?
-      NOT allowed (no new deps) -> shell out to tar for extract on device,
-      pure-Rust sha2 for hashing (already a dep).
+      -> fetch sidecar -> compare -> extract to <exe>.bundle.staging/ (shell out
+      to tar, no new deps) -> verify MANIFEST.sha256 per file (pure-Rust sha2,
+      already a dep) -> on any error remove .new/.staging and return Err,
+      original untouched.
     verify: "cd crate && cargo build 2>&1 | tail -1 && cargo test 2>&1 | grep -q 'test result: ok'"
-    status: todo
+    risk: P0
+    status: failing
+    allure:
+      severity: critical
+      categories: ["e05-update-bundle", "update-client", "staged-install"]
   - id: e05s03t05
     description: "fmt + clippy clean on changed files"
     verify: "cd crate && cargo fmt --check && cargo clippy --all-targets -- -D warnings"
-    status: todo
+    risk: P2
+    status: failing
+    allure:
+      severity: normal
+      categories: ["e05-update-bundle", "update-client", "lint"]

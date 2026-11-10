@@ -1,0 +1,27 @@
+---
+# Story e07s01 — reusable list-picker modal widget.
+story_id: e07s01
+title: "Reusable list-picker modal component (widgets/list_picker.rs)"
+status: todo
+bcps: 5
+delta: ADDED
+tasks:
+  - id: e07s01t01
+    description: >-
+      Create crate/src/ui/widgets/list_picker.rs: ListPicker struct with items,
+      selected index, scroll offset, select/cancel buttons; renders as modal
+      overlay on current screen; returns selected item via callback/event.
+    verify: "cd crate && cargo build 2>&1 | tail -1 | grep -q 'Finished'"
+    status: todo
+  - id: e07s01t02
+    description: "Unit tests: hit-testing, scrolling, selection, cancel"
+    verify: "cd crate && cargo test --lib list_picker 2>&1 | grep -q 'test result: ok'"
+    status: todo
+  - id: e07s01t03
+    description: "Integrate into PlayScreen opponent picker (replaces inline friendlist navigation)"
+    verify: "cd crate && cargo build 2>&1 | tail -1 | grep -q 'Finished' && grep -q 'ListPicker' crate/src/ui/screens/play.rs"
+    status: todo
+  - id: e07s01t04
+    description: "EN/DE i18n for picker labels (select, cancel, empty-list message)"
+    verify: 'grep -rn ''list-picker\|picker-select\|picker-cancel'' crate/assets/locales/ 2>/dev/null | wc -l | grep -q ''[1-9]'''
+    status: todo

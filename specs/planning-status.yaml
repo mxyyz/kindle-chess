@@ -1,31 +1,32 @@
 # specs/planning-status.yaml — discover-phase checklist, driven by run-planning.
-# e05 cycle completed 2026-11-10 (after e04 merge + crate rename).
+# Release cycle 2 (e06-e10) started 2026-11-10 after e05 slicing; e05 stays as
+# wsjf_order 1 (already sliced), e06-e10 planned in this cycle.
 context_capsule:
-  written_at: "2026-11-10T17:10:00Z"
+  written_at: "2026-11-10T18:30:00Z"
   written_by: elaborate-spec
-  feature_name: e05-safe-inapp-update
+  feature_name: "release-cycle-2 (e06-e10: play-form enhancements, UI polish, settings tabs, Mauseedition, OSS licensing)"
 workflows:
   survey-context:
     required: true
     status: done
-    note: e04 done/merged (PR #39, v0.4.0); on main; crate rename kindle_chess -> crate committed (6ce118c)
+    note: e04 done/merged (v0.4.0); e05 sliced (6 stories); on main clean; litchee 0.2.2 already integrated; 12 screens live
   scope-work:
     required: true
     status: done
-    note: SCOPE_LATEST.yaml rewritten for e05 (update bundle + restructure finish)
+    note: SCOPE_LATEST.yaml rewritten for release cycle 2 covering e06-e10 per user direction 2026-11-10
   research-first:
     required: false
     status: done
-    note: spike/e05-update-bundle worktree — device tar roundtrip OK, embed works (+black_box gotcha); findings in specs/archive/spikes/SPIKE-e05-update-bundle.md
+    note: litchee 0.2.2 API verified (challenge_ai, create_open, seek, rated flag on ChallengeRequest); OSS licensing prior art gathered (choosealicense, Apache 2.0 vs MIT, cargo-about)
   elaborate-spec:
     required: false
     status: done
-    note: interview with user 2026-11-10 — option B bundle chosen, no embedding, preflight+staged install required; planning-context.yaml written
+    note: user interview 2026-11-10 — e06 rated/casual+computer/random+rematch (no variants, no bots-as-separate); e07 UI-enhancements list; e08 2-tab settings; e09 Mauseedition; e10 licensing; planning-context.yaml written
   plan-release:
     required: true
     status: done
-    note: e05-safe-inapp-update added to release-plan.yaml (wsjf_order 1) + epic capsule specs/epics/e05-safe-inapp-update/
+    note: e06-e10 added to release-plan.yaml with WSJF ordering; epic capsules created under specs/epics/
   slice-tasks:
     required: true
     status: done
-    note: 6 stories sliced (e05s01-e05s06, 31 bcps) with per-story -tasks.yaml + verify commands
+    note: e06 (5 stories, 26 bcps), e07 (7 stories, 28 bcps), e08 (3 stories, 13 bcps), e09 (4 stories, 21 bcps), e10 (3 stories, 10 bcps) sliced with per-story -tasks.yaml + verify commands

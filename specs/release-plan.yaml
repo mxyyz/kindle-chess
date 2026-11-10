@@ -1,6 +1,10 @@
 # specs/release-plan.yaml — WSJF epic index
 # e01-e04 landed on main (latest v0.4.0); e05 planned 2026-11-10 (discover cycle
 # via run-planning; spike: specs/archive/spikes/SPIKE-e05-update-bundle.md).
+# Release cycle 2 (e06-e10) planned 2026-11-10 via run-planning discover cycle;
+# WSJF order: e05 first (unblocks e09's second asset), then e06 (user-facing
+# value), e07 (polish), e08 (settings pattern), e09 (fun edition, depends on
+# e05), e10 (licensing, independent).
 release:
   target_version: null # semantic-release decides at merge
   last_tag: v0.4.0
@@ -61,3 +65,65 @@ epics:
       - { id: e05s04, title: "chess_app.sh trampoline v2: atomic staged-bundle install at launch (binary mv, assets, script self-update), cleanup on failure, host-harness test", bcps: 8, delta: MODIFIED }
       - { id: e05s05, title: "UpdateScreen UX: bundle size/contents, preflight failure reasons, progress, Applied->relaunch; EN/DE i18n", bcps: 5, delta: MODIFIED }
       - { id: e05s06, title: "Verification + docs: local gates green, CI bundle job, ARCHITECTURE/ci-cd/tech-stack describe bundle flow, run-dev smoke", bcps: 3, delta: ADDED }
+  - id: e06-play-form-enhancements
+    status: sliced (plan-work pending)
+    wsjf_order: 2
+    scope: specs/product/SCOPE_LATEST.yaml
+    planning_context: specs/planning-context.yaml
+    capsule: specs/epics/e06-play-form-enhancements/
+    note: rated/casual toggle + opponent Friend/Computer/Random + rematch; no variants (deferred); litchee challenge_ai/create_open/seek verified
+    stories:
+      - { id: e06s01, title: "Challenge model + litchee adapter: OpponentKind enum, rated flag, challenge_ai, create_open/seek; unit tests", bcps: 8, delta: MODIFIED }
+      - { id: e06s02, title: "PlayScreen UI: rated/casual toggle + opponent picker (Friend list-picker, Computer level, Random direct)", bcps: 8, delta: MODIFIED }
+      - { id: e06s03, title: "Challenge send flow: route per OpponentKind + rated; AI starts immediately; open challenge in Invites; EN/DE i18n", bcps: 5, delta: MODIFIED }
+      - { id: e06s04, title: "Rematch button on ChessGameScreen game-over: re-challenge same opponent + settings", bcps: 3, delta: ADDED }
+      - { id: e06s05, title: "Verification: build/test/clippy/fmt/cross green; docs updated", bcps: 2, delta: ADDED }
+  - id: e07-ui-enhancements
+    status: sliced (plan-work pending)
+    wsjf_order: 3
+    scope: specs/product/SCOPE_LATEST.yaml
+    planning_context: specs/planning-context.yaml
+    capsule: specs/epics/e07-ui-enhancements/
+    note: list-picker modal, uniform titles, invites pagination bug, conditional pagination, recurring fetch, item details, board labels + shadow fix
+    stories:
+      - { id: e07s01, title: "Reusable list-picker modal widget (widgets/list_picker.rs); used by Play opponent picker", bcps: 5, delta: ADDED }
+      - { id: e07s02, title: "Uniform screen title bar helper applied to all 12 screens", bcps: 5, delta: MODIFIED }
+      - { id: e07s03, title: "Bug fix: invites pagination buttons overlap with accept/decline rows", bcps: 3, delta: MODIFIED }
+      - { id: e07s04, title: "QOL: conditional pagination — next-page only when exists, prev hidden on first page", bcps: 3, delta: MODIFIED }
+      - { id: e07s05, title: "QOL: recurring fetch on Games/Invites (5s×30s then refresh btn) + Home daily-puzzle indicator", bcps: 5, delta: MODIFIED }
+      - { id: e07s06, title: "Per-item details on OngoingGames (opponent/rating/mode/time) + Invites (challenger details)", bcps: 5, delta: MODIFIED }
+      - { id: e07s07, title: "Board: color-aware file/rank labels + piece-move shadow residue fix", bcps: 2, delta: MODIFIED }
+  - id: e08-settings-tabs
+    status: sliced (plan-work pending)
+    wsjf_order: 4
+    scope: specs/product/SCOPE_LATEST.yaml
+    planning_context: specs/planning-context.yaml
+    capsule: specs/epics/e08-settings-tabs/
+    note: 2-tab settings — screen-specific primary + shared general secondary tab
+    stories:
+      - { id: e08s01, title: "General settings model + persistence in AppConfig (language, orientation, etc.)", bcps: 5, delta: ADDED }
+      - { id: e08s02, title: "SettingsScreen 2-tab UI with context-aware primary tab", bcps: 5, delta: MODIFIED }
+      - { id: e08s03, title: "Migrate Game/Puzzle/Home settings through 2-tab pattern", bcps: 3, delta: MODIFIED }
+  - id: e09-mauseedition
+    status: sliced (plan-work pending)
+    wsjf_order: 5
+    scope: specs/product/SCOPE_LATEST.yaml
+    planning_context: specs/planning-context.yaml
+    capsule: specs/epics/e09-mauseedition/
+    note: depends on e05 (second release asset via update bundle); hardcoded puzzle set with letter-unlock sentence mechanic
+    stories:
+      - { id: e09s01, title: "Mauseedition data model: hardcoded puzzle IDs + unlock letters + progress persistence", bcps: 5, delta: ADDED }
+      - { id: e09s02, title: "Mauseedition main screen: progress grid, letter bank, sentence reveal; Home entry (locked until unlocked)", bcps: 8, delta: ADDED }
+      - { id: e09s03, title: "Mauseedition puzzle play: reuse puzzle engine, custom sidebar with letter unlock on correct move", bcps: 5, delta: MODIFIED }
+      - { id: e09s04, title: "Second release asset (mauseedition bundle) + UpdateScreen unlock input", bcps: 3, delta: ADDED }
+  - id: e10-oss-licensing
+    status: sliced (plan-work pending)
+    wsjf_order: 6
+    scope: specs/product/SCOPE_LATEST.yaml
+    planning_context: specs/planning-context.yaml
+    capsule: specs/epics/e10-oss-licensing/
+    note: independent of code epics; research + ADR + LICENSE/NOTICE + Cargo.toml license field
+    stories:
+      - { id: e10s01, title: "License comparison (MIT/Apache-2.0/GPL-v3) + ADR with user-approved decision", bcps: 3, delta: ADDED }
+      - { id: e10s02, title: "NOTICE/THIRD-PARTY: cargo-about dependency report + asset licenses (icons, font)", bcps: 5, delta: ADDED }
+      - { id: e10s03, title: "LICENSE file + Cargo.toml license field + README/docs license section", bcps: 2, delta: ADDED }

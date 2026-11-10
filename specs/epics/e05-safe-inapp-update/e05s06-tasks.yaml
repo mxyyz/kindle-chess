@@ -1,8 +1,9 @@
 ---
-# Story e05s06 — end-to-end verification + docs (END of epic).
+# Story e05s06 — plan-work refined 2026-11-10 (status: failing until verify exits 0).
+# End-to-end verification + docs (END of epic).
 story_id: e05s06
 title: "Verification + docs: all local gates green, CI bundle job, docs describe bundle flow"
-status: todo
+status: failing
 bcps: 3
 delta: ADDED
 tasks:
@@ -12,7 +13,11 @@ tasks:
       cd crate && cargo build 2>&1 | tail -1 && cargo test 2>&1 | grep -q 'test result: ok'
       && cargo clippy --all-targets -- -D warnings && cargo fmt --check
       && env -u LD_LIBRARY_PATH CROSS_CONTAINER_ENGINE=docker RUSTFLAGS="-C target-feature=+crt-static" cross build --target armv7-unknown-linux-musleabi --release 2>&1 | tail -1
-    status: todo
+    risk: P1
+    status: failing
+    allure:
+      severity: high
+      categories: ["e05-update-bundle", "verification", "gates"]
   - id: e05s06t02
     description: >-
       rust.yml: add a bundle dry-run step (build MANIFEST + tar + extract +
@@ -20,7 +25,11 @@ tasks:
     verify: >-
       python3 -c "import yaml; yaml.safe_load(open('.github/workflows/rust.yml'))"
       && grep -q "MANIFEST.sha256" .github/workflows/rust.yml
-    status: todo
+    risk: P1
+    status: failing
+    allure:
+      severity: high
+      categories: ["e05-update-bundle", "ci", "bundle-dry-run"]
   - id: e05s06t03
     description: >-
       Docs: docs/ARCHITECTURE.md + docs/ci-cd.md + specs/tech-architecture/
@@ -28,8 +37,16 @@ tasks:
       install, and the asset contract; CLAUDE.md updater section updated.
     verify: >-
       grep -q "update.tar.gz" docs/ARCHITECTURE.md docs/ci-cd.md specs/tech-architecture/tech-stack.md CLAUDE.md
-    status: todo
+    risk: P2
+    status: failing
+    allure:
+      severity: normal
+      categories: ["e05-update-bundle", "docs"]
   - id: e05s06t04
     description: "run-dev.sh smoke: harness still resolves paths from repo-root kindlichess/"
     verify: 'bash -n run-dev.sh && grep -q "kindlichess" run-dev.sh && ! grep -q kindle_KUAL run-dev.sh'
-    status: todo
+    risk: P2
+    status: failing
+    allure:
+      severity: normal
+      categories: ["e05-update-bundle", "restructure", "dev-harness"]

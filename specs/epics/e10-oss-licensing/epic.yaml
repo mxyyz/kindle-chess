@@ -1,0 +1,32 @@
+---
+# Epic capsule manifest — e10-oss-licensing
+# Sliced 2026-11-10 from specs/product/SCOPE_LATEST.yaml (release cycle 2).
+epic_id: e10-oss-licensing
+status: sliced (plan-work pending)
+scope: specs/product/SCOPE_LATEST.yaml
+planning_context: specs/planning-context.yaml
+# Order: research + decision first (ADR), then attribution files, then license
+# application + docs.
+stories:
+  - story_id: e10s01
+    title: >-
+      Research + license decision: compare MIT / Apache 2.0 / GPL v3 for this
+      project; document in ADR; user approves choice
+    bcps: 3
+    delta: ADDED
+    tasks_file: e10s01-tasks.yaml
+  - story_id: e10s02
+    title: >-
+      Attribution: NOTICE / THIRD-PARTY file listing all cargo dependencies +
+      licenses (cargo-about), chess piece icons (cburnett CC BY-SA), Adwaita
+      Sans font (OFL 1.1), any other assets
+    bcps: 5
+    delta: ADDED
+    tasks_file: e10s02-tasks.yaml
+  - story_id: e10s03
+    title: >-
+      Apply license: LICENSE file at repo root, license header in README,
+      Cargo.toml license field, docs updated (ARCHITECTURE, ci-cd)
+    bcps: 2
+    delta: ADDED
+    tasks_file: e10s03-tasks.yaml

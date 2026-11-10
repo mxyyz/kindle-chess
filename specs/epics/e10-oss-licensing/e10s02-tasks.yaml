@@ -1,0 +1,25 @@
+---
+# Story e10s02 — NOTICE / THIRD-PARTY attribution.
+story_id: e10s02
+title: "NOTICE/THIRD-PARTY file: all dependencies, icons, fonts with licenses"
+status: todo
+bcps: 5
+delta: ADDED
+tasks:
+  - id: e10s02t01
+    description: >-
+      Run cargo about (or cargo-license) to generate dependency license report;
+      save as THIRD-PARTY.md or NOTICE at repo root.
+    verify: 'test -f NOTICE -o -f THIRD-PARTY.md && grep -q ''litchee\|reqwest\|x11rb'' NOTICE THIRD-PARTY.md 2>/dev/null'
+    status: todo
+  - id: e10s02t02
+    description: >-
+      Document asset licenses: chess piece PNGs (cburnett set — CC BY-SA 3.0),
+      AdwaitaSans-Regular.ttf (SIL OFL 1.1), UI icons (identify source + license),
+      logo.png.
+    verify: 'grep -q ''cburnett\|CC BY-SA\|OFL\|Adwaita'' NOTICE THIRD-PARTY.md 2>/dev/null'
+    status: todo
+  - id: e10s02t03
+    description: "Add attribution links in README + docs/ARCHITECTURE.md"
+    verify: 'grep -q ''NOTICE\|THIRD-PARTY\|Attribution\|Licenses'' README.md docs/ARCHITECTURE.md'
+    status: todo

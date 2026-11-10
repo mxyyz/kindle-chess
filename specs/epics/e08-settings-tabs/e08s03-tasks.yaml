@@ -1,0 +1,19 @@
+---
+# Story e08s03 — migrate existing screens to 2-tab pattern.
+story_id: e08s03
+title: "Migrate Game/Puzzle/Home settings to 2-tab pattern"
+status: todo
+bcps: 3
+delta: MODIFIED
+tasks:
+  - id: e08s03t01
+    description: >-
+      chess_game.rs + puzzle_settings.rs + home.rs: route settings entry points
+      through SettingsScreen with context param so primary tab shows relevant
+      settings.
+    verify: "cd crate && cargo build 2>&1 | tail -1 | grep -q 'Finished'"
+    status: todo
+  - id: e08s03t02
+    description: "All screens compile + tests green; no regression in existing settings"
+    verify: "cd crate && cargo test 2>&1 | grep -q 'test result: ok'"
+    status: todo

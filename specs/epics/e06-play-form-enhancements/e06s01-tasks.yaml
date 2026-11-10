@@ -1,0 +1,36 @@
+---
+# Story e06s01 — challenge model + litchee adapter extensions.
+story_id: e06s01
+title: "Challenge model + litchee adapter: OpponentKind enum, rated flag, challenge_ai, create_open/seek"
+status: todo
+bcps: 8
+delta: MODIFIED
+tasks:
+  - id: e06s01t01
+    description: >-
+      models/board_api.rs: add OpponentKind enum (Friend(String)/Computer(u8)/Random)
+      + RatedFlag (or bool on ChallengeParams); extend ChallengeMode or add
+      ChallengeParams { mode, rated } struct.
+    verify: "cd crate && cargo test --lib board_api 2>&1 | grep -q 'test result: ok'"
+    status: todo
+  - id: e06s01t02
+    description: >-
+      litchee_adapter.rs: extend send_challenge to accept rated flag
+      (ChallengeRequest.rated(bool)); add send_challenge_ai(level, mode, rated)
+      via challenges().challenge_ai(level); add create_open_challenge(mode, rated)
+      via challenges().create_open() or board().seek().
+    verify: "cd crate && cargo build 2>&1 | grep -q 'error' || true && cd crate && cargo test --lib litchee_adapter 2>&1 | grep -q 'test result: ok'"
+    status: todo
+  - id: e06s01t03
+    description: >-
+      Unit tests: wiremock tests proving rated=true sends rated:true in form body;
+      challenge_ai sends level + correct path; create_open sends correct params;
+      mapping of LichessChallenge -> ChallengeSummary preserves rated flag.
+    verify: "cd crate && cargo test 2>&1 | grep -qE 'test result: ok' && cd crate && cargo test --test '*' 2>&1 | grep -q 'test result: ok'"
+    status: todo
+  - id: e06s01t04
+    description: >-
+      board.rs (BoardAPI facade): expose new methods with ChessError mapping;
+      compile green.
+    verify: "cd crate && cargo build 2>&1 | tail -1 | grep -q 'Finished'"
+    status: todo

@@ -1,0 +1,19 @@
+---
+# Story e07s04 — conditional pagination buttons.
+story_id: e07s04
+title: "QOL: only show next-page button when next page exists; hide prev on first page"
+status: todo
+bcps: 3
+delta: MODIFIED
+tasks:
+  - id: e07s04t01
+    description: >-
+      ongoing_games.rs + invites.rs + friendlist.rs: in render, only draw
+      next-page IconButton if page_index < max_pages; only draw prev if
+      page_index > 0.
+    verify: "cd crate && cargo build 2>&1 | tail -1 | grep -q 'Finished'"
+    status: todo
+  - id: e07s04t02
+    description: "Unit tests: page-count logic (0 items, 1 page, 2 pages, exact multiple of page size)"
+    verify: "cd crate && cargo test --lib ongoing_games 2>&1 | grep -q 'test result: ok' && cd crate && cargo test --lib invites 2>&1 | grep -q 'test result: ok'"
+    status: todo

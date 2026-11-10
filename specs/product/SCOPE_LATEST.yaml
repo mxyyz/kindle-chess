@@ -1,135 +1,91 @@
 ---
-# specs/product/SCOPE_LATEST.yaml — bounded PRD for the current initiative (e05)
+# specs/product/SCOPE_LATEST.yaml — bounded PRD for release cycle 2 (e06-e10)
 # Written by scope-work from specs/planning-context.yaml (elaborate-spec, 2026-11-10).
-# Consumed by slice-tasks / plan-work. Previous (e04) scope archived at
-# specs/epics/e04-e01-leftovers/SCOPE.yaml
-feature_name: "e05-safe-inapp-update (in-app update bundle: binary + assets + chess_app.sh, staged & sanity-checked) + restructure finish"
+# Consumed by slice-tasks / plan-work. Previous (e05) scope archived at
+# specs/epics/e05-safe-inapp-update/SCOPE.yaml
+feature_name: "release-cycle-2: e06 play-form enhancements + e07 UI polish + e08 settings tabs + e09 Mauseedition + e10 OSS licensing"
 core_value: >-
-  The app can update everything it ships — binary, images and the launcher
-  script — from one verified bundle, and refuses to start an update the device
-  cannot safely receive and install.
+  After e05's safe in-app update lands, the app becomes a fuller chess client:
+  rated and computer/random games from the Play form with one-tap rematch,
+  a polished uniform UI with auto-refresh and reusable components, a shared
+  settings pattern, a fun unlockable puzzle edition, and proper open-source
+  licensing so the project can be published.
 summary: >-
-  Today the in-app updater only downloads the release binary; new assets and a
-  new chess_app.sh never reach the device, and nothing checks whether the
-  device can actually take the update. e05 ships option B (spike-proven on the
-  k2): release.yml packs bin/kindle-hello + assets/ + chess_app.sh +
-  MANIFEST.sha256 into one update.tar.gz release asset with a sha256 sidecar.
-  The app preflights (arch, dirs, writability, free space), streams the bundle
-  to a .new sidecar, verifies the sidecar then the per-file manifest, and the
-  launcher installs it atomically at next start — any failure leaves the
-  running install untouched. release-please learns to trigger on kindlichess/
-  changes so asset/script edits actually produce a release. The small
-  restructure finish rides along: flash scripts, run-dev.sh and docs point at
-  the repo-root kindlichess/ bundle, launch is scriptlet-only.
+  Release cycle 2 builds on e05 (safe in-app update bundle). e06 extends the
+  Play form with a rated/casual toggle, opponent choices (friend via list-picker,
+  computer via Lichess AI, random via open challenge/seek), and a rematch button
+  on game-over. e07 is a UI-enhancements sweep: fix the invites pagination
+  overlap bug, add conditional next-page buttons, recurring fetch on
+  Games/Invites screens (5s × 30s then manual refresh), a daily-puzzle indicator
+  on the Home button, per-item detail rows on OngoingGames and Invites, uniform
+  screen titles and layout, a reusable list-picker modal, color-orientation-aware
+  file/rank labels on the board, and fix the piece-move shadow residue. e08
+  restructures the settings screen into 2 tabs (screen-specific + shared general
+  settings). e09 adds the "Mauseedition" — a hardcoded puzzle set where each
+  correct move unlocks a letter forming a sentence, shipped as a second release
+  asset with an unlock method in the UpdateScreen. e10 researches and applies
+  OSS licensing: choose a license, add LICENSE + NOTICE/THIRD-PARTY attribution
+  for icons, fonts, and all cargo dependencies.
 
 in_scope:
-- >-
-  e05s01 (restructure finish): flash.sh/flash_usb.sh deploy repo-root
-  kindlichess/ + scriptlet/kindlichess.sh to /mnt/us/documents (token-aside
-  dance preserved); run-dev.sh HELLOKINDLE_DIR; .gitignore already fixed;
-  docs sweep (CLAUDE.md, docs/ARCHITECTURE.md, docs/ci-cd.md,
-  docs/dev/kindle-usb-ssh.md, specs/tech-architecture/tech-stack.md,
-  crate/src/api/README.md) — no kindle_KUAL/hellokindle refs outside history;
-  scriptlet-only launch documented
-- >-
-  e05s02 (release pipeline): release.yml builds update.tar.gz (binary +
-  kindlichess/assets + kindlichess/chess_app.sh + MANIFEST.sha256) and uploads
-  bundle + sidecar, keeping legacy binary assets during transition;
-  release-please config adds kindlichess/ as extra-files of the crate package
-  so asset/script changes trigger a tag
-- >-
-  e05s03 (app update client v2): github.rs locates the bundle asset; update.rs
-  preflight (arch suffix vs compiled target + runtime uname -m, APP dirs
-  exist/writable, df -k free >= 2x bundle size), streaming download to
-  <exe>.bundle.new with hash, sidecar verify, extract to staging, MANIFEST
-  per-file verify; ChessError carries the failure reason; unit tests for
-  manifest/df parsing
-- >-
-  e05s04 (launcher trampoline v2): chess_app.sh at launch installs a staged
-  bundle atomically (extract to .staging, verify MANIFEST, mv binary, copy
-  assets, self-update via chess_app.sh.new + mv + exec), cleanup on failure;
-  POSIX sh; host-harness test against a fake APP_DIR
-- >-
-  e05s05 (UpdateScreen UX + i18n): bundle size/contents, preflight failure
-  reasons, progress, Applied -> relaunch hint; EN/DE strings
-- >-
-  e05s06 (verification + docs): full local gates green (build, test, clippy,
-  fmt, cross build), CI workflow updated for the bundle, docs describe the
-  bundle flow, run-dev smoke
+  - >-
+    e06 play-form enhancements: rated/casual toggle, opponent picker
+    (friend/computer/random), rematch button; litchee challenge_ai /
+    create_open / seek / rated APIs
+  - >-
+    e07 UI enhancements: invites pagination bug fix, conditional pagination,
+    recurring fetch (Games + Invites), Home puzzle indicator, per-item details
+    (OngoingGames + Invites), uniform titles/layout, list-picker modal,
+    file/rank labels, piece-move shadow fix
+  - >-
+    e08 2-tab settings screen: screen-specific primary tab + shared general
+    settings secondary tab
+  - >-
+    e09 Mauseedition: hardcoded puzzle set with letter-unlock mechanic, custom
+    sidebar + main screen, second release asset + UpdateScreen unlock
+  - >-
+    e10 OSS licensing: research, choose license, LICENSE file, NOTICE/THIRD-PARTY
+    attribution for icons/fonts/libraries, README license reference
 
 out_of_scope:
-- >-
-  Embedding assets in the binary — user decision (spike proved it works;
-  blurs what ships where). See specs/archive/spikes/SPIKE-e05-update-bundle.md
-- >-
-  KUAL menu extension — dropped, scriptlet-only launch (user decision)
-- >-
-  In-app update of scriptlet/kindlichess.sh — user decision; it stays the
-  stable entry point
-- >-
-  litchee migration, new game features (rated/variants/rematch/lobby),
-  multi-device layouts — separate initiatives
-- >-
-  Physical on-device UAT of a real release beyond the spike probe — manual,
-  needs the k2 on the LAN
-- >-
-  Rewriting historical artifacts (specs/epics/, CHANGELOG.md) — they keep
-  point-in-time path names
+  - Game variants (Chess960 etc.) in the challenge form — deferred
+  - Separate bot-play mode — "computer" is an opponent option only
+  - Multi-device layout support — separate initiative
+  - Lobby/browse open challenges as a new screen — InvitesScreen already covers this
+  - Physical on-device UAT beyond CI/host tests — manual, needs k2 on LAN
+  - Rewriting historical artifacts (specs/epics/, CHANGELOG.md)
 
 constraints:
-- >-
-  Rust + x11rb; static musl armv7-unknown-linux-musleabi cross build stays
-  green; CI runs fmt + clippy -D warnings + test + cross build + coverage
-- >-
-  Device facts (spike-proven 2026-11-10): armv7l, /mnt/us fuse.fsp rw, busybox
-  tar 1.34.1 + gzip + sha256sum work on /mnt/us, ~3.1 GB free, dirs
-  bin/assets/log/secrets/config exist and are writable
-- >-
-  1072x1448 canvas and existing screens unchanged; update UX fits UpdateScreen
-- >-
-  No new runtime dependencies; device tar/sha256/df are invoked from the
-  launcher script / via std::process, not linked in
-- >-
-  Legacy release assets (kindle-chess-armv7-musl{,.sha256}) stay during
-  transition so 0.4.0 clients can still update
-- >-
-  Shell scripts stay POSIX sh (sh -n clean)
+  - Rust + x11rb; static musl armv7 cross build green; CI fmt + clippy -D warnings + test + cross + coverage
+  - 1072x1448 canvas; new UI fits within ui/layout.rs constants
+  - litchee 0.2.2 already integrated — use its APIs, no new HTTP client
+  - No new runtime dependencies unless justified
+  - EN/DE i18n for all new strings
+  - e05 lands first (wsjf_order 1); e09's second release asset depends on e05's bundle pipeline
+  - Shell scripts stay POSIX sh
 
 success_criteria:
-- >-
-  cargo build (dev + armv7 cross) + cargo test + clippy -D warnings + fmt
-  --check all green
-- >-
-  release.yml dry run produces update.tar.gz + .sha256; bundle MANIFEST
-  verifies against extracted contents
-- >-
-  App preflight blocks wrong arch / missing dir / low space with a readable
-  UpdateScreen message (unit tests on the parsers)
-- >-
-  Staged flow works: .new sidecar + sidecar sha256 + per-file manifest verify
-  + trampoline install at next launch; failure leaves the old install intact
-  (host-harness test of the trampoline)
-- >-
-  No kindle_KUAL/hellokindle references outside historical artifacts; sh -n
-  clean on all scripts; scriptlet-only launch documented
-- >-
-  Docs (CLAUDE.md, ARCHITECTURE, ci-cd, tech-stack) match the new layout and
-  describe the bundle update flow
+  - e06: rated/casual + friend/computer/random opponent + rematch all work end-to-end; unit tests on challenge params
+  - e07: all listed UI bugs fixed, QOL features live, uniform layout, list-picker reused in ≥2 places, board labels + shadow fix verified
+  - e08: settings 2-tab pattern live; general settings accessible from any screen with settings
+  - e09: Mauseedition playable, letters unlock, sentence revealed, second asset in release
+  - e10: LICENSE + NOTICE files present, license decision in ADR, README references license
+  - All epics: cargo build (dev + cross) + test + clippy -D warnings + fmt --check green
 
 trade_offs:
-- item: one bundle vs per-file assets
-  reason: spike proved device tar works; atomic all-or-nothing install and a single storage check outweigh 3 parallel downloads
-- item: no embedding
-  reason: user decision — keeps one delivery mechanism, avoids the config/assets split and the +~1.4 MB binary
-- item: legacy binary assets kept during transition
-  reason: 0.4.0 clients expect exactly those two asset names; drop in a later release
-- item: release-please extra-files on kindlichess/
-  reason: without it, asset/script changes never trigger a tag; alternative (moving files under crate/) churns paths again
+  - item: "random opponent via create_open vs seek"
+    reason: create_open creates a challenge anyone can accept (shows in Invites); seek is the lobby mechanism. Plan-work will pick per UX fit — both available in litchee 0.2.2
+  - item: rematch as new challenge vs dedicated API
+    reason: Lichess has no dedicated rematch endpoint for board games; sending a new challenge with same params is the standard approach
+  - item: e09 as second release asset vs compile-time feature flag
+  - item: "e09 as second release asset vs compile-time feature flag"
+    reason: "user wants a separate edition — second asset rides e05 bundle pipeline; alternative (feature flag in one binary) deferred"
+  - item: "Apache 2.0 vs MIT for e10"
 
 references:
-- specs/archive/spikes/SPIKE-e05-update-bundle.md (device probe results)
-- specs/planning-context.yaml (elaborate-spec decisions)
-- crate/src/api/update.rs, crate/src/api/github.rs, crate/src/ui/screens/update.rs (current updater)
-- kindlichess/chess_app.sh (current trampoline)
-- .github/workflows/release.yml, release-please-config.json
-- scriptlet/kindlichess.sh
+  - specs/planning-context.yaml (elaborate-spec decisions, 2026-11-10)
+  - litchee 0.2.2 source: ~/.cargo/registry/.../litchee-0.2.2/src/api/gameplay/challenges.rs, board.rs
+  - crate/src/ui/screens/play.rs, invites.rs, ongoing_games.rs, home.rs, chess_game.rs, settings.rs
+  - crate/src/ui/layout.rs, crate/src/ui/widgets/
+  - kindlichess/assets/ (icons), crate/assets/AdwaitaSans-Regular.ttf (font)
+  - choosealicense.com, cargo-about for licensing

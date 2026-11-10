@@ -1,0 +1,26 @@
+---
+# Story e06s03 — challenge send flow routing.
+story_id: e06s03
+title: "Challenge send flow: route to correct litchee call per OpponentKind + rated"
+status: todo
+bcps: 5
+delta: MODIFIED
+tasks:
+  - id: e06s03t01
+    description: >-
+      play.rs handle_event: on Send, match OpponentKind -> call adapter method;
+      Friend -> send_challenge(rated), Computer -> send_challenge_ai(level, ...),
+      Random -> create_open_challenge(...) and navigate to InvitesScreen.
+    verify: "cd crate && cargo build 2>&1 | tail -1 | grep -q 'Finished'"
+    status: todo
+  - id: e06s03t02
+    description: >-
+      Status messages: sending/sent/failed per opponent kind; AI game starts
+      immediately (push ChessGameScreen); open challenge shows "waiting" in
+      InvitesScreen.
+    verify: "cd crate && cargo test --lib play 2>&1 | grep -q 'test result: ok'"
+    status: todo
+  - id: e06s03t03
+    description: "EN/DE i18n for status messages"
+    verify: 'grep -rn ''sending\|sent\|waiting\|failed'' crate/assets/locales/en/ 2>/dev/null | wc -l | grep -q ''[1-9]'''
+    status: todo

@@ -1,0 +1,24 @@
+---
+# Story e09s04 — release pipeline for second asset + unlock mechanism.
+story_id: e09s04
+title: "Second release asset (Mauseedition) + UpdateScreen unlock"
+status: todo
+bcps: 3
+delta: ADDED
+tasks:
+  - id: e09s04t01
+    description: >-
+      release.yml: build mauseedition bundle as second asset alongside main
+      update.tar.gz; release-please extra-files already cover kindlichess/.
+    verify: "grep -q 'mauseedition' .github/workflows/release.yml"
+    status: todo
+  - id: e09s04t02
+    description: >-
+      update.rs screen: add unlock input (code entry) that enables Mauseedition
+      on HomeScreen; code checked against compiled-in constant or bundle manifest.
+    verify: 'cd crate && cargo build 2>&1 | tail -1 | grep -q ''Finished'' && grep -q ''unlock\|mauseedition'' crate/src/ui/screens/update.rs'
+    status: todo
+  - id: e09s04t03
+    description: "Unit test: unlock code validation; EN/DE i18n for unlock UI"
+    verify: "cd crate && cargo test --lib update 2>&1 | grep -q 'test result: ok'"
+    status: todo

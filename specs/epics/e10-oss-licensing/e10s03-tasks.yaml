@@ -1,0 +1,20 @@
+---
+# Story e10s03 — apply license + update docs.
+story_id: e10s03
+title: "LICENSE file + Cargo.toml license field + docs"
+status: todo
+bcps: 2
+delta: ADDED
+tasks:
+  - id: e10s03t01
+    description: "Create LICENSE at repo root with chosen license text (from ADR decision)"
+    verify: 'test -f LICENSE && head -3 LICENSE | grep -qi ''license\|MIT\|Apache\|GPL'''
+    status: todo
+  - id: e10s03t02
+    description: "Add license field to crate/Cargo.toml; add license badge/reference to README"
+    verify: "grep -q 'license' crate/Cargo.toml && grep -qi 'license' README.md"
+    status: todo
+  - id: e10s03t03
+    description: "Update docs/ARCHITECTURE.md + docs/ci-cd.md with license section"
+    verify: "grep -qi 'license' docs/ARCHITECTURE.md docs/ci-cd.md"
+    status: todo

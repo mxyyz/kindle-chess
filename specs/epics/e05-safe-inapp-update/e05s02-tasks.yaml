@@ -1,12 +1,13 @@
 ---
-# Story e05s02 — release pipeline produces the update bundle.
+# Story e05s02 — plan-work refined 2026-11-10 (status: failing until verify exits 0).
+# Release pipeline: update.tar.gz bundle + sidecar; release-please extra-files on kindlichess/.
 # Contract: release assets per tag =
 #   update.tar.gz            { bin/kindle-hello, assets/*, chess_app.sh, MANIFEST.sha256 }
 #   update.tar.gz.sha256     sha256sum-format sidecar
 #   kindle-chess-armv7-musl{,.sha256}   legacy, kept until the release after e05 ships
 story_id: e05s02
 title: "Release pipeline: update.tar.gz bundle + sidecar; release-please extra-files on kindlichess/"
-status: todo
+status: failing
 bcps: 5
 delta: ADDED
 tasks:
@@ -21,29 +22,45 @@ tasks:
       python3 -c "import yaml; yaml.safe_load(open('.github/workflows/release.yml'))"
       && grep -q "update.tar.gz" .github/workflows/release.yml
       && grep -q "MANIFEST.sha256" .github/workflows/release.yml
-    status: todo
+    risk: P1
+    status: failing
+    allure:
+      severity: high
+      categories: ["e05-update-bundle", "release-pipeline", "ci"]
   - id: e05s02t02
     description: >-
       Local dry run of the bundle step (same commands as the workflow, minus gh):
       bundle verifies — extract and check MANIFEST with sha256sum -c.
     verify: >-
       tmp=$(mktemp -d) && mkdir -p "$tmp/bundle/bin" "$tmp/bundle/assets"
-      && cp crate/target/release/kindle-hello "$tmp/bundle/bin/" 2>/dev/null || cargo build --manifest-path crate/Cargo.toml --release
+      && cargo build --manifest-path crate/Cargo.toml --release
       && cp crate/target/release/kindle-hello "$tmp/bundle/bin/"
       && cp kindlichess/assets/* "$tmp/bundle/assets/" && cp kindlichess/chess_app.sh "$tmp/bundle/"
       && (cd "$tmp/bundle" && find . -type f ! -name MANIFEST.sha256 | sort | xargs sha256sum > MANIFEST.sha256)
       && tar -czf "$tmp/update.tar.gz" -C "$tmp/bundle" .
       && mkdir "$tmp/x" && tar -xzf "$tmp/update.tar.gz" -C "$tmp/x"
       && (cd "$tmp/x" && sha256sum -c MANIFEST.sha256) && rm -rf "$tmp"
-    status: todo
+    risk: P1
+    status: failing
+    allure:
+      severity: high
+      categories: ["e05-update-bundle", "release-pipeline", "integration"]
   - id: e05s02t03
     description: >-
       release-please-config.json: add extra-files covering kindlichess/ to the
       crate package so asset/launcher changes trigger a release tag.
     verify: >-
       python3 -c "import json; c=json.load(open('release-please-config.json')); p=c['packages']['crate']; assert any('kindlichess' in f for f in p.get('extra-files', [])), p"
-    status: todo
+    risk: P1
+    status: failing
+    allure:
+      severity: high
+      categories: ["e05-update-bundle", "release-pipeline", "ci"]
   - id: e05s02t04
     description: "Workflow comment header documents the new asset contract"
     verify: 'grep -q "update.tar.gz" .github/workflows/release.yml && sed -n "1,12p" .github/workflows/release.yml | grep -q "assets"'
-    status: todo
+    risk: P2
+    status: failing
+    allure:
+      severity: normal
+      categories: ["e05-update-bundle", "release-pipeline", "docs"]

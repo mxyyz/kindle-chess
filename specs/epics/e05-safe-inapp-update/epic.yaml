@@ -1,12 +1,13 @@
 ---
 # Epic capsule manifest — e05-safe-inapp-update
-# Sliced 2026-11-10 from specs/product/SCOPE_LATEST.yaml +
-# specs/planning-context.yaml (elaborate-spec) + spike SPIKE-e05-update-bundle.
+# Sliced 2026-11-10; plan-work refined 2026-11-10 (story .md specs + risk/allure/status on tasks).
+# Depends on: spike SPIKE-e05-update-bundle (device tar roundtrip proven on k2).
 epic_id: e05-safe-inapp-update
-status: sliced (plan-work pending)
+status: planned (ready for kickoff-branch)
 scope: specs/product/SCOPE_LATEST.yaml
 planning_context: specs/planning-context.yaml
 spike: specs/archive/spikes/SPIKE-e05-update-bundle.md
+impact: specs/IMPACT_LATEST.md
 # Order: restructure finish first (unblocks clean deploys), release pipeline
 # before the client that consumes it, trampoline before UX polish, verification
 # last.
@@ -17,6 +18,7 @@ stories:
       kindlichess/, scriptlet-only launch documented, no stale kindle_KUAL refs
     bcps: 2
     delta: MODIFIED
+    spec: e05s01-restructure-finish.md
     tasks_file: e05s01-tasks.yaml
   - story_id: e05s02
     title: >-
@@ -25,6 +27,7 @@ stories:
       kindlichess/; legacy binary assets kept for 0.4.0 clients
     bcps: 5
     delta: ADDED
+    spec: e05s02-release-pipeline.md
     tasks_file: e05s02-tasks.yaml
   - story_id: e05s03
     title: >-
@@ -33,6 +36,7 @@ stories:
       manifest verify, unit tests
     bcps: 8
     delta: MODIFIED
+    spec: e05s03-update-client-v2.md
     tasks_file: e05s03-tasks.yaml
   - story_id: e05s04
     title: >-
@@ -41,6 +45,7 @@ stories:
       host-harness test
     bcps: 8
     delta: MODIFIED
+    spec: e05s04-trampoline-v2.md
     tasks_file: e05s04-tasks.yaml
   - story_id: e05s05
     title: >-
@@ -48,6 +53,7 @@ stories:
       progress, Applied -> relaunch hint; EN/DE i18n strings
     bcps: 5
     delta: MODIFIED
+    spec: e05s05-update-screen-ux.md
     tasks_file: e05s05-tasks.yaml
   - story_id: e05s06
     title: >-
@@ -55,4 +61,5 @@ stories:
       CI bundle job, docs describe bundle flow, run-dev smoke
     bcps: 3
     delta: ADDED
+    spec: e05s06-verification-docs.md
     tasks_file: e05s06-tasks.yaml

@@ -1,0 +1,24 @@
+---
+# Story e07s07 — board polish: file/rank labels + piece-move shadow fix.
+story_id: e07s07
+title: "Board: color-orientation-aware file/rank labels + fix piece-move shadow residue"
+status: todo
+bcps: 2
+delta: MODIFIED
+tasks:
+  - id: e07s07t01
+    description: >-
+      widgets/board.rs: draw file letters (a-h) and rank numbers (1-8) on board
+      edges; flip orientation when player is black (color-aware).
+    verify: "cd crate && cargo build 2>&1 | tail -1 | grep -q 'Finished'"
+    status: todo
+  - id: e07s07t02
+    description: >-
+      widgets/board.rs: fix piece-move shadow — when a piece moves off a square,
+      force full repaint of that square (not diff-only) so no residue remains.
+    verify: "cd crate && cargo test --lib board 2>&1 | grep -q 'test result: ok'"
+    status: todo
+  - id: e07s07t03
+    description: "Unit tests: label orientation for white/black; shadow fix triggers full square repaint"
+    verify: "cd crate && cargo test --lib board 2>&1 | grep -q 'test result: ok'"
+    status: todo
