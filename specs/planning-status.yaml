@@ -1,0 +1,27 @@
+# specs/planning-status.yaml — discover-phase checklist, driven by run-planning.
+# New planning cycle started 2026-11-10 after e04 merge (v0.4.0) + crate rename
+# (kindle_chess -> crate). Next release target: TBD by scope-work.
+context_capsule: null # written by elaborate-spec; cleared on cycle completion
+workflows:
+  survey-context:
+    required: true
+    status: done
+    note: e04 done/merged (PR #39, v0.4.0); on main; structural rename done
+  scope-work:
+    required: true
+    status: done
+    note: e05-ondevice-restructure-finish scoped; scriptlet-only launch decided; SCOPE_LATEST.yaml written
+  research-first:
+    required: false
+    status: skipped
+    note: no external dependencies — pure repo wiring/docs/scripts
+  elaborate-spec:
+    required: false
+    status: skipped
+    note: mechanical restructure follow-through; scope already unambiguous (stale e03 planning-context.yaml not reused)
+  plan-release:
+    required: true
+    status: pending
+  slice-tasks:
+    required: true
+    status: pending

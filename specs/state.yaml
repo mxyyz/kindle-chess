@@ -1,41 +1,46 @@
 # bigpowers session source-of-truth. See survey-context / session-state.
 session:
-  active_flow: review
-  active_epic: e04-e01-leftovers
-  active_story: null (e04 complete)
-  phase: Review (all 6 stories done; ready for PR)
+  active_flow: planning
+  active_epic: null (e05 TBD — discover phase via run-planning)
+  active_story: null
+  phase: Discover (e04 merged via PR #39, released 0.4.0; planning next epics)
 
 vcs:
   kind: git
-  branch: e04-e01-leftovers
-  head: 38568e4
-  worktree: /home/mxy/repos/e04-e01-leftovers
-  # KICKOFF 2026-11-05 from main @ da6c845. Preflight green: cargo build
-  # clean, 150 tests pass. plan-work skipped (user): story specs per story.
+  branch: main
+  head: 1b4d141
+  worktree: /home/mxy/repos/kindle-chess
+  # On main with uncommitted structural changes: kindle_KUAL/ removed,
+  # kindlichess/ at repo root, crate root renamed kindle_chess -> crate
+  # (all references updated; cargo build + 167 tests green from crate/).
 
 handoff:
   last_step_completed: >-
-    kickoff-branch e04-e01-leftovers; preflight green (150 tests)
+    e04 merged (PR #39, release 0.4.0); structural rename kindle_chess ->
+    crate done and verified (build + tests green)
   open_decisions:
     - >-
-      e04 decisions (user): add clippy + fmt + cache to CI; coverage
-      report only, no gate; ChessError at api/ boundary only
+      flash.sh / flash_usb.sh / CLAUDE.md module-layout / docs still mention
+      the removed kindle_KUAL/ tree (on-device layout after restructure) —
+      needs a decision on where extensions/hellokindle went
     - >-
       stale worktree /home/mxy/repos/e03-target-device-restructure
       (64b6c70) can be removed
   required_reading:
     - CLAUDE.md
     - specs/product/SCOPE_LATEST.yaml
-    - specs/epics/e04-e01-leftovers/epic.yaml
-  next_skill: release-branch (user handles push + PR)
+    - specs/release-plan.yaml
+    - specs/LITCHEE_MIGRATION_PLAN.md
+  next_skill: run-planning (discover phase for next release)
 
 notes:
   e02: merged to main (PR #35)
   e03: merged to main (PR #37), released 0.3.0 (ca1c424)
-  ci: .github/workflows/rust.yml — cargo test + cross build on push/PR
+  e04: merged to main (PR #39), released 0.4.0 (e2ad161)
+  ci: .github/workflows/rust.yml — cargo test + cross build on push/PR (working-directory: crate)
 
 metrics:
   reconciled: 2026-11-05T00:00:00Z
 
 release:
-  last_tag: v0.3.0
+  last_tag: v0.4.0

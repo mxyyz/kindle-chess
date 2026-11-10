@@ -1,105 +1,115 @@
 ---
-# specs/product/SCOPE_LATEST.yaml — bounded PRD for the current initiative (e04)
-# Written by scope-work. Consumed by slice-tasks / plan-work.
-# Previous (e03) scope archived at
-# specs/epics/e03-target-device-directory-restructure/SCOPE.yaml
-feature_name: e04-e01-leftovers (code organization, tests, errors, CI)
+# specs/product/SCOPE_LATEST.yaml — bounded PRD for the current initiative (e05)
+# Written by scope-work (2026-11-10 planning cycle). Consumed by slice-tasks / plan-work.
+# Previous (e04) scope archived at specs/epics/e04-e01-leftovers/SCOPE.yaml
+feature_name: e05-ondevice-restructure-finish (scriptlet-only launch, repo layout cleanup)
 core_value: >-
-  Make the codebase easier to change safely: smaller screen files, named layout
-  values, tests on untested modules, one error type at the API boundary, and
-  CI that checks lint, format and coverage.
+  Finish the on-device directory restructure the user started on main: the
+  deployable app bundle is now repo-root kindlichess/ (no more kindle_KUAL/
+  wrapper), launch on the device is scriptlet-only, and every script, doc and
+  ignore rule matches that layout — so the next deploy works end to end.
 summary: >-
-  e04 finishes the e01 backlog (t05-t13, t15) plus the unfinished part of
-  t14. There is no user-visible change: behavior on the device stays the same.
+  The repo was restructured on main: kindle_KUAL/ (extensions/hellokindle KUAL
+  wiring + kindlichess app bundle) was removed and the app bundle now lives at
+  repo-root kindlichess/, with scriptlet/kindlichess.sh as the on-device launcher
+  (SH_Integration auto-registers .sh files in /mnt/us/documents). The crate root
+  was also renamed kindle_chess -> crate in the same pass. What remains is the
+  follow-through: flash.sh / flash_usb.sh still deploy the deleted kindle_KUAL/
+  tree, .gitignore still ignores paths under kindle_KUAL/, run-dev.sh still
+  points HELLOKINDLE_DIR at it, and CLAUDE.md / docs/ / tech-stack.md / the
+  crate's api README still describe the old layout and the KUAL menu.
 
-  The screen code is now in two very large files (models/ui.rs ~840 lines,
-  ui/screens.rs ~2600 lines). They split into one file per screen. Hard-coded
-  pixel values move into one layout module. The game, OAuth, board-API and
-  widget modules get tests. Code outside api/ sees one ChessError type in
-  place of Box<dyn Error>. CI adds clippy, rustfmt, dependency caching and
-  a coverage report.
+  User decision (2026-11-10): scriptlet-only launch — the KUAL menu extension
+  (extensions/hellokindle) is dropped, not recreated. All remaining KUAL
+  references are removed rather than rewired.
 
-  The e01 task details predate the litchee migration and e02/e03. Slicing
-  must check each against current code (for example, which oauth/board types
-  still exist, which tests in kindle_chess/tests/ already cover them).
 in_scope:
 - >-
-  e04-code-org (from e01 t05, t06): one file per screen for the screen structs
-  and Screen impls; models/ui.rs and ui/screens.rs become small
+  e05s01 (deploy scripts): flash.sh and flash_usb.sh deploy repo-root
+  kindlichess/ to /mnt/us (binary into kindlichess/bin/, assets/config/scripts
+  via scp/cp of kindlichess/*) plus scriptlet/kindlichess.sh to
+  /mnt/us/documents; the move-token-aside dance now targets
+  kindlichess/secrets/token.json; `mkdir -p kindlichess/bin` before copying;
+  comments updated; `sh -n` clean
 - >-
-  e04-code-org (from e01 t07): display dimensions and layout magic numbers
-  in one layout module
+  e05s02 (repo hygiene): .gitignore entries kindle_KUAL/kindlichess/{bin,
+  secrets,log}/* become kindlichess/{bin,secrets,log}/*; no secrets or binaries
+  tracked; stale entries removed
 - >-
-  e04-tests (from e01 t08-t11): unit tests for game models, OAuth, board API
-  and widget logic (hit tests, geometry), skipping cases already covered
+  e05s03 (dev harness): run-dev.sh HELLOKINDLE_DIR points at
+  $REPO_ROOT/kindlichess; crate/.env.debug ROOT_DIR already updated — verify
+  the dev harness resolves assets/log/secrets from the new bundle location
 - >-
-  e04-errors (from e01 t12, t13): ChessError (Send + Sync) returned from api/
-  functions; wraps litchee, HTTP, IO and parse errors
+  e05s04 (docs sweep): CLAUDE.md, docs/ARCHITECTURE.md, docs/ci-cd.md,
+  docs/dev/kindle-usb-ssh.md, specs/tech-architecture/tech-stack.md and
+  crate/src/api/README.md updated to the new layout: kindle_KUAL/kindlichess
+  -> kindlichess, /mnt/us/hellokindle -> /mnt/us/kindlichess, KUAL menu
+  references removed, scriptlet launch documented as the only entry point
 - >-
-  e04-ci (from e01 t14 rest): rust.yml runs cargo clippy and cargo fmt --check,
-  with dependency caching; fix existing clippy/fmt findings so CI is green
-- >-
-  e04-ci (from e01 t15): coverage report as a CI artifact plus a README badge,
-  report only
+  e05s05 (verification): zero remaining references to kindle_KUAL/ or
+  hellokindle outside historical artifacts (specs/epics/, CHANGELOG.md);
+  sh -n on all shell scripts; cargo build + cargo test green from crate/;
+  run-dev.sh path resolution smoke check (no full X11 run required)
 out_of_scope:
 - >-
-  Any user-visible behavior or layout change — this is a no-behavior-change
-  refactor (e04 is cleanup)
+  Recreating the KUAL menu extension (extensions/hellokindle) — user decision
+  2026-11-10: scriptlet-only launch, KUAL dropped
 - >-
-  ChessError outside the api/ boundary (app/, ui/ internals keep their current
-  error handling) — user decision; extend later if useful
+  Any change to on-device runtime behavior of chess_app.sh or the binary —
+  chess_app.sh already targets /mnt/us/kindlichess; this epic is repo wiring
+  only
 - >-
-  A coverage threshold that fails CI — user decision: report only; add a gate
-  once coverage is meaningful
+  Physical-device UAT (flash to a real Kindle and launch via scriptlet) —
+  needs the k2 on the LAN; manual check, not part of CI
 - >-
-  Multi-device layouts / resolutions other than 1072x1448 — layout constants
-  only make this possible later
-- >-
-  X11 rendering tests (pixel output) — need a display; widget tests cover
-  pure logic only
-- >-
-  New features, new screens, new Lichess endpoints — separate epic
+  litchee migration, new game features, multi-device layouts — separate
+  initiatives (see specs/LITCHEE_MIGRATION_PLAN.md, e03 out_of_scope)
 constraints:
 - >-
-  Rust + x11rb; static musl armv7-unknown-linux-musleabi cross build must
-  stay green
+  Shell scripts stay POSIX sh (`sh -n` must pass); no new dependencies
 - >-
-  Tests must run headless on the CI runner (no X11, no network, no assets)
+  Binary name and on-device paths unchanged: /mnt/us/kindlichess/...,
+  bin/kindle-hello
 - >-
-  run-dev.sh harness keeps working; pixel layout identical before and after
+  secrets (token.json, puzzle_history.json), logs and binaries must never be
+  committed — .gitignore must cover them under the new kindlichess/ root
 - >-
-  No new runtime dependencies; a dev-only coverage tool (cargo-llvm-cov or
-  tarpaulin) is allowed in CI
+  crate/ build must stay green; docs-only and script-only changes must not
+  touch crate/src except README path references
+- >-
+  Historical artifacts (specs/epics/*, specs/verifications/*, crate/CHANGELOG.md)
+  keep their old path references — they document what was true at the time
 success_criteria:
 - >-
-  models/ui.rs and ui/screens.rs no longer hold per-screen code; each screen
-  has its own file
+  `grep -rn "kindle_KUAL\|hellokindle"` outside .git, crate/target, specs/epics,
+  specs/verifications and CHANGELOG returns nothing
 - >-
-  No raw 1072/1448/134-style layout numbers outside the layout module (where
-  they are layout values)
+  flash.sh / flash_usb.sh reference only kindlichess/ and scriptlet/, pass
+  `sh -n`, and preserve the token-aside dance against kindlichess/secrets/
 - >-
-  New tests for game, OAuth, board API and widgets; cargo test green
+  .gitignore covers kindlichess/bin|secrets|log; `git status` shows no secrets
+  or binaries under kindlichess/
 - >-
-  api/ public functions return Result<T, ChessError>; callers compile without
-  Box<dyn Error> from api/
+  run-dev.sh resolves HELLOKINDLE_DIR to the repo-root kindlichess/ bundle
 - >-
-  CI on main runs test, clippy (-D warnings), fmt --check, cross build and
-  coverage — all green
-- README shows a coverage badge
-- On-device smoke check after merge: app behaves as in 0.3.0
+  cargo build + cargo test green from crate/ after all changes
+- >-
+  CLAUDE.md / docs describe the scriptlet-only launch and the repo-root
+  kindlichess/ bundle accurately
 trade_offs:
-- item: ChessError only at api/ boundary
-  reason: >-
-    smallest change that gives callers one error type; whole-app migration
-    has more risk for little gain
-- item: coverage report only, no gate
-  reason: a threshold on a low baseline only adds CI noise
-- item: no rendering tests
-  reason: needs an X server in CI; cost greater than value now
+- item: KUAL menu dropped instead of rewired
+  reason: user decision 2026-11-10 — scriptlets auto-register via SH_Integration,
+    one launch path is simpler than maintaining two
+- item: physical-device UAT left manual
+  reason: needs the Kindle on the LAN; CI covers build, tests, lint and script
+    syntax only
+- item: historical specs keep old paths
+  reason: epic capsules and CHANGELOG are point-in-time records; rewriting them
+    would falsify history
 references:
-- >-
-  specs/epics/e01-refactor-and-tests/tasks.yaml (t05-t15 original detail)
-- >-
-  specs/epics/e01-refactor-and-tests/samples/chess_error_sample.rs
-- .github/workflows/rust.yml
+- scriptlet/kindlichess.sh (scriptlet launcher deployed to /mnt/us/documents)
+- kindlichess/chess_app.sh (on-device launcher, already on /mnt/us/kindlichess)
+- flash.sh, flash_usb.sh, run-dev.sh, .gitignore
+- CLAUDE.md, docs/ARCHITECTURE.md, docs/ci-cd.md, docs/dev/kindle-usb-ssh.md
 - specs/tech-architecture/tech-stack.md
+- specs/epics/e03-target-device-directory-restructure/ (e03s01 on-device rename)

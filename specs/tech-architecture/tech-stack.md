@@ -115,7 +115,7 @@ pub struct BoardAPI<S> {
 ### Module Layout
 
 ```
-kindle_chess/
+crate/
 ├── src/
 │   ├── main.rs              # Entry point, logging init, App::new() → run()
 │   ├── version.rs           # Build metadata (VERSION, GIT_SHA, BUILD_TIMESTAMP)
