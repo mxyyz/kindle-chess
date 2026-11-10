@@ -46,3 +46,14 @@ registry:
       Fix: slider snaps to the allowed set.
     file: specs/bugs/BUG-2026-11-05T135402-correspondence-challenge-400.md
     status: fixed  # on main
+  - bug_id: BUG-2026-11-09T200000
+    date: 2026-11-09
+    severity: high
+    priority: high
+    scope: e04-rendering
+    summary: >-
+      run-dev.sh black screen: create_window height arg was mangled to 0
+      during e04s04 automated 1072/1448 → layout constant replacement in
+      renderer.rs. Window created with height 0.
+    file: specs/bugs/BUG-2026-11-09T200000-run-dev-blackscreen.md
+    status: fixed

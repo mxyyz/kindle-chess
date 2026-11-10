@@ -436,7 +436,7 @@ impl Renderer {
             0,
             0,
             SCREEN_W_U16,
-            0,
+            SCREEN_H_U16,
             0,
             WindowClass::INPUT_OUTPUT,
             0,
