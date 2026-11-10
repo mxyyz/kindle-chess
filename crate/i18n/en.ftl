@@ -94,3 +94,7 @@ puzzle-settings-title = Puzzle Settings
 puzzle-fetch = Get new puzzle
 
 home-quit = Quit
+update-size-mb = ({$mb} MB)
+update-bundle-contents = Bundle: binary + assets + launcher
+update-bundle-hint = Verified and staged — relaunch to install.
+update-staged-relaunch = Quit and relaunch to finish installing.

@@ -94,3 +94,7 @@ puzzle-settings-title = Aufgaben-Einstellungen
 puzzle-fetch = Neue Aufgabe holen
 
 home-quit = Beenden
+update-size-mb = ({$mb} MB)
+update-bundle-contents = Paket: Binärdatei + Assets + Launcher
+update-bundle-hint = Geprüft und bereitgelegt — Neustart installiert.
+update-staged-relaunch = Beenden und neu starten zum Abschließen.
