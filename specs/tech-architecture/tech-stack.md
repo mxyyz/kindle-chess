@@ -32,8 +32,8 @@
 - **Cargo.toml**: Binary named `kindle-hello`, entry at `src/main.rs`
 - **build.rs**: Bakes git SHA and build timestamp as compile-time `env!()` constants
 - **Environment Files**:
-  - `.env.debug`: `ROOT_DIR=/home/mxy/repos/kindle-chess/kindle_KUAL/hellokindle/`
-  - `.env.release`: `ROOT_DIR=/mnt/us/hellokindle/`
+  - `.env.debug`: `ROOT_DIR=/home/mxy/repos/kindle-chess/kindlichess/`
+  - `.env.release`: `ROOT_DIR=/mnt/us/kindlichess/`
   - Both: `LICHESS_API_BASE=https://lichess.org/api`
 - **Derived Paths**: `LOG_FILE_DIR`, `ASSETS_DIR`, `AUTH_TOKEN` (path to `secrets/token.json`)
 
@@ -173,25 +173,24 @@ crate/
 └── Cargo.toml
 ```
 
-### Kindle Deployment Structure
+### Repo + Kindle Deployment Structure
 
 ```
-kindle_KUAL/
-├── extensions/
-│   └── hellokindle/
-│       └── menu.json       # KUAL menu entries pointing to scripts
-└── hellokindle/
-    ├── bin/
-    │   └── kindle-hello     # Cross-compiled binary
-    ├── assets/             # Piece sprites, logo.png
-    ├── log/
-    │   └── app.log          # Runtime logs from log4rs
-    ├── secrets/
-    │   └── token.json       # OAuth token persistence
-    ├── chess_app.sh        # Launcher script (handles updates, PID management)
-    ├── display_test.sh     # X11 display test
-    ├── x11test.sh          # Alternative X11 test
-    └── settings.toml       # App settings
+(repo root)
+├── kindlichess/             ← what gets copied to /mnt/us on the device
+│   ├── bin/
+│   │   └── kindle-hello     # Cross-compiled binary
+│   ├── assets/             # Piece sprites, logo.png
+│   ├── log/
+│   │   └── app.log          # Runtime logs from log4rs
+│   ├── secrets/
+│   │   └── token.json       # OAuth token persistence
+│   ├── chess_app.sh        # Launcher script (handles updates, PID management)
+│   └── settings.toml       # App settings
+└── scriptlet/
+    └── kindlichess.sh       # Scriptlet entry point → exec chess_app.sh
+                             # (deployed to /mnt/us/documents/, auto-registered
+                             #  by SH_Integration — scriptlet-only launch)
 ```
 
 ---

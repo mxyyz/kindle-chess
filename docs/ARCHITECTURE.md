@@ -23,9 +23,12 @@ kindle-chess/
 │       ├── ui/              ← renderer, screens, widgets         → src/ui/README.md
 │       ├── local/           ← offline board (stub)               → src/local/README.md
 │       └── examples/        ← uncompiled snippets                → src/examples/README.md
-├── kindle_KUAL/             ← what gets copied to /mnt/us on the device
-│   ├── extensions/hellokindle/  ← menu.json + config.xml (KUAL wiring)
-│   └── hellokindle/         ← chess_app.sh, bin/, assets/, log/, secrets/
+├── kindlichess/             ← what gets copied to /mnt/us on the device
+│   ├── bin/                 ← kindle-hello binary
+│   ├── assets/              ← piece sprites, logo.png
+│   ├── chess_app.sh        ← launcher (update trampoline, PID mgmt)
+│   └── log/ secrets/ settings.toml
+├── scriptlet/               ← kindlichess.sh (deployed to /mnt/us/documents/)
 ├── .github/workflows/       ← rust.yml, release-please.yml, release.yml → docs/ci-cd.md
 ├── run-dev.sh               ← local Xvfb/Xephyr harness
 └── flash*.sh                ← build + deploy to device        → docs/kindle-usb-ssh.md
@@ -178,7 +181,7 @@ longer exists. (`flash_display.sh`, which deployed that binary, was deleted in `
 - `CLAUDE.md` is listed in `.gitignore`, so it does **not** travel with a clone. Anything
   that must survive a move to another machine belongs in `docs/` or a module README,
   not in `CLAUDE.md`.
-- A committed ARM binary lives at `kindle_KUAL/kindlichess/bin/kindle-hello` (~10 MB) and
+- A committed ARM binary lives at `kindlichess/kindlichess/bin/kindle-hello` (~10 MB) and
   is re-committed on every flash.
 - There is a stray, remote-less `crate/.git/` directory. The crate's files are
   tracked by the outer repo; this nested git dir is inert leftover but can confuse tooling.
@@ -189,7 +192,7 @@ longer exists. (`flash_display.sh`, which deployed that binary, was deleted in `
 2. `rustup target add armv7-unknown-linux-musleabi`
 3. `cargo install cross --git https://github.com/cross-rs/cross` (needs Docker or Podman)
 4. **Edit `crate/.env.debug`** — `ROOT_DIR` must be the absolute path of *that*
-   checkout's `kindle_KUAL/kindlichess/` directory, with a trailing slash.
+   checkout's `kindlichess/kindlichess/` directory, with a trailing slash.
 5. Dev harness deps (Arch): `xorg-server-xvfb`, plus `xorg-server-xephyr` (recommended).
 6. `./run-dev.sh`
 7. For flashing: see [`kindle-usb-ssh.md`](kindle-usb-ssh.md).
@@ -205,7 +208,7 @@ longer exists. (`flash_display.sh`, which deployed that binary, was deleted in `
 >
 > ```sh
 > cd crate && cargo build
-> strings target/debug/kindle-hello | grep hellokindle/
+> strings target/debug/kindle-hello | grep kindlichess/
 > ```
 >
 > (This bit the current dev machine: `.env.debug` said `/home/mxy/Repos/…` with a capital
