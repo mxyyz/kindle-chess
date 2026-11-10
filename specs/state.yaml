@@ -2,15 +2,16 @@ session:
   active_flow: planning
   active_epic: e05-safe-inapp-update (DONE — all 6 stories passing on branch e05-safe-inapp-update)
   active_story: null
-  phase: Execute complete — e05 all 6 stories done (31 bcps); ready for verify-work / release-branch (PR)
+  phase: Verify complete — e05 verify-work PASS (evidence specs/verifications/e05-verify.yaml); ready for audit-code then
+    release-branch
 vcs:
   kind: git
   branch: e05-safe-inapp-update
   head: 86a426d
   worktree: /home/mxy/repos/e05-safe-inapp-update
 handoff:
-  last_step_completed: 'e05s06 done: CI bundle dry-run + docs. All e05 stories passing. Gates green: fmt, clippy -D warnings,
-    9 test suites, armv7 cross build, trampoline harness 12/12, bundle dry-run 37 files OK'
+  last_step_completed: 'verify-work e05: PASS — 9 test suites, fmt/clippy/cross green, harness 12/12, bundle dry-run 37 files,
+    security no HIGH, evidence persisted'
   open_decisions:
   - 'e09 "random" opponent: create_open vs seek — decide during e06s01 plan-work (both verified in litchee 0.2.2)'
   - e10 license choice (MIT vs Apache 2.0) — ADR written during e10s01, user approves
@@ -21,7 +22,7 @@ handoff:
   - specs/planning-context.yaml
   - specs/release-plan.yaml
   - specs/epics/e05-safe-inapp-update/epic.yaml
-  next_skill: verify-work (UAT gate), then release-branch for PR
+  next_skill: audit-code, then release-branch (open PR)
 notes:
   e02: merged to main (PR
   e03: merged to main (PR
