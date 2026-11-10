@@ -7,10 +7,11 @@ use crate::error::ChessError;
 // which is rate-limited to 60 req/h per IP — far more than the app will ever
 // need, since checks are user-initiated.
 //
-// The release workflow uploads two assets per tag:
-//   - {ASSET_NAME}         — the cross-compiled armv7-musl binary
-//   - {ASSET_NAME}.sha256  — text file, first whitespace-separated token is
-//                            the lowercase hex sha256 of the binary
+// The release workflow uploads assets per tag:
+//   - update.tar.gz            bundle: bin/kindle-hello + assets/* + chess_app.sh + MANIFEST.sha256
+//   - update.tar.gz.sha256     sha256sum-format sidecar for the bundle
+//   - {ASSET_NAME}             legacy binary-only (kept during transition for 0.4.0 clients)
+//   - {SHA_NAME}               legacy sidecar
 // These names are the contract between this client and .github/workflows/release.yml.
 
 use log::{info, warn};
@@ -24,6 +25,8 @@ pub const OWNER: &str = "mxyyz";
 pub const REPO: &str = "kindle-chess";
 pub const ASSET_NAME: &str = "kindle-chess-armv7-musl";
 pub const SHA_NAME: &str = "kindle-chess-armv7-musl.sha256";
+pub const BUNDLE_NAME: &str = "update.tar.gz";
+pub const BUNDLE_SHA_NAME: &str = "update.tar.gz.sha256";
 
 #[derive(Debug, Deserialize)]
 pub struct Release {
@@ -47,9 +50,17 @@ pub struct UpdateInfo {
     pub latest: Version,
     pub release_name: String,
     pub release_notes: String,
+    /// Bundle asset URL (preferred) or legacy binary asset URL (fallback).
     pub asset_url: String,
     pub sha256_url: String,
     pub asset_size: u64,
+    /// True when the release ships the update.tar.gz bundle (e05+ clients).
+    pub is_bundle: bool,
+    /// Bundle-specific fields; same as asset_url/sha256_url/asset_size when
+    /// is_bundle, None when falling back to the legacy binary pair.
+    pub bundle_url: Option<String>,
+    pub bundle_sha256_url: Option<String>,
+    pub bundle_size: Option<u64>,
 }
 
 /// Hits `releases/latest` and returns the parsed JSON.
@@ -89,15 +100,18 @@ pub fn parse_tag_version(tag: &str) -> Option<Version> {
 }
 
 /// Returns `Ok(Some(_))` if the latest release is strictly newer AND ships
-/// both expected assets, `Ok(None)` if the running binary is already at or
-/// past the latest tag, and `Err(_)` for everything in between (unparseable
-/// tag, release published but assets not yet uploaded — common while
-/// `release.yml` is still cross-building — etc.). The UI shows `Ok(None)`
-/// as "up to date" and `Err(_)` as "Check failed: <reason>", so we want the
-/// "release exists but isn't yet usable" cases to land in the latter.
+/// usable assets, `Ok(None)` if the running binary is already at or past the
+/// latest tag, and `Err(_)` for everything in between. Looks for the
+/// update.tar.gz bundle first (e05+), falls back to the legacy binary pair.
 pub async fn check_for_update() -> Result<Option<UpdateInfo>, ChessError> {
     let release = fetch_latest_release().await?;
+    resolve_update_info(&release, &version::current())
+}
 
+/// Pure resolver: given a parsed release and the running version, decide
+/// whether an update is available and which assets to use. Extracted from
+/// `check_for_update` so it can be unit-tested without network.
+pub fn resolve_update_info(release: &Release, current: &Version) -> Result<Option<UpdateInfo>, ChessError> {
     let latest = match parse_tag_version(&release.tag_name) {
         Some(v) => v,
         None => {
@@ -106,40 +120,142 @@ pub async fn check_for_update() -> Result<Option<UpdateInfo>, ChessError> {
         }
     };
 
-    let current = version::current();
-    if latest <= current {
+    if latest <= *current {
         info!("Up to date (current={}, latest={})", current, latest);
         return Ok(None);
     }
 
-    let asset = release.assets.iter().find(|a| a.name == ASSET_NAME);
-    let sha = release.assets.iter().find(|a| a.name == SHA_NAME);
-    let (asset, sha) = match (asset, sha) {
-        (Some(a), Some(s)) => (a, s),
-        _ => {
-            // Most likely cause: release.yml is still running and hasn't
-            // uploaded the binary yet. Surfacing as an error gets the user a
-            // "try again in a minute" message instead of a misleading
-            // "you're up to date".
-            warn!(
-                "Release {} is missing required assets ({} and/or {})",
-                release.tag_name, ASSET_NAME, SHA_NAME
-            );
-            return Err(format!(
-                "release {} is missing assets — build may still be in progress",
-                release.tag_name
-            )
-            .into());
-        }
-    };
+    let find = |name: &str| release.assets.iter().find(|a| a.name == name);
+
+    // Prefer the bundle pair; fall back to the legacy binary pair.
+    let (asset_url, sha256_url, asset_size, is_bundle, bundle_url, bundle_sha256_url, bundle_size) =
+        match (find(BUNDLE_NAME), find(BUNDLE_SHA_NAME)) {
+            (Some(b), Some(s)) => (
+                b.browser_download_url.clone(),
+                s.browser_download_url.clone(),
+                b.size,
+                true,
+                Some(b.browser_download_url.clone()),
+                Some(s.browser_download_url.clone()),
+                Some(b.size),
+            ),
+            _ => match (find(ASSET_NAME), find(SHA_NAME)) {
+                (Some(a), Some(s)) => (
+                    a.browser_download_url.clone(),
+                    s.browser_download_url.clone(),
+                    a.size,
+                    false,
+                    None,
+                    None,
+                    None,
+                ),
+                _ => {
+                    warn!(
+                        "Release {} is missing required assets ({} / {} or {} / {})",
+                        release.tag_name, BUNDLE_NAME, BUNDLE_SHA_NAME, ASSET_NAME, SHA_NAME
+                    );
+                    return Err(format!(
+                        "release {} is missing assets — build may still be in progress",
+                        release.tag_name
+                    )
+                    .into());
+                }
+            },
+        };
 
     Ok(Some(UpdateInfo {
-        current,
+        current: current.clone(),
         latest,
-        release_name: release.name.unwrap_or_else(|| release.tag_name.clone()),
-        release_notes: release.body.unwrap_or_default(),
-        asset_url: asset.browser_download_url.clone(),
-        sha256_url: sha.browser_download_url.clone(),
-        asset_size: asset.size,
+        release_name: release.name.clone().unwrap_or_else(|| release.tag_name.clone()),
+        release_notes: release.body.clone().unwrap_or_default(),
+        asset_url,
+        sha256_url,
+        asset_size,
+        is_bundle,
+        bundle_url,
+        bundle_sha256_url,
+        bundle_size,
     }))
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn asset(name: &str, size: u64) -> ReleaseAsset {
+        ReleaseAsset {
+            name: name.to_string(),
+            browser_download_url: format!("https://example.com/{name}"),
+            size,
+        }
+    }
+
+    fn release_with(tag: &str, assets: Vec<ReleaseAsset>) -> Release {
+        Release {
+            tag_name: tag.to_string(),
+            name: None,
+            body: None,
+            assets,
+        }
+    }
+
+    #[test]
+    fn prefers_bundle_over_legacy() {
+        let rel = release_with(
+            "v0.5.0",
+            vec![
+                asset(BUNDLE_NAME, 6_000_000),
+                asset(BUNDLE_SHA_NAME, 64),
+                asset(ASSET_NAME, 10_000_000),
+                asset(SHA_NAME, 64),
+            ],
+        );
+        let cur = Version::new(0, 4, 0);
+        let info = resolve_update_info(&rel, &cur).unwrap().unwrap();
+        assert!(info.is_bundle);
+        assert_eq!(info.bundle_size, Some(6_000_000));
+        assert_eq!(info.asset_url, "https://example.com/update.tar.gz");
+    }
+
+    #[test]
+    fn falls_back_to_legacy_when_no_bundle() {
+        let rel = release_with(
+            "v0.5.0",
+            vec![asset(ASSET_NAME, 10_000_000), asset(SHA_NAME, 64)],
+        );
+        let cur = Version::new(0, 4, 0);
+        let info = resolve_update_info(&rel, &cur).unwrap().unwrap();
+        assert!(!info.is_bundle);
+        assert_eq!(info.bundle_url, None);
+        assert_eq!(info.asset_url, "https://example.com/kindle-chess-armv7-musl");
+    }
+
+    #[test]
+    fn up_to_date_returns_none() {
+        let rel = release_with("v0.4.0", vec![asset(BUNDLE_NAME, 100), asset(BUNDLE_SHA_NAME, 64)]);
+        let cur = Version::new(0, 4, 0);
+        assert!(resolve_update_info(&rel, &cur).unwrap().is_none());
+    }
+
+    #[test]
+    fn missing_all_assets_is_err() {
+        let rel = release_with("v0.5.0", vec![]);
+        let cur = Version::new(0, 4, 0);
+        assert!(resolve_update_info(&rel, &cur).is_err());
+    }
+
+    #[test]
+    fn unparseable_tag_is_err() {
+        let rel = release_with("not-a-version", vec![asset(BUNDLE_NAME, 100)]);
+        let cur = Version::new(0, 4, 0);
+        assert!(resolve_update_info(&rel, &cur).is_err());
+    }
+
+    #[test]
+    fn parse_tag_version_handles_prefixes() {
+        assert_eq!(parse_tag_version("v0.4.0").unwrap(), Version::new(0, 4, 0));
+        assert_eq!(parse_tag_version("0.4.0").unwrap(), Version::new(0, 4, 0));
+        assert_eq!(parse_tag_version("release-0.4.0").unwrap(), Version::new(0, 4, 0));
+        assert!(parse_tag_version("garbage").is_none());
+    }
 }
