@@ -1,0 +1,42 @@
+---
+# Story e05s01 — restructure finish (small; unblocks clean deploys before the
+# update-bundle work changes the deploy path again).
+story_id: e05s01
+title: "Restructure finish: flash scripts + run-dev.sh + docs point at repo-root kindlichess/, scriptlet-only launch"
+status: todo
+bcps: 2
+delta: MODIFIED
+tasks:
+  - id: e05s01t01
+    description: >-
+      flash.sh / flash_usb.sh: deploy repo-root kindlichess/ (binary into
+      kindlichess/bin/ with mkdir -p, scp/cp kindlichess/* to /mnt/us) plus
+      scriptlet/kindlichess.sh to /mnt/us/documents; token-aside dance targets
+      kindlichess/secrets/token.json; comments updated.
+    verify: >-
+      sh -n flash.sh && sh -n flash_usb.sh
+      && ! grep -q "kindle_KUAL" flash.sh flash_usb.sh
+      && grep -q "kindlichess" flash.sh flash_usb.sh
+      && grep -q "documents" flash.sh
+    status: todo
+  - id: e05s01t02
+    description: "run-dev.sh: HELLOKINDLE_DIR -> $REPO_ROOT/kindlichess"
+    verify: >-
+      grep -q 'HELLOKINDLE_DIR=.*kindlichess' run-dev.sh
+      && ! grep -q kindle_KUAL run-dev.sh && bash -n run-dev.sh
+    status: todo
+  - id: e05s01t03
+    description: >-
+      Docs sweep: CLAUDE.md, docs/ARCHITECTURE.md, docs/ci-cd.md,
+      docs/dev/kindle-usb-ssh.md, specs/tech-architecture/tech-stack.md,
+      crate/src/api/README.md — kindle_KUAL/kindlichess -> kindlichess,
+      /mnt/us/hellokindle -> /mnt/us/kindlichess, KUAL menu references removed,
+      scriptlet-only launch documented.
+    verify: >-
+      ! grep -rn "kindle_KUAL\|hellokindle" CLAUDE.md docs/ specs/tech-architecture/ crate/src/api/README.md README.md 2>/dev/null | grep -v "specs/epics\|CHANGELOG"
+      && grep -q "scriptlet" CLAUDE.md
+    status: todo
+  - id: e05s01t04
+    description: "Crate still green after doc/script-only changes"
+    verify: "cd crate && cargo test 2>&1 | grep -q 'test result: ok'"
+    status: todo

@@ -1,8 +1,17 @@
 # specs/release-plan.yaml — WSJF epic index
-# e01/e02/e03 landed on main; e04 (e01 leftovers) is active.
+# e01-e04 landed on main (latest v0.4.0); e05 planned 2026-11-10 (discover cycle
+# via run-planning; spike: specs/archive/spikes/SPIKE-e05-update-bundle.md).
 release:
   target_version: null # semantic-release decides at merge
-  last_tag: null
+  last_tag: v0.4.0
+
+bugs:
+  total: 5
+  fixed: 5
+  deferred: 0
+  wontfix: 0
+  open: 0
+  registry: specs/bugs/registry.yaml
 
 epics:
   - id: e01-refactor-and-tests
@@ -38,3 +47,17 @@ epics:
       - { id: e04s04, title: "ui/layout.rs constants", bcps: 3, delta: MODIFIED }
       - { id: e04s05, title: "ChessError at api/ boundary", bcps: 5, delta: MODIFIED }
       - { id: e04s06, title: "Coverage report + badge, no gate", bcps: 2, delta: ADDED }
+  - id: e05-safe-inapp-update
+    status: sliced (plan-work pending)
+    wsjf_order: 1
+    scope: specs/product/SCOPE_LATEST.yaml
+    planning_context: specs/planning-context.yaml
+    spike: specs/archive/spikes/SPIKE-e05-update-bundle.md
+    capsule: specs/epics/e05-safe-inapp-update/
+    stories:
+      - { id: e05s01, title: "Restructure finish: flash scripts + run-dev.sh + docs point at repo-root kindlichess/, scriptlet-only launch documented", bcps: 2, delta: MODIFIED }
+      - { id: e05s02, title: "Release pipeline: update.tar.gz bundle (binary+assets+chess_app.sh+MANIFEST) as release asset + sidecar; release-please extra-files on kindlichess/; legacy binary assets kept", bcps: 5, delta: ADDED }
+      - { id: e05s03, title: "App update client v2: bundle asset lookup, preflight (arch/dirs/writable/free space), staged .new download, sidecar + per-file manifest verify, unit tests", bcps: 8, delta: MODIFIED }
+      - { id: e05s04, title: "chess_app.sh trampoline v2: atomic staged-bundle install at launch (binary mv, assets, script self-update), cleanup on failure, host-harness test", bcps: 8, delta: MODIFIED }
+      - { id: e05s05, title: "UpdateScreen UX: bundle size/contents, preflight failure reasons, progress, Applied->relaunch; EN/DE i18n", bcps: 5, delta: MODIFIED }
+      - { id: e05s06, title: "Verification + docs: local gates green, CI bundle job, ARCHITECTURE/ci-cd/tech-stack describe bundle flow, run-dev smoke", bcps: 3, delta: ADDED }

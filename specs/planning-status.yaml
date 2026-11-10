@@ -1,27 +1,31 @@
 # specs/planning-status.yaml — discover-phase checklist, driven by run-planning.
-# New planning cycle started 2026-11-10 after e04 merge (v0.4.0) + crate rename
-# (kindle_chess -> crate). Next release target: TBD by scope-work.
-context_capsule: null # written by elaborate-spec; cleared on cycle completion
+# e05 cycle completed 2026-11-10 (after e04 merge + crate rename).
+context_capsule:
+  written_at: "2026-11-10T17:10:00Z"
+  written_by: elaborate-spec
+  feature_name: e05-safe-inapp-update
 workflows:
   survey-context:
     required: true
     status: done
-    note: e04 done/merged (PR #39, v0.4.0); on main; structural rename done
+    note: e04 done/merged (PR #39, v0.4.0); on main; crate rename kindle_chess -> crate committed (6ce118c)
   scope-work:
     required: true
     status: done
-    note: e05-ondevice-restructure-finish scoped; scriptlet-only launch decided; SCOPE_LATEST.yaml written
+    note: SCOPE_LATEST.yaml rewritten for e05 (update bundle + restructure finish)
   research-first:
     required: false
-    status: skipped
-    note: no external dependencies — pure repo wiring/docs/scripts
+    status: done
+    note: spike/e05-update-bundle worktree — device tar roundtrip OK, embed works (+black_box gotcha); findings in specs/archive/spikes/SPIKE-e05-update-bundle.md
   elaborate-spec:
     required: false
-    status: skipped
-    note: mechanical restructure follow-through; scope already unambiguous (stale e03 planning-context.yaml not reused)
+    status: done
+    note: interview with user 2026-11-10 — option B bundle chosen, no embedding, preflight+staged install required; planning-context.yaml written
   plan-release:
     required: true
-    status: pending
+    status: done
+    note: e05-safe-inapp-update added to release-plan.yaml (wsjf_order 1) + epic capsule specs/epics/e05-safe-inapp-update/
   slice-tasks:
     required: true
-    status: pending
+    status: done
+    note: 6 stories sliced (e05s01-e05s06, 31 bcps) with per-story -tasks.yaml + verify commands

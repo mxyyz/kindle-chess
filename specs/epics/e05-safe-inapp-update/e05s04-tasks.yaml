@@ -1,0 +1,42 @@
+---
+# Story e05s04 — launcher trampoline v2 in kindlichess/chess_app.sh.
+# Runs at launch while no instance is running; installs a staged bundle
+# atomically or leaves the old install untouched.
+story_id: e05s04
+title: "chess_app.sh trampoline v2: atomic staged-bundle install (binary, assets, script self-update)"
+status: todo
+bcps: 8
+delta: MODIFIED
+tasks:
+  - id: e05s04t01
+    description: >-
+      Trampoline v2 at top of chess_app.sh (after sanity checks, before binary
+      exec): if $BINARY.bundle.new exists -> extract to $APP_DIR/.staging
+      (tar -xzf), verify (cd .staging && sha256sum -c MANIFEST.sha256), then
+      install: mv .staging/bin/kindle-hello $BINARY (keep old on failure),
+      cp -f .staging/assets/* assets/, script self-update: if .staging/chess_app.sh
+      differs, cp to chess_app.sh.new, mv over chess_app.sh, exec "$0" "$@"
+      to re-run under the new script; rm -rf .staging + bundle.new on success;
+      on any failure rm -rf .staging bundle.new and continue with old install.
+    verify: "sh -n kindlichess/chess_app.sh && grep -q 'bundle.new' kindlichess/chess_app.sh && grep -q 'sha256sum -c' kindlichess/chess_app.sh"
+    status: todo
+  - id: e05s04t02
+    description: >-
+      Host-harness test (spike-style, throwaway or kept under specs/): build a
+      fake APP_DIR with a tiny bundle.tar.gz + MANIFEST, run the trampoline
+      block with APP_DIR overridden, assert binary/assets/script installed and
+      MANIFEST failure path keeps old files.
+    verify: >-
+      test -f specs/epics/e05-safe-inapp-update/trampoline-harness.sh
+      && sh specs/epics/e05-safe-inapp-update/trampoline-harness.sh
+    status: todo
+  - id: e05s04t03
+    description: >-
+      Keep the existing binary .new trampoline working for legacy staged
+      binaries (0.4.0 clients) alongside the bundle path.
+    verify: "grep -q 'BINARY.new' kindlichess/chess_app.sh && sh -n kindlichess/chess_app.sh"
+    status: todo
+  - id: e05s04t04
+    description: "flash scripts still sh -n clean and reference kindlichess/ only"
+    verify: "sh -n flash.sh && sh -n flash_usb.sh && ! grep -q kindle_KUAL flash.sh flash_usb.sh"
+    status: todo

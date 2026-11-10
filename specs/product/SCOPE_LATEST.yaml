@@ -1,115 +1,135 @@
 ---
 # specs/product/SCOPE_LATEST.yaml — bounded PRD for the current initiative (e05)
-# Written by scope-work (2026-11-10 planning cycle). Consumed by slice-tasks / plan-work.
-# Previous (e04) scope archived at specs/epics/e04-e01-leftovers/SCOPE.yaml
-feature_name: e05-ondevice-restructure-finish (scriptlet-only launch, repo layout cleanup)
+# Written by scope-work from specs/planning-context.yaml (elaborate-spec, 2026-11-10).
+# Consumed by slice-tasks / plan-work. Previous (e04) scope archived at
+# specs/epics/e04-e01-leftovers/SCOPE.yaml
+feature_name: "e05-safe-inapp-update (in-app update bundle: binary + assets + chess_app.sh, staged & sanity-checked) + restructure finish"
 core_value: >-
-  Finish the on-device directory restructure the user started on main: the
-  deployable app bundle is now repo-root kindlichess/ (no more kindle_KUAL/
-  wrapper), launch on the device is scriptlet-only, and every script, doc and
-  ignore rule matches that layout — so the next deploy works end to end.
+  The app can update everything it ships — binary, images and the launcher
+  script — from one verified bundle, and refuses to start an update the device
+  cannot safely receive and install.
 summary: >-
-  The repo was restructured on main: kindle_KUAL/ (extensions/hellokindle KUAL
-  wiring + kindlichess app bundle) was removed and the app bundle now lives at
-  repo-root kindlichess/, with scriptlet/kindlichess.sh as the on-device launcher
-  (SH_Integration auto-registers .sh files in /mnt/us/documents). The crate root
-  was also renamed kindle_chess -> crate in the same pass. What remains is the
-  follow-through: flash.sh / flash_usb.sh still deploy the deleted kindle_KUAL/
-  tree, .gitignore still ignores paths under kindle_KUAL/, run-dev.sh still
-  points HELLOKINDLE_DIR at it, and CLAUDE.md / docs/ / tech-stack.md / the
-  crate's api README still describe the old layout and the KUAL menu.
-
-  User decision (2026-11-10): scriptlet-only launch — the KUAL menu extension
-  (extensions/hellokindle) is dropped, not recreated. All remaining KUAL
-  references are removed rather than rewired.
+  Today the in-app updater only downloads the release binary; new assets and a
+  new chess_app.sh never reach the device, and nothing checks whether the
+  device can actually take the update. e05 ships option B (spike-proven on the
+  k2): release.yml packs bin/kindle-hello + assets/ + chess_app.sh +
+  MANIFEST.sha256 into one update.tar.gz release asset with a sha256 sidecar.
+  The app preflights (arch, dirs, writability, free space), streams the bundle
+  to a .new sidecar, verifies the sidecar then the per-file manifest, and the
+  launcher installs it atomically at next start — any failure leaves the
+  running install untouched. release-please learns to trigger on kindlichess/
+  changes so asset/script edits actually produce a release. The small
+  restructure finish rides along: flash scripts, run-dev.sh and docs point at
+  the repo-root kindlichess/ bundle, launch is scriptlet-only.
 
 in_scope:
 - >-
-  e05s01 (deploy scripts): flash.sh and flash_usb.sh deploy repo-root
-  kindlichess/ to /mnt/us (binary into kindlichess/bin/, assets/config/scripts
-  via scp/cp of kindlichess/*) plus scriptlet/kindlichess.sh to
-  /mnt/us/documents; the move-token-aside dance now targets
-  kindlichess/secrets/token.json; `mkdir -p kindlichess/bin` before copying;
-  comments updated; `sh -n` clean
+  e05s01 (restructure finish): flash.sh/flash_usb.sh deploy repo-root
+  kindlichess/ + scriptlet/kindlichess.sh to /mnt/us/documents (token-aside
+  dance preserved); run-dev.sh HELLOKINDLE_DIR; .gitignore already fixed;
+  docs sweep (CLAUDE.md, docs/ARCHITECTURE.md, docs/ci-cd.md,
+  docs/dev/kindle-usb-ssh.md, specs/tech-architecture/tech-stack.md,
+  crate/src/api/README.md) — no kindle_KUAL/hellokindle refs outside history;
+  scriptlet-only launch documented
 - >-
-  e05s02 (repo hygiene): .gitignore entries kindle_KUAL/kindlichess/{bin,
-  secrets,log}/* become kindlichess/{bin,secrets,log}/*; no secrets or binaries
-  tracked; stale entries removed
+  e05s02 (release pipeline): release.yml builds update.tar.gz (binary +
+  kindlichess/assets + kindlichess/chess_app.sh + MANIFEST.sha256) and uploads
+  bundle + sidecar, keeping legacy binary assets during transition;
+  release-please config adds kindlichess/ as extra-files of the crate package
+  so asset/script changes trigger a tag
 - >-
-  e05s03 (dev harness): run-dev.sh HELLOKINDLE_DIR points at
-  $REPO_ROOT/kindlichess; crate/.env.debug ROOT_DIR already updated — verify
-  the dev harness resolves assets/log/secrets from the new bundle location
+  e05s03 (app update client v2): github.rs locates the bundle asset; update.rs
+  preflight (arch suffix vs compiled target + runtime uname -m, APP dirs
+  exist/writable, df -k free >= 2x bundle size), streaming download to
+  <exe>.bundle.new with hash, sidecar verify, extract to staging, MANIFEST
+  per-file verify; ChessError carries the failure reason; unit tests for
+  manifest/df parsing
 - >-
-  e05s04 (docs sweep): CLAUDE.md, docs/ARCHITECTURE.md, docs/ci-cd.md,
-  docs/dev/kindle-usb-ssh.md, specs/tech-architecture/tech-stack.md and
-  crate/src/api/README.md updated to the new layout: kindle_KUAL/kindlichess
-  -> kindlichess, /mnt/us/hellokindle -> /mnt/us/kindlichess, KUAL menu
-  references removed, scriptlet launch documented as the only entry point
+  e05s04 (launcher trampoline v2): chess_app.sh at launch installs a staged
+  bundle atomically (extract to .staging, verify MANIFEST, mv binary, copy
+  assets, self-update via chess_app.sh.new + mv + exec), cleanup on failure;
+  POSIX sh; host-harness test against a fake APP_DIR
 - >-
-  e05s05 (verification): zero remaining references to kindle_KUAL/ or
-  hellokindle outside historical artifacts (specs/epics/, CHANGELOG.md);
-  sh -n on all shell scripts; cargo build + cargo test green from crate/;
-  run-dev.sh path resolution smoke check (no full X11 run required)
+  e05s05 (UpdateScreen UX + i18n): bundle size/contents, preflight failure
+  reasons, progress, Applied -> relaunch hint; EN/DE strings
+- >-
+  e05s06 (verification + docs): full local gates green (build, test, clippy,
+  fmt, cross build), CI workflow updated for the bundle, docs describe the
+  bundle flow, run-dev smoke
+
 out_of_scope:
 - >-
-  Recreating the KUAL menu extension (extensions/hellokindle) — user decision
-  2026-11-10: scriptlet-only launch, KUAL dropped
+  Embedding assets in the binary — user decision (spike proved it works;
+  blurs what ships where). See specs/archive/spikes/SPIKE-e05-update-bundle.md
 - >-
-  Any change to on-device runtime behavior of chess_app.sh or the binary —
-  chess_app.sh already targets /mnt/us/kindlichess; this epic is repo wiring
-  only
+  KUAL menu extension — dropped, scriptlet-only launch (user decision)
 - >-
-  Physical-device UAT (flash to a real Kindle and launch via scriptlet) —
-  needs the k2 on the LAN; manual check, not part of CI
+  In-app update of scriptlet/kindlichess.sh — user decision; it stays the
+  stable entry point
 - >-
-  litchee migration, new game features, multi-device layouts — separate
-  initiatives (see specs/LITCHEE_MIGRATION_PLAN.md, e03 out_of_scope)
+  litchee migration, new game features (rated/variants/rematch/lobby),
+  multi-device layouts — separate initiatives
+- >-
+  Physical on-device UAT of a real release beyond the spike probe — manual,
+  needs the k2 on the LAN
+- >-
+  Rewriting historical artifacts (specs/epics/, CHANGELOG.md) — they keep
+  point-in-time path names
+
 constraints:
 - >-
-  Shell scripts stay POSIX sh (`sh -n` must pass); no new dependencies
+  Rust + x11rb; static musl armv7-unknown-linux-musleabi cross build stays
+  green; CI runs fmt + clippy -D warnings + test + cross build + coverage
 - >-
-  Binary name and on-device paths unchanged: /mnt/us/kindlichess/...,
-  bin/kindle-hello
+  Device facts (spike-proven 2026-11-10): armv7l, /mnt/us fuse.fsp rw, busybox
+  tar 1.34.1 + gzip + sha256sum work on /mnt/us, ~3.1 GB free, dirs
+  bin/assets/log/secrets/config exist and are writable
 - >-
-  secrets (token.json, puzzle_history.json), logs and binaries must never be
-  committed — .gitignore must cover them under the new kindlichess/ root
+  1072x1448 canvas and existing screens unchanged; update UX fits UpdateScreen
 - >-
-  crate/ build must stay green; docs-only and script-only changes must not
-  touch crate/src except README path references
+  No new runtime dependencies; device tar/sha256/df are invoked from the
+  launcher script / via std::process, not linked in
 - >-
-  Historical artifacts (specs/epics/*, specs/verifications/*, crate/CHANGELOG.md)
-  keep their old path references — they document what was true at the time
+  Legacy release assets (kindle-chess-armv7-musl{,.sha256}) stay during
+  transition so 0.4.0 clients can still update
+- >-
+  Shell scripts stay POSIX sh (sh -n clean)
+
 success_criteria:
 - >-
-  `grep -rn "kindle_KUAL\|hellokindle"` outside .git, crate/target, specs/epics,
-  specs/verifications and CHANGELOG returns nothing
+  cargo build (dev + armv7 cross) + cargo test + clippy -D warnings + fmt
+  --check all green
 - >-
-  flash.sh / flash_usb.sh reference only kindlichess/ and scriptlet/, pass
-  `sh -n`, and preserve the token-aside dance against kindlichess/secrets/
+  release.yml dry run produces update.tar.gz + .sha256; bundle MANIFEST
+  verifies against extracted contents
 - >-
-  .gitignore covers kindlichess/bin|secrets|log; `git status` shows no secrets
-  or binaries under kindlichess/
+  App preflight blocks wrong arch / missing dir / low space with a readable
+  UpdateScreen message (unit tests on the parsers)
 - >-
-  run-dev.sh resolves HELLOKINDLE_DIR to the repo-root kindlichess/ bundle
+  Staged flow works: .new sidecar + sidecar sha256 + per-file manifest verify
+  + trampoline install at next launch; failure leaves the old install intact
+  (host-harness test of the trampoline)
 - >-
-  cargo build + cargo test green from crate/ after all changes
+  No kindle_KUAL/hellokindle references outside historical artifacts; sh -n
+  clean on all scripts; scriptlet-only launch documented
 - >-
-  CLAUDE.md / docs describe the scriptlet-only launch and the repo-root
-  kindlichess/ bundle accurately
+  Docs (CLAUDE.md, ARCHITECTURE, ci-cd, tech-stack) match the new layout and
+  describe the bundle update flow
+
 trade_offs:
-- item: KUAL menu dropped instead of rewired
-  reason: user decision 2026-11-10 — scriptlets auto-register via SH_Integration,
-    one launch path is simpler than maintaining two
-- item: physical-device UAT left manual
-  reason: needs the Kindle on the LAN; CI covers build, tests, lint and script
-    syntax only
-- item: historical specs keep old paths
-  reason: epic capsules and CHANGELOG are point-in-time records; rewriting them
-    would falsify history
+- item: one bundle vs per-file assets
+  reason: spike proved device tar works; atomic all-or-nothing install and a single storage check outweigh 3 parallel downloads
+- item: no embedding
+  reason: user decision — keeps one delivery mechanism, avoids the config/assets split and the +~1.4 MB binary
+- item: legacy binary assets kept during transition
+  reason: 0.4.0 clients expect exactly those two asset names; drop in a later release
+- item: release-please extra-files on kindlichess/
+  reason: without it, asset/script changes never trigger a tag; alternative (moving files under crate/) churns paths again
+
 references:
-- scriptlet/kindlichess.sh (scriptlet launcher deployed to /mnt/us/documents)
-- kindlichess/chess_app.sh (on-device launcher, already on /mnt/us/kindlichess)
-- flash.sh, flash_usb.sh, run-dev.sh, .gitignore
-- CLAUDE.md, docs/ARCHITECTURE.md, docs/ci-cd.md, docs/dev/kindle-usb-ssh.md
-- specs/tech-architecture/tech-stack.md
-- specs/epics/e03-target-device-directory-restructure/ (e03s01 on-device rename)
+- specs/archive/spikes/SPIKE-e05-update-bundle.md (device probe results)
+- specs/planning-context.yaml (elaborate-spec decisions)
+- crate/src/api/update.rs, crate/src/api/github.rs, crate/src/ui/screens/update.rs (current updater)
+- kindlichess/chess_app.sh (current trampoline)
+- .github/workflows/release.yml, release-please-config.json
+- scriptlet/kindlichess.sh

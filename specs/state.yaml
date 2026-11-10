@@ -1,9 +1,9 @@
 # bigpowers session source-of-truth. See survey-context / session-state.
 session:
   active_flow: planning
-  active_epic: null (e05 TBD — discover phase via run-planning)
+  active_epic: e05-safe-inapp-update (sliced; plan-work pending)
   active_story: null
-  phase: Discover (e04 merged via PR #39, released 0.4.0; planning next epics)
+  phase: Discover complete — e05 sliced (6 stories, 31 bcps); next plan-work then kickoff-branch
 
 vcs:
   kind: git
@@ -29,15 +29,18 @@ handoff:
   required_reading:
     - CLAUDE.md
     - specs/product/SCOPE_LATEST.yaml
-    - specs/release-plan.yaml
-    - specs/LITCHEE_MIGRATION_PLAN.md
-  next_skill: run-planning (discover phase for next release)
+    - specs/planning-context.yaml
+    - specs/archive/spikes/SPIKE-e05-update-bundle.md
+    - specs/epics/e05-safe-inapp-update/epic.yaml
+  next_skill: plan-work (e05), then kickoff-branch for build
+  # discover cycle 2026-11-10 done via run-planning; spike spike/e05-update-bundle
+  # proved device tar roundtrip + embed feasibility (worktree kept until e05 lands)
 
 notes:
   e02: merged to main (PR #35)
   e03: merged to main (PR #37), released 0.3.0 (ca1c424)
   e04: merged to main (PR #39), released 0.4.0 (e2ad161)
-  ci: .github/workflows/rust.yml — cargo test + cross build on push/PR (working-directory: crate)
+  ci: ".github/workflows/rust.yml — cargo test + cross build on push/PR (working-directory: crate)"
 
 metrics:
   reconciled: 2026-11-05T00:00:00Z

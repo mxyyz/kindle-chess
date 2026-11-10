@@ -1,0 +1,29 @@
+---
+# Story e05s05 — UpdateScreen UX + i18n for the bundle flow.
+story_id: e05s05
+title: "UpdateScreen: bundle size/contents, preflight failure reasons, progress, Applied->relaunch; EN/DE"
+status: todo
+bcps: 5
+delta: MODIFIED
+tasks:
+  - id: e05s05t01
+    description: >-
+      UpdateScreen states extended: PreflightFailed(reason) shows the reason
+      (arch/dir/space) with retry; Available shows bundle size + contents
+      (binary/assets/launcher); Downloading shows progress (bytes so far /
+      total); Applied -> "relaunch to finish" hint.
+    verify: "cd crate && cargo build 2>&1 | tail -1 && cargo test --lib ui 2>&1 | grep -q 'test result: ok'"
+    status: todo
+  - id: e05s05t02
+    description: >-
+      i18n: new keys in crate/i18n/en.ftl and de.ftl for the new states
+      (update-preflight-failed, update-bundle-size, update-downloading,
+      update-applied-relaunch, ...), wired via tr().
+    verify: >-
+      cd crate && for k in $(grep -o 'update-[a-z-]*' i18n/en.ftl | sort -u); do grep -q "^$k" i18n/de.ftl || exit 1; done
+      && cargo test --lib i18n 2>&1 | grep -q 'test result: ok'
+    status: todo
+  - id: e05s05t03
+    description: "fmt + clippy clean"
+    verify: "cd crate && cargo fmt --check && cargo clippy --all-targets -- -D warnings"
+    status: todo

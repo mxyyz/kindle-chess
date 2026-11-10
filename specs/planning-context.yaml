@@ -1,57 +1,62 @@
-# specs/planning-context.yaml — written by elaborate-spec (e03 phase 2); consumed by scope-work / slice-tasks
-# Overwrites the e02 context per user approval (e02 context archived in its epic capsule).
-feature_name: e03-p2-live-game-friend-invite-flow
+# specs/planning-context.yaml — written by elaborate-spec (2026-11-10, e05 cycle); consumed by scope-work / slice-tasks
+# Overwrites the e03 context (archived in its epic capsule).
+feature_name: e05-safe-inapp-update (update bundle for binary + assets + chess_app.sh, with staged safe install) + restructure finish
 problem_statement: >-
-  The home screen's "Demo" button launches an idle offline game. Phase 2 replaces it
-  with a "Play" flow that leads the user into a live online Lichess game against a
-  friend: pick a friend from the Lichess following list, choose a game mode
-  (Unlimited / Real time 10:5 / Correspondence 1-14 days), send the challenge, and
-  manage incoming/outgoing invites on a dedicated screen. Scoped to friend
-  invites/inviting only. No keyboard on the Kindle — friend choice is a paged list,
-  never free-text input.
+  The in-app GitHub updater only ships the release binary: new images under
+  /mnt/us/kindlichess/assets/ and a new launcher chess_app.sh cannot be
+  deployed in-app, and there is no preflight sanity check that the device can
+  actually receive and install an update (arch, directories, free space). On
+  top, the repo restructure (kindle_KUAL removed, bundle at repo-root
+  kindlichess/, crate root renamed to crate/, scriptlet-only launch) still has
+  stale references in flash scripts, run-dev.sh and docs, and files under
+  kindlichess/ do not trigger a release tag (release-please only watches
+  crate/), so asset/script changes would never reach the in-app updater.
 
 constraints:
-  - Rust + x11rb only; static musl armv7-unknown-linux-musleabi build unchanged
-  - 1072x1448 absolute-pixel canvas unchanged; full repaint only on state change (e-ink)
-  - run-dev.sh / Xephyr harness keeps working; all device-only behavior degrades to no-ops
-  - litchee =0.2.2 crate: RelationsApi::following / ChallengesApi::{list, challenge, accept, decline, cancel};
-    ChallengeRequest builder: rated(false), color(random), clock(limit_secs, inc_secs), days(n), variant standard
-  - OAuth scopes challenge:read + challenge:write already requested (models/oauth.rs)
-  - Existing ChessGameScreen + stream_game / BoardAPI::attach_game reused for the live game
-  - Home screen keeps 4 buttons; "Demo" is renamed "Play" and requires auth (existing QR flow first)
-  - assets/invitation.png used for the invites icon button (IconButton, 134x134 footprint)
+  - Rust + x11rb; static musl armv7-unknown-linux-musleabi cross build stays green; cargo test/clippy/fmt green in CI
+  - Device: k2, armv7l, /mnt/us is fuse.fsp (rw), busybox tar 1.34.1 + gzip + sha256sum available (spike-proven), ~3.1 GB free
+  - 1072x1448 canvas and all current screens unchanged; update UX fits UpdateScreen
+  - scriptlet/kindlichess.sh is NOT updated in-app (stays as deployed trampoline entry)
+  - No asset embedding in the binary (user decision — embedding blurs what ships where; spike proved it works if ever needed, remember the black_box gotcha)
+  - No new runtime dependencies unless justified (tar/sha256 run via device shell, not in the binary)
+  - Release assets contract: keep legacy kindle-chess-armv7-musl{,.sha256} during transition so 0.4.0 clients can still update
+  - Historical artifacts (specs/epics, CHANGELOG) keep old path names
 
 flow:
-  - 'HomeScreen "Play" -> PlayScreen (the "form")'
-  - 'PlayScreen: title top-left; invitation IconButton top-right (x=914, y=24) -> InvitesScreen; game-mode button group (Unlimited / Real time 10:5 / Correspondence) at y~140-260 with days-per-move spinner (- / + around value, clamped 1-14) for correspondence; opponent selector button ("Opponent: -" / chosen username) at y~400 -> pushes FriendlistScreen; "Send challenge" button at y~530 (enabled only with opponent selected); status line y~1240; Back bottom-left'
-  - 'FriendlistScreen (mirrors OngoingChessGamesScreen: 4 friend buttons 600x96 from y~400, next/prev page icons, Back, loading/error states): pages RelationsApi::following; tap friend -> AppEvent::FriendSelected(username) + Pop; PlayScreen (top of stack) fills opponent field'
-  - 'Send challenge -> ChallengesApi::challenge(user).rated(false).color(random) + clock(600,5) for realtime / days(n) for correspondence / neither for unlimited -> push InvitesScreen'
-  - 'InvitesScreen: "Incoming" rows with Accept/Decline, "Outgoing" rows with Cancel; poll list ~5s; accept in either direction -> Push ChessGameScreen attached to game id with live stream'
+  - release.yml builds update.tar.gz = { bin/kindle-hello, assets/, chess_app.sh, MANIFEST.sha256 (per-file sha256 of bundle contents) } and uploads it + update.tar.gz.sha256 alongside the legacy assets
+  - release-please: add kindlichess/ as extra-files of the crate package so asset/script changes trigger a tag
+  - app: check_for_update finds bundle asset; preflight (asset name arch suffix matches compiled target, runtime uname -m = armv7l, APP dirs exist+writable, df -k ROOT_DIR available >= 2x bundle size) -> download to <exe>.bundle.new streaming+hashing -> verify sidecar sha256 -> extract to staging dir -> verify MANIFEST per-file -> park for launcher
+  - chess_app.sh at next launch: if bundle .new exists, extract to .staging, verify MANIFEST, install binary (existing .new mv), copy assets over, self-update script (chess_app.sh.new -> mv -> exec self), clean staging; any failure -> remove staging, keep old install
+  - UpdateScreen shows bundle size/contents, preflight failure reason, progress, Applied -> relaunch hint; EN/DE strings
 
 key_decisions:
-  - decision: three screens — PlayScreen (form), FriendlistScreen (opponent pick), InvitesScreen (challenges)
-    rationale: user request — friend choice extracted like OngoingGamesScreen, returns username to the Play form via pop+event; invites separated via invitation.png icon top-right of Play
-  - decision: friend selection from RelationsApi::following list, no on-screen keyboard
-    rationale: Kindle has no keyboard; building a text-input widget is out of scope
-  - decision: fixed challenge defaults — standard variant, casual (rated=false), random color
-    rationale: user decision; configurable variants/rated later
-  - decision: game mode via button group — Unlimited / Real time 10:5 (clock 600+5) / Correspondence days 1-14 via spinner
-    rationale: user decision; 10:5 is the realtime default; spinner clamps 1-14
-  - decision: incoming AND outgoing challenges on InvitesScreen with accept/decline/cancel, ~5s poll
-    rationale: user confirmed "friend-invites and inviting" both directions
-  - decision: game start (either direction accepted) pushes existing ChessGameScreen with stream
-    rationale: reuse existing live-game machinery (BoardAPI/stream_game)
+  - decision: single tar.gz bundle (option B) as one release asset + one sha256 sidecar + in-bundle MANIFEST
+    rationale: spike proved device tar roundtrip on /mnt/us; atomic all-or-nothing install; one download/storage check; user lean
+  - decision: no asset embedding (option C rejected)
+    rationale: user decision — config/assets split would blur; spike showed +~1.4 MB and the const-folding gotcha
+  - decision: staged install via .new sidecars + launcher trampoline, never in-place while running
+    rationale: existing binary trampoline already works on fuse.fsp; extends to bundle atomically
+  - decision: preflight sanity checks before download (arch, dirs, writable, free space)
+    rationale: user requirement — fail early with a readable reason instead of a half-written update
+  - decision: release trigger covers kindlichess/ via release-please extra-files on the crate package
+    rationale: otherwise asset/script changes never produce a tag and the updater never sees them
+  - decision: scriptlet kindlichess.sh not updated in-app
+    rationale: user — it is the stable entry point; chess_app.sh is the updatable launcher
+  - decision: legacy binary-only assets stay on the release during transition
+    rationale: 0.4.0 clients expect exactly those two asset names
 
 out_of_scope:
-  - Arbitrary-username challenges (on-screen keyboard / text input widget)
-  - Open/public challenges, bulk pairing, challenge AI
-  - Rated games, variants other than standard, configurable realtime clocks, custom FEN
-  - Rematch flow, lobby/matchmaking browser
-  - KPM packaging, WAF, C++/GTK rewrite (carried from e02)
-  - Phase 1 (on-device directory restructure) and phase 3 (i18n German) — scoped separately in specs/product/SCOPE_LATEST.yaml
+  - Embedding assets in the binary (rejected; spike documented)
+  - Recreating the KUAL menu extension (dropped — scriptlet-only launch)
+  - In-app update of scriptlet/kindlichess.sh
+  - litchee migration, new game features, rated/variants/rematch, multi-device layouts
+  - Physical on-device UAT of a real release beyond the spike probe (manual, k2 on LAN)
 
 success_criteria:
-  - cargo build (dev + cross musl) + cargo test green
-  - 'On-device k2 UAT: Play -> pick friend -> choose mode -> send -> appears on InvitesScreen as outgoing; accept incoming -> ChessGameScreen opens with live board; decline/cancel remove the row'
-  - 'Failure paths: send/decline/cancel/network errors show status line + Retry; empty friendlist shows hint'
-  - 'run-dev.sh: full flow exercisable against emulated display with a mocked/stubbed API where possible'
+  - Device spike: tar roundtrip OK, sha256sum OK, dirs OK, writable OK (DONE 2026-11-10, see SPIKE doc)
+  - cargo build (dev + cross musl) + cargo test + clippy -D warnings + fmt --check green
+  - release.yml produces update.tar.gz + sidecar; bundle MANIFEST verifies locally in a dry run
+  - app preflight blocks wrong-arch / missing-dir / low-space with a readable UpdateScreen message (unit-tested parsers)
+  - staged update: .new sidecar + sha256 verify + trampoline install at next launch; any failure leaves the running install untouched (host-harness test of trampoline against fake APP_DIR)
+  - no remaining kindle_KUAL/hellokindle references outside historical artifacts; sh -n on all scripts
+  - docs (CLAUDE.md, ARCHITECTURE, ci-cd, tech-stack) describe bundle update + scriptlet-only launch
