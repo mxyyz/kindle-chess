@@ -1,0 +1,28 @@
+---
+# Story e04s04 — layout constants (e01 t07). Runs after e04s03 so the
+# constants are applied to the new per-screen files once.
+story_id: e04s04
+title: "ui/layout.rs: display + layout constants replace magic numbers"
+status: in_progress
+bcps: 3
+delta: MODIFIED
+tasks:
+  - id: e04s04t01
+    description: >-
+      Create ui/layout.rs: SCREEN_W 1072, SCREEN_H 1448, SQUARE_SIZE
+      (SCREEN_W/8), PIECE_DRAW_SIZE, shared button sizes, icon size, common
+      margins. Use them in renderer, screensaver and widgets.
+    verify: "cd kindle_chess && cargo test 2>&1 | grep -q 'test result: ok'"
+    status: passing
+  - id: e04s04t02
+    description: >-
+      Replace the display-size numbers in the screen files with layout
+      constants. One-off per-screen positions may stay literal.
+    verify: >-
+      cd kindle_chess && ! grep -rnE "\b(1072|1448)\b" src --include=*.rs
+      | grep -v "src/ui/layout.rs"
+    status: passing
+  - id: e04s04t03
+    description: "Pixel check with run-dev.sh as in e04s03t04."
+    verify: "verify-script: compare run-dev.sh screenshots per screen"
+    

@@ -25,3 +25,9 @@ Per-module docs live next to the code:
 [`ui`](kindle_chess/src/ui/README.md) ·
 [`local`](kindle_chess/src/local/README.md) ·
 [`examples`](kindle_chess/src/examples/README.md)
+
+# Coverage
+
+[![Coverage](https://img.shields.io/badge/coverage-report-blue)](https://github.com/mxy/kindle-chess/actions/workflows/rust.yml)
+
+Coverage report (lcov + HTML) is generated on every CI run as a downloadable artifact. No threshold gate — report only.

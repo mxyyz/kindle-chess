@@ -10,6 +10,7 @@ registry:
       unimplemented; PuzzleSession drops the puzzle id), so /puzzle/next repeats
       the same puzzle and the finished daily never lands in puzzle activity.
     file: specs/bugs/BUG-2026-11-04T184513-post-puzzle-solutions.md
+    status: fixed  # on main
   - bug_id: BUG-2026-11-04T193559
     date: 2026-11-04
     severity: low
@@ -21,6 +22,7 @@ registry:
       residue outside the band on "Next puzzle". Fix: info changes trigger a
       full sidebar repaint; clear also happens at button-press time.
     file: specs/bugs/BUG-2026-11-04T193559-sidebar-info-clear-residue.md
+    status: fixed  # on main
   - bug_id: BUG-2026-11-05T095333
     date: 2026-11-05
     severity: low
@@ -32,6 +34,7 @@ registry:
       path never called Screen::on_reveal(), so cached widgets repainted
       nothing. Fix: on_reveal() before the wake redraw + widget contract tests.
     file: specs/bugs/BUG-2026-11-05T095333-wake-redraw-skips-cached-widgets.md
+    status: fixed  # on main
   - bug_id: BUG-2026-11-05T135402
     date: 2026-11-05
     severity: medium
@@ -42,3 +45,15 @@ registry:
       days in {1,2,3,5,7,10,14}, but the days slider emitted any integer 1-14.
       Fix: slider snaps to the allowed set.
     file: specs/bugs/BUG-2026-11-05T135402-correspondence-challenge-400.md
+    status: fixed  # on main
+  - bug_id: BUG-2026-11-09T200000
+    date: 2026-11-09
+    severity: high
+    priority: high
+    scope: e04-rendering
+    summary: >-
+      run-dev.sh black screen: create_window height arg was mangled to 0
+      during e04s04 automated 1072/1448 → layout constant replacement in
+      renderer.rs. Window created with height 0.
+    file: specs/bugs/BUG-2026-11-09T200000-run-dev-blackscreen.md
+    status: fixed

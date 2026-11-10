@@ -1,0 +1,46 @@
+---
+# Story e04s02 — tests for untested modules (safety net before e04s03-s05).
+# e01 t08-t11 were written before litchee; test what exists now and skip
+# cases already covered in kindle_chess/tests/ (challenge_*, relations_*,
+# now_playing_decode, api_puzzle).
+story_id: e04s02
+title: "Unit tests for board-API models, OAuth models and widget hit tests"
+status: passing
+bcps: 5
+delta: ADDED
+tasks:
+  - id: e04s02t01
+    description: >-
+      models/board_api.rs: deserialize tests for GameData/GameDataList,
+      GameStateStreamEvent variants (gameFull, gameState, chatLine,
+      opponentGone), PlayedBy (player vs AI) + display_name,
+      ChallengeMode::days_value, ChallengeSummary::game_id.
+    verify: >-
+      cd kindle_chess && cargo test --lib board_api 2>&1 | grep -q 'test result:
+      ok'
+    status: passing
+  - id: e04s02t02
+    description: >-
+      models/oauth.rs + api/oauth.rs: TokenInfo JSON round-trip,
+      LichessUser with/without profile, AuthConfig defaults (scopes incl.
+      challenge:read/write, follow:read), auth URL contains PKCE params.
+    verify: >-
+      cd kindle_chess && cargo test --lib oauth 2>&1 | grep -q 'test result: ok'
+    status: passing
+  - id: e04s02t03
+    description: >-
+      BoardAPI typestate: Idle::new + attach_game -> InGame exposes
+      game_id/turn (runtime); compile-fail cases documented in a comment,
+      no trybuild dependency.
+    verify: >-
+      cd kindle_chess && cargo test --lib board 2>&1 | grep -q 'test result: ok'
+    status: passing
+  - id: e04s02t04
+    description: >-
+      Widget logic: Rectangle contains/edges (ui/events.rs),
+      IconButton::contains, Button hit area; models/game.rs Game/Player
+      deserialize. No X11 needed.
+    verify: >-
+      cd kindle_chess && cargo test --lib widgets 2>&1 | grep -q 'test result:
+      ok'
+    status: passing

@@ -169,7 +169,7 @@
   phase: 2
   priority: P1
   estimate_hours: 4
-  status: pending
+  status: moved-to-e04
   description: |
     Move Screen struct definitions from monolithic models/ui.rs to separate
     files in ui/screens/. Each screen gets its own file.
@@ -205,7 +205,7 @@
   phase: 2
   priority: P1
   estimate_hours: 6
-  status: pending
+  status: moved-to-e04
   description: |
     Move Screen trait implementations from monolithic ui/screens.rs to
     co-located files with their struct definitions.
@@ -236,7 +236,7 @@
   phase: 2
   priority: P1
   estimate_hours: 2
-  status: pending
+  status: moved-to-e04
   description: |
     Extract hardcoded display dimensions to a central layout module.
     This enables future multi-device support.
@@ -280,7 +280,7 @@
   phase: 3
   priority: P1
   estimate_hours: 2
-  status: pending
+  status: moved-to-e04
   description: |
     Add tests for game-related types in models/game.rs.
   acceptance_criteria:
@@ -314,7 +314,7 @@
   phase: 3
   priority: P1
   estimate_hours: 3
-  status: pending
+  status: moved-to-e04
   description: |
     Add tests for OAuth-related types and logic.
   acceptance_criteria:
@@ -351,7 +351,7 @@
   phase: 3
   priority: P1
   estimate_hours: 3
-  status: pending
+  status: moved-to-e04
   description: |
     Add tests for board API module with typestate pattern.
   acceptance_criteria:
@@ -384,7 +384,7 @@
   phase: 3
   priority: P1
   estimate_hours: 3
-  status: pending
+  status: moved-to-e04
   description: |
     Add tests for UI widgets focusing on pure logic (not rendering).
   acceptance_criteria:
@@ -425,7 +425,7 @@
   phase: 4
   priority: P2
   estimate_hours: 3
-  status: pending
+  status: moved-to-e04
   description: |
     Define a consistent, Send+Sync error type for the application.
   acceptance_criteria:
@@ -455,7 +455,7 @@
   phase: 4
   priority: P2
   estimate_hours: 2
-  status: pending
+  status: moved-to-e04
   description: |
     Update API module functions to return ChessError instead of Box<dyn Error>.
   acceptance_criteria:
@@ -483,7 +483,7 @@
   phase: 5
   priority: P2
   estimate_hours: 2
-  status: pending
+  status: moved-to-e04  # test+build done in rust.yml; clippy/fmt/cache -> e04
   description: |
     Set up CI pipeline for automated testing on push and PR.
   acceptance_criteria:
@@ -505,7 +505,7 @@
   phase: 5
   priority: P2
   estimate_hours: 2
-  status: pending
+  status: moved-to-e04
   description: |
     Add coverage reporting to CI pipeline.
   acceptance_criteria:

@@ -8,8 +8,8 @@ use crate::ui::renderer::{DrawColor, Renderer};
 
 pub type Icon = ImageBuffer<Rgba<u8>, Vec<u8>>;
 
-/// Footprint of an icon button — one chess cell (1072 / 8).
-pub const ICON_BUTTON_SIZE: u16 = 134;
+/// Footprint of an icon button — one chess cell.
+pub use crate::ui::layout::ICON_BUTTON_SIZE;
 /// Default size the icon glyph is drawn at, centred inside the footprint.
 const ICON_GLYPH_SIZE: u16 = 100;
 
@@ -70,5 +70,25 @@ impl IconButton {
             DrawColor::White,
         )?;
         Ok(())
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn icon_button_contains_delegates_to_rect() {
+        // IconButton::new loads an icon from disk; if the asset is missing,
+        // icon is None but the rect is still set. contains only uses rect.
+        let btn = IconButton::new(100, 200, "nonexistent.png");
+        assert_eq!(btn.rect.x, 100);
+        assert_eq!(btn.rect.y, 200);
+        assert_eq!(btn.rect.width, ICON_BUTTON_SIZE);
+        assert_eq!(btn.rect.height, ICON_BUTTON_SIZE);
+        assert!(btn.contains(100, 200));
+        assert!(btn.contains(100 + ICON_BUTTON_SIZE as i16 - 1, 200));
+        assert!(!btn.contains(100 + ICON_BUTTON_SIZE as i16, 200));
+        assert!(!btn.contains(99, 200));
     }
 }

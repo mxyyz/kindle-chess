@@ -253,8 +253,10 @@ mod config_tests {
 
     #[test]
     fn language_field_survives_serde_roundtrip_and_missing_field_defaults() {
-        let mut cfg = AppConfig::default();
-        cfg.language = "de".into();
+        let cfg = AppConfig {
+            language: "de".into(),
+            ..Default::default()
+        };
         let s = serde_json::to_string(&cfg).unwrap();
         assert!(s.contains("\"language\":\"de\""));
         let back: AppConfig = serde_json::from_str(&s).unwrap();
@@ -268,8 +270,8 @@ mod config_tests {
 
 #[cfg(test)]
 mod persistence_tests {
-    use crate::models::puzzle::Difficulty;
     use super::*;
+    use crate::models::puzzle::Difficulty;
 
     #[test]
     fn language_and_puzzle_survive_save_load_roundtrip() {
@@ -277,9 +279,14 @@ mod persistence_tests {
             "kindle-chess-persist-{}.json",
             uuid::Uuid::new_v4()
         ));
-        let mut cfg = AppConfig::default();
-        cfg.language = "de".into();
-        cfg.puzzle.difficulty = Difficulty::Hardest;
+        let cfg = AppConfig {
+            language: "de".into(),
+            puzzle: crate::models::puzzle::PuzzleParams {
+                difficulty: Difficulty::Hardest,
+                ..Default::default()
+            },
+            ..Default::default()
+        };
         cfg.save_to(&path).unwrap();
 
         let loaded = AppConfig::load_from(&path).unwrap();
@@ -291,7 +298,8 @@ mod persistence_tests {
 
     #[test]
     fn save_to_creates_missing_parent_dirs() {
-        let dir = std::env::temp_dir().join(format!("kindle-chess-persist-{}", uuid::Uuid::new_v4()));
+        let dir =
+            std::env::temp_dir().join(format!("kindle-chess-persist-{}", uuid::Uuid::new_v4()));
         let path = dir.join("config").join("default_cfg.json");
         AppConfig::default().save_to(&path).unwrap();
         assert!(path.exists());

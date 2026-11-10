@@ -116,9 +116,9 @@ impl Bitboards {
     /// captures where we don't know the captured piece type up front.
     fn clear_any(&mut self, sq: u8) {
         let mask = !bit(sq);
-        for c in 0..2 {
-            for p in 0..6 {
-                self.boards[c][p] &= mask;
+        for color_boards in &mut self.boards {
+            for board in color_boards {
+                *board &= mask;
             }
         }
     }

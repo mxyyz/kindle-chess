@@ -1,0 +1,33 @@
+---
+# Story e04s05 — ChessError at the api/ boundary only (user decision).
+# Box<dyn Error> is not Send; ChessError is, so spawned tasks can use `?`.
+story_id: e04s05
+title: "ChessError (Send + Sync) returned from api/ functions"
+status: passing
+bcps: 5
+delta: MODIFIED
+tasks:
+  - id: e04s05t01
+    description: >-
+      src/error.rs: ChessError with Api/Auth/Network/Parse/Io variants,
+      Display + std::error::Error, From for litchee LichessError,
+      reqwest::Error, std::io::Error, serde_json::Error. Unit tests for the
+      From conversions and a Send + Sync static assert. See
+      specs/epics/e01-refactor-and-tests/samples/chess_error_sample.rs.
+    verify: >-
+      cd kindle_chess && cargo test --lib error 2>&1 | grep -q 'test result: ok'
+    status: passing
+  - id: e04s05t02
+    description: >-
+      Tracer: api/board.rs public fns return Result<T, ChessError>; update
+      their callers in screens/app.
+    verify: "cd kindle_chess && cargo test 2>&1 | grep -q 'test result: ok'"
+    status: passing
+  - id: e04s05t03
+    description: >-
+      Rest of api/ (api.rs, oauth.rs, github.rs, update.rs, traits.rs,
+      litchee_adapter.rs public fns) return ChessError; callers updated.
+    verify: >-
+      cd kindle_chess && ! grep -rn "Box<dyn std::error::Error" src/api
+      && cargo test 2>&1 | grep -q 'test result: ok'
+    status: passing

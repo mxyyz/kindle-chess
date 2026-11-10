@@ -9,7 +9,7 @@ use std::sync::Mutex;
 use kindli_chess::api::traits::PuzzleFetcher;
 use kindli_chess::models::oauth::TokenInfo;
 
-type BoxError = Box<dyn std::error::Error + Send + Sync>;
+type BoxError = kindli_chess::error::ChessError;
 
 /// A canned fetcher: maps URL -> body string (Ok) or error message (Err).
 #[derive(Default)]

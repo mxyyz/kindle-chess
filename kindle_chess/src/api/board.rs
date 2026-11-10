@@ -1,5 +1,6 @@
 use crate::api::litchee_adapter::LitcheeAdapter;
 use crate::app::game::player0_turn;
+use crate::error::ChessError;
 use crate::models::bitboard::Bitboards;
 use crate::models::board_api::{
     BoardAPI, ChallengeMode, ChallengeSummary, GameDataList, GameStateStreamEvent, Idle, InGame,
@@ -28,16 +29,13 @@ pub enum StreamEnd {
 // State-agnostic operations: ongoing-games list and the account event stream
 // are valid in both Idle and InGame.
 impl<S> BoardAPI<S> {
-    pub async fn get_ongoing_games(
-        &self,
-        n: u8,
-    ) -> Result<GameDataList, Box<dyn std::error::Error>> {
+    pub async fn get_ongoing_games(&self, n: u8) -> Result<GameDataList, ChessError> {
         Ok(self.adapter.get_ongoing_games(n).await?)
     }
 
     /// Usernames of followed players (Lichess friends) — the FriendlistScreen's
     /// data source for picking a challenge opponent.
-    pub async fn get_following(&self) -> Result<Vec<String>, Box<dyn std::error::Error>> {
+    pub async fn get_following(&self) -> Result<Vec<String>, ChessError> {
         Ok(self.adapter.get_following().await?)
     }
 
@@ -46,24 +44,24 @@ impl<S> BoardAPI<S> {
         &self,
         username: &str,
         mode: &ChallengeMode,
-    ) -> Result<ChallengeSummary, Box<dyn std::error::Error>> {
+    ) -> Result<ChallengeSummary, ChessError> {
         Ok(self.adapter.send_challenge(username, mode).await?)
     }
 
     /// Incoming + outgoing challenges (InvitesScreen data source).
-    pub async fn list_challenges(&self) -> Result<Vec<ChallengeSummary>, Box<dyn std::error::Error>> {
+    pub async fn list_challenges(&self) -> Result<Vec<ChallengeSummary>, ChessError> {
         Ok(self.adapter.list_challenges().await?)
     }
 
-    pub async fn accept_challenge(&self, challenge_id: &str) -> Result<(), Box<dyn std::error::Error>> {
+    pub async fn accept_challenge(&self, challenge_id: &str) -> Result<(), ChessError> {
         Ok(self.adapter.accept_challenge(challenge_id).await?)
     }
 
-    pub async fn decline_challenge(&self, challenge_id: &str) -> Result<(), Box<dyn std::error::Error>> {
+    pub async fn decline_challenge(&self, challenge_id: &str) -> Result<(), ChessError> {
         Ok(self.adapter.decline_challenge(challenge_id).await?)
     }
 
-    pub async fn cancel_challenge(&self, challenge_id: &str) -> Result<(), Box<dyn std::error::Error>> {
+    pub async fn cancel_challenge(&self, challenge_id: &str) -> Result<(), ChessError> {
         Ok(self.adapter.cancel_challenge(challenge_id).await?)
     }
 }
@@ -114,15 +112,15 @@ impl BoardAPI<InGame> {
         &self.state.turn
     }
 
-    pub async fn move_piece(&self, board_move: &str) -> Result<(), Box<dyn std::error::Error>> {
+    pub async fn move_piece(&self, board_move: &str) -> Result<(), ChessError> {
         Ok(self.adapter.move_piece(self.game_id(), board_move).await?)
     }
 
-    pub async fn resign_game(&self) -> Result<(), Box<dyn std::error::Error>> {
+    pub async fn resign_game(&self) -> Result<(), ChessError> {
         Ok(self.adapter.resign_game(self.game_id()).await?)
     }
 
-    pub async fn abort_game(&self) -> Result<(), Box<dyn std::error::Error>> {
+    pub async fn abort_game(&self) -> Result<(), ChessError> {
         Ok(self.adapter.abort_game(self.game_id()).await?)
     }
 
@@ -143,7 +141,7 @@ impl BoardAPI<InGame> {
         &mut self,
         tx: Sender<AppEvent>,
         cancel: Arc<AtomicBool>,
-    ) -> Result<StreamEnd, Box<dyn std::error::Error>> {
+    ) -> Result<StreamEnd, ChessError> {
         let mut stream = self.adapter.stream_game(self.game_id()).await?;
 
         let mut got_any = false;
@@ -187,7 +185,7 @@ impl BoardAPI<InGame> {
         &mut self,
         event: GameStateStreamEvent,
         tx: &Sender<AppEvent>,
-    ) -> Result<(), Box<dyn std::error::Error>> {
+    ) -> Result<(), ChessError> {
         match event {
             GameStateStreamEvent::GameFull(full) => {
                 let player0_white =
@@ -358,4 +356,81 @@ fn resolve_winner(
         "black" => black.map(PlayedBy::display_name),
         _ => None,
     }
+}
+
+#[cfg(test)]
+mod typestate_tests {
+    use super::*;
+    use crate::models::oauth::TokenInfo;
+
+    fn test_token() -> TokenInfo {
+        TokenInfo {
+            access_token: "test_token_12345".into(),
+            token_type: "Bearer".into(),
+            expires_in: Some(86400),
+            scope: None,
+        }
+    }
+
+    fn test_user() -> LichessUser {
+        LichessUser {
+            id: "testuser".into(),
+            username: "TestUser".into(),
+            perfs: None,
+            created_at: None,
+            disabled: None,
+            tos_violation: None,
+            profile: None,
+            seen_at: None,
+            patron: None,
+            verified: None,
+            play_time: None,
+            title: None,
+        }
+    }
+
+    #[test]
+    fn idle_new_creates_board_api() {
+        let api = BoardAPI::<Idle>::new(test_token(), test_user()).unwrap();
+        // Idle state has no game_id — that's the whole point of the typestate.
+        let _: &Idle = &api.state;
+    }
+
+    #[test]
+    fn attach_game_transitions_to_in_game() {
+        let idle = BoardAPI::<Idle>::new(test_token(), test_user()).unwrap();
+        let in_game = idle.attach_game("game123abc".into(), true);
+        assert_eq!(in_game.game_id(), "game123abc");
+    }
+
+    #[test]
+    fn attach_game_sets_turn_playing_when_my_turn() {
+        let idle = BoardAPI::<Idle>::new(test_token(), test_user()).unwrap();
+        let in_game = idle.attach_game("g1".into(), true);
+        assert!(matches!(in_game.turn(), Turn::Playing));
+    }
+
+    #[test]
+    fn attach_game_sets_turn_waiting_when_not_my_turn() {
+        let idle = BoardAPI::<Idle>::new(test_token(), test_user()).unwrap();
+        let in_game = idle.attach_game("g2".into(), false);
+        assert!(matches!(in_game.turn(), Turn::Waiting));
+    }
+
+    #[test]
+    fn in_game_state_has_starting_board() {
+        let idle = BoardAPI::<Idle>::new(test_token(), test_user()).unwrap();
+        let in_game = idle.attach_game("g3".into(), true);
+        // initial_board should be the standard starting position
+        let starting = Bitboards::starting_position();
+        assert_eq!(in_game.state.initial_board.boards, starting.boards);
+        assert_eq!(in_game.state.board.boards, starting.boards);
+    }
+
+    // Compile-fail cases (documented, not tested with trybuild):
+    // - BoardAPI::<Idle> has no move_piece/resign_game/abort_game/stream_game_event
+    //   → calling api.move_piece("e2e4") on Idle is a compile error
+    // - BoardAPI::<InGame> has no attach_game → calling in_game.attach_game(...) is
+    //   a compile error (attach_game consumes self and is only on Idle)
+    // - Idle has no game_id/turn accessors → api.game_id() on Idle is a compile error
 }

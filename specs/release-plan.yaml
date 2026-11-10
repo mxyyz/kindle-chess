@@ -1,5 +1,5 @@
 # specs/release-plan.yaml — WSJF epic index
-# e01/e02 are landed (merged to main); e03 is the active epic of this session.
+# e01/e02/e03 landed on main; e04 (e01 leftovers) is active.
 release:
   target_version: null # semantic-release decides at merge
   last_tag: null
@@ -7,13 +7,13 @@ release:
 epics:
   - id: e01-refactor-and-tests
     status: done
-    note: landed pre-session
+    note: landed pre-session; t01-t04 done; t05-t15 moved to e04
   - id: e02-native-kindle-integration
     status: done
     note: merged via PR #35 (ddf74cf); only t07-phase2-uat remained open and was moved to e03s07
   - id: e03-target-device-directory-restructure
-    status: active
-    wsjf_order: 1
+    status: done
+    note: merged via PR #37, released 0.3.0
     scope: specs/product/SCOPE_LATEST.yaml
     planning_context: specs/planning-context.yaml
     capsule: specs/epics/e03-target-device-directory-restructure/
@@ -25,3 +25,16 @@ epics:
       - { id: e03s05, title: "Phase 3: i18n infra (fluent-rs) + language setting + Home/Play strings EN/DE", bcps: 5, delta: ADDED }
       - { id: e03s06, title: "Phase 3: apply EN/DE locale strings to all remaining screens", bcps: 3, delta: MODIFIED }
       - { id: e03s07, title: "Carried from e02: t07-phase2-uat on-device UAT of chrome mode on k2 (END of epic)", bcps: 2, delta: ADDED }
+  - id: e04-e01-leftovers
+    status: done
+    wsjf_order: 1
+    scope: specs/product/SCOPE_LATEST.yaml
+    origin: specs/epics/e01-refactor-and-tests/tasks.yaml (t05-t15)
+    capsule: specs/epics/e04-e01-leftovers/
+    stories:
+      - { id: e04s01, title: "CI gate: fmt + clippy + cache", bcps: 2, delta: MODIFIED }
+      - { id: e04s02, title: "Unit tests: board-API, OAuth, widgets", bcps: 5, delta: ADDED }
+      - { id: e04s03, title: "One file per screen", bcps: 5, delta: MODIFIED }
+      - { id: e04s04, title: "ui/layout.rs constants", bcps: 3, delta: MODIFIED }
+      - { id: e04s05, title: "ChessError at api/ boundary", bcps: 5, delta: MODIFIED }
+      - { id: e04s06, title: "Coverage report + badge, no gate", bcps: 2, delta: ADDED }

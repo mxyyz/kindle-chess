@@ -8,9 +8,9 @@
 use crate::ui::renderer::{DrawColor, Renderer};
 use crate::ui::widgets::icon_button::{Icon, load_icon};
 
+use crate::ui::layout::SCREEN_H;
 /// Canvas dimensions (absolute layout, see ARCHITECTURE.md).
-const SCREEN_W: i16 = 1072;
-const SCREEN_H: i16 = 1448;
+use crate::ui::layout::SCREEN_W;
 
 /// Max logo width on the screensaver.
 const LOGO_MAX_W: f32 = 800.0;

@@ -18,9 +18,40 @@ jobs:
 
     steps:
     - uses: actions/checkout@v4
+    - uses: Swatinem/rust-cache@v2
+    - name: Format check
+      working-directory: kindle_chess
+      run: cargo fmt --check
+    - name: Clippy
+      working-directory: kindle_chess
+      run: cargo clippy --all-targets -- -D warnings
     - name: Test
       working-directory: kindle_chess
       run: cargo test --verbose
+
+  # Coverage report only — never gates on a percentage (report-only per scope).
+  coverage:
+    runs-on: ubuntu-latest
+
+    steps:
+    - uses: actions/checkout@v4
+    - uses: Swatinem/rust-cache@v2
+    - uses: taiki-e/install-action@v2
+      with:
+        tool: cargo-llvm-cov
+    - name: Generate coverage (lcov + html)
+      working-directory: kindle_chess
+      run: |
+        cargo llvm-cov --lcov --output-path lcov.info
+        cargo llvm-cov --html
+    - uses: actions/upload-artifact@v4
+      with:
+        name: coverage-report
+        path: kindle_chess/target/llvm-cov/html
+    - uses: actions/upload-artifact@v4
+      with:
+        name: coverage-lcov
+        path: kindle_chess/lcov.info
 
   build:
     runs-on: ubuntu-latest

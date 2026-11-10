@@ -1,0 +1,47 @@
+---
+# Epic capsule manifest — e04-e01-leftovers
+epic_id: e04-e01-leftovers
+status: sliced (plan-work pending)
+scope: specs/product/SCOPE_LATEST.yaml
+origin: specs/epics/e01-refactor-and-tests/tasks.yaml (t05-t15)
+# Order: CI gate first so every later story is checked; tests before the
+# refactors they protect; coverage last so the badge shows the final number.
+stories:
+  - story_id: e04s01
+    title: >-
+      CI gate: fmt + clippy -D warnings + cache in rust.yml, code made green
+    bcps: 2
+    delta: MODIFIED
+    origin: e01 t14 (rest)
+    tasks_file: e04s01-tasks.yaml
+  - story_id: e04s02
+    title: "Unit tests for board-API models, OAuth models and widget hit tests"
+    bcps: 5
+    delta: ADDED
+    origin: e01 t08-t11
+    tasks_file: e04s02-tasks.yaml
+  - story_id: e04s03
+    title: >-
+      One file per screen under ui/screens/ (struct + impl Screen together)
+    bcps: 5
+    delta: MODIFIED
+    origin: e01 t05, t06
+    tasks_file: e04s03-tasks.yaml
+  - story_id: e04s04
+    title: "ui/layout.rs: display + layout constants replace magic numbers"
+    bcps: 3
+    delta: MODIFIED
+    origin: e01 t07
+    tasks_file: e04s04-tasks.yaml
+  - story_id: e04s05
+    title: "ChessError (Send + Sync) returned from api/ functions"
+    bcps: 5
+    delta: MODIFIED
+    origin: e01 t12, t13
+    tasks_file: e04s05-tasks.yaml
+  - story_id: e04s06
+    title: "Coverage report artifact in CI + README badge (no gate)"
+    bcps: 2
+    delta: ADDED
+    origin: e01 t15
+    tasks_file: e04s06-tasks.yaml

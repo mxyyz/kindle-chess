@@ -1,6 +1,6 @@
 # Epic capsule manifest — e03-target-device-directory-restructure
 epic_id: e03-target-device-directory-restructure
-status: slicing (slice-tasks done; plan-work pending)
+status: done (PR #37, released 0.3.0)
 scope: specs/product/SCOPE_LATEST.yaml
 planning_context: specs/planning-context.yaml
 stories:

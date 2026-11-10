@@ -1,66 +1,105 @@
-# specs/product/SCOPE_LATEST.yaml — bounded PRD for the current initiative (e03)
+---
+# specs/product/SCOPE_LATEST.yaml — bounded PRD for the current initiative (e04)
 # Written by scope-work. Consumed by slice-tasks / plan-work.
-feature_name: e03-target-device-directory-restructure (3 phases)
-
+# Previous (e03) scope archived at
+# specs/epics/e03-target-device-directory-restructure/SCOPE.yaml
+feature_name: e04-e01-leftovers (code organization, tests, errors, CI)
 core_value: >-
-  Make kindle-chess a cleanly installed Kindle app (sensible on-device directory
-  layout) and grow it beyond the demo into a live-game and localized experience.
-
+  Make the codebase easier to change safely: smaller screen files, named layout
+  values, tests on untested modules, one error type at the API boundary, and
+  CI that checks lint, format and coverage.
 summary: >-
-  Epic e03 has three phases plus one carried-over task.
-  Phase 1 restructures the on-device directories: the app root /mnt/us/hellokindle
-  is renamed to /mnt/us/kindlichess and the now-unneeded on-device scripts are
-  removed (only chess_app.sh stays as the launcher). This is new-deploys-only —
-  already-deployed devices (k1/k2) are not migrated. All touchpoints of the
-  compile-time ROOT_DIR and the deploy scripts must move together.
-  Phase 2 replaces the "Demo" screen / home-screen button with a flow that leads
-  the user into a live online game, scoped to friend invites and inviting only;
-  exact screen layouts and flow are defined in a follow-up elaborate-spec.
-  Phase 3 adds language settings with German as the first alternative language,
-  using a pure-Rust i18n crate that cross-compiles to armv7-unknown-linux-musleabi.
-  Carried over from e02: t07-phase2-uat (on-device UAT of chrome mode on k2),
-  executed at the END of this epic.
+  e04 finishes the e01 backlog (t05-t13, t15) plus the unfinished part of
+  t14. There is no user-visible change: behavior on the device stays the same.
 
+  The screen code is now in two very large files (models/ui.rs ~840 lines,
+  ui/screens.rs ~2600 lines). They split into one file per screen. Hard-coded
+  pixel values move into one layout module. The game, OAuth, board-API and
+  widget modules get tests. Code outside api/ sees one ChessError type in
+  place of Box<dyn Error>. CI adds clippy, rustfmt, dependency caching and
+  a coverage report.
+
+  The e01 task details predate the litchee migration and e02/e03. Slicing
+  must check each against current code (for example, which oauth/board types
+  still exist, which tests in kindle_chess/tests/ already cover them).
 in_scope:
-  - "phase-1 (stories e03-p1-*): rename on-device app root /mnt/us/hellokindle -> /mnt/us/kindlichess across .env.release ROOT_DIR, build.rs consumers, flash.sh / flash_usb.sh deploy paths, kindle_KUAL/hellokindle/chess_app.sh, scriptlet/kindle-chess.sh, menu.json; remove unneeded on-device scripts (app_test.sh, display_test.sh, eips_test.sh, oldx11test.sh, x11test.sh), keep chess_app.sh"
-  - "phase-1: preserve the secrets/token.json mv-aside dance in flash scripts across the rename"
-  - "phase-2 (stories e03-p2-*): replace Demo screen + home button with a live-online-game flow, friend invites / inviting only (exact layouts + flow TBD in elaborate-spec follow-up)"
-  - "phase-3 (stories e03-p3-*): language settings UI + German locale via pure-Rust i18n crate (recommendation: fluent-rs — pure Rust, no system libs, static-musl/armv7 safe, runtime locale switching; rust-i18n as compile-time-only fallback)"
-  - "carried: t07-phase2-uat (from e02) at the end of specs/epics/e03-target-device-directory-restructure/tasks.yaml"
-
+- >-
+  e04-code-org (from e01 t05, t06): one file per screen for the screen structs
+  and Screen impls; models/ui.rs and ui/screens.rs become small
+- >-
+  e04-code-org (from e01 t07): display dimensions and layout magic numbers
+  in one layout module
+- >-
+  e04-tests (from e01 t08-t11): unit tests for game models, OAuth, board API
+  and widget logic (hit tests, geometry), skipping cases already covered
+- >-
+  e04-errors (from e01 t12, t13): ChessError (Send + Sync) returned from api/
+  functions; wraps litchee, HTTP, IO and parse errors
+- >-
+  e04-ci (from e01 t14 rest): rust.yml runs cargo clippy and cargo fmt --check,
+  with dependency caching; fix existing clippy/fmt findings so CI is green
+- >-
+  e04-ci (from e01 t15): coverage report as a CI artifact plus a README badge,
+  report only
 out_of_scope:
-  - "Repo-side directory layout changes — only the on-device (/mnt/us) layout changes (user decision)"
-  - "Migrating already-deployed k1/k2 installs to the new layout — new deploys only (user decision)"
-  - "Removing the KUAL bundle as a launch path — chess_app.sh stays and KUAL remains the fallback launcher (e02 decision, still active)"
-  - "Phase-2 scope beyond friend invites / inviting (no open matchmaking, lobby browser, rematch flow, etc. until separately scoped)"
-  - "gettext-rs / libintl-based i18n — requires system gettext libraries, breaks static musl armv7 cross-compile"
-  - "KPM .kpkg packaging, WAF config.xml / kindle.* JS APIs, C++/GTK rewrite (carried from specs/planning-context.yaml)"
-  - "appreg.db registration (deferred in e02, still deferred)"
-
-trade_offs:
-  - "New-deploys-only migration: excluded because the user confirmed deployed devices keep the old layout; avoids a risky on-device migration script touching token.json"
-  - "Repo layout untouched: excluded so the change stays reviewable as deploy-path + config changes only"
-  - "gettext-rs: excluded — needs libintl at link time, incompatible with crt-static musl target"
-  - "Phase 2 limited to friend invites: excluded the rest of the live-game surface to keep the flow small and testable on-device"
-
+- >-
+  Any user-visible behavior or layout change — this is a no-behavior-change
+  refactor (e04 is cleanup)
+- >-
+  ChessError outside the api/ boundary (app/, ui/ internals keep their current
+  error handling) — user decision; extend later if useful
+- >-
+  A coverage threshold that fails CI — user decision: report only; add a gate
+  once coverage is meaningful
+- >-
+  Multi-device layouts / resolutions other than 1072x1448 — layout constants
+  only make this possible later
+- >-
+  X11 rendering tests (pixel output) — need a display; widget tests cover
+  pure logic only
+- >-
+  New features, new screens, new Lichess endpoints — separate epic
 constraints:
-  - Static musl armv7-unknown-linux-musleabi release build unchanged; i18n crate must be pure Rust
-  - ROOT_DIR stays a compile-time constant via build.rs/.env (value changes, mechanism does not)
-  - flash.sh / flash_usb.sh token.json mv-aside dance must not break
-  - run-dev.sh / Xephyr dev harness must keep working; 1072x1448 absolute canvas unchanged
-  - On-device layout after phase 1: /mnt/us/kindlichess/{assets,bin,config,log,secrets,settings.toml,chess_app.sh} + scriptlet in /mnt/us/documents
-  - All AWM/lipc calls degrade to no-ops off-device
-
+- >-
+  Rust + x11rb; static musl armv7-unknown-linux-musleabi cross build must
+  stay green
+- >-
+  Tests must run headless on the CI runner (no X11, no network, no assets)
+- >-
+  run-dev.sh harness keeps working; pixel layout identical before and after
+- >-
+  No new runtime dependencies; a dev-only coverage tool (cargo-llvm-cov or
+  tarpaulin) is allowed in CI
 success_criteria:
-  - "All launch paths work after the restructure: KUAL menu entry, scriptlet in the library, and ./run-dev.sh on the dev machine (user-selected criterion)"
-  - cargo build (dev + cross musl) and cargo test green after every phase
-  - flash script syntax checks pass; a deploy smoke test on k2 lands in the new layout with token.json preserved
-  - Phase 2: user can reach a live online game via friend invite/invite flow on-device
-  - Phase 3: language setting switches UI strings between English and German at runtime
-
+- >-
+  models/ui.rs and ui/screens.rs no longer hold per-screen code; each screen
+  has its own file
+- >-
+  No raw 1072/1448/134-style layout numbers outside the layout module (where
+  they are layout values)
+- >-
+  New tests for game, OAuth, board API and widgets; cargo test green
+- >-
+  api/ public functions return Result<T, ChessError>; callers compile without
+  Box<dyn Error> from api/
+- >-
+  CI on main runs test, clippy (-D warnings), fmt --check, cross build and
+  coverage — all green
+- README shows a coverage badge
+- On-device smoke check after merge: app behaves as in 0.3.0
+trade_offs:
+- item: ChessError only at api/ boundary
+  reason: >-
+    smallest change that gives callers one error type; whole-app migration
+    has more risk for little gain
+- item: coverage report only, no gate
+  reason: a threshold on a low baseline only adds CI noise
+- item: no rendering tests
+  reason: needs an X server in CI; cost greater than value now
 references:
-  - CLAUDE.md (ROOT_DIR, flash scripts, module layout)
-  - specs/planning-context.yaml (e02 constraints still active)
-  - specs/epics/e03-target-device-directory-restructure.md + tasks.yaml
-  - specs/epics/e02-native-kindle-integration/tasks.yaml (t07 origin)
-  - https://lib.rs/crates/fluent-bundle , https://lib.rs/crates/rust-i18n (i18n crate research)
+- >-
+  specs/epics/e01-refactor-and-tests/tasks.yaml (t05-t15 original detail)
+- >-
+  specs/epics/e01-refactor-and-tests/samples/chess_error_sample.rs
+- .github/workflows/rust.yml
+- specs/tech-architecture/tech-stack.md
