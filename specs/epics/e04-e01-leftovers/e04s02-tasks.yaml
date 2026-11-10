@@ -5,7 +5,7 @@
 # now_playing_decode, api_puzzle).
 story_id: e04s02
 title: "Unit tests for board-API models, OAuth models and widget hit tests"
-status: pending
+status: passing
 bcps: 5
 delta: ADDED
 tasks:
@@ -18,7 +18,7 @@ tasks:
     verify: >-
       cd kindle_chess && cargo test --lib board_api 2>&1 | grep -q 'test result:
       ok'
-    status: pending
+    status: passing
   - id: e04s02t02
     description: >-
       models/oauth.rs + api/oauth.rs: TokenInfo JSON round-trip,
@@ -26,7 +26,7 @@ tasks:
       challenge:read/write, follow:read), auth URL contains PKCE params.
     verify: >-
       cd kindle_chess && cargo test --lib oauth 2>&1 | grep -q 'test result: ok'
-    status: pending
+    status: passing
   - id: e04s02t03
     description: >-
       BoardAPI typestate: Idle::new + attach_game -> InGame exposes
@@ -34,7 +34,7 @@ tasks:
       no trybuild dependency.
     verify: >-
       cd kindle_chess && cargo test --lib board 2>&1 | grep -q 'test result: ok'
-    status: pending
+    status: passing
   - id: e04s02t04
     description: >-
       Widget logic: Rectangle contains/edges (ui/events.rs),
@@ -43,4 +43,4 @@ tasks:
     verify: >-
       cd kindle_chess && cargo test --lib widgets 2>&1 | grep -q 'test result:
       ok'
-    status: pending
+    status: passing

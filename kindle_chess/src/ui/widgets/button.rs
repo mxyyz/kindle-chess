@@ -41,3 +41,30 @@ impl Button {
         Ok(())
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn button_rect_hit_area() {
+        let btn = Button::new(50, 100, 200, 60, "Play".into(), 30.0, true);
+        assert_eq!(btn.rect.x, 50);
+        assert_eq!(btn.rect.y, 100);
+        assert_eq!(btn.rect.width, 200);
+        assert_eq!(btn.rect.height, 60);
+        // Hit test via the public rect field
+        assert!(btn.rect.contains(50, 100));
+        assert!(btn.rect.contains(249, 159));
+        assert!(!btn.rect.contains(250, 100)); // right edge exclusive
+        assert!(!btn.rect.contains(50, 160)); // bottom edge exclusive
+    }
+
+    #[test]
+    fn button_fields_preserved() {
+        let btn = Button::new(0, 0, 100, 40, "Resign".into(), 40.0, false);
+        assert_eq!(btn.label, "Resign");
+        assert_eq!(btn.font_size, 40.0);
+        assert!(!btn.outline);
+    }
+}

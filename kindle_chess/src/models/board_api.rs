@@ -319,3 +319,233 @@ impl ChallengeSummary {
         self.url.rsplit('/').next().filter(|s| !s.is_empty())
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    // ── GameData / GameDataList deserialization ──────────────────────────────
+
+    fn sample_game_data_json() -> &'static str {
+        r#"{
+            "fullId": "abcdefgh12345678",
+            "gameId": "abcdefgh",
+            "color": "white",
+            "fen": "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1",
+            "hasMoved": false,
+            "isMyTurn": true,
+            "lastMove": "e2e4",
+            "opponent": {"id": "opp1", "username": "opponent_name", "rating": 1500},
+            "perf": "blitz",
+            "rated": true,
+            "secondsLeft": 300,
+            "source": "lobby",
+            "speed": "blitz",
+            "variant": {"key": "standard", "name": "Standard", "short": "Std"}
+        }"#
+    }
+
+    #[test]
+    fn game_data_deserializes_camel_case_fields() {
+        let gd: GameData = serde_json::from_str(sample_game_data_json()).unwrap();
+        assert_eq!(gd.full_id, "abcdefgh12345678");
+        assert_eq!(gd.game_id, "abcdefgh");
+        assert_eq!(gd.color, "white");
+        assert!(gd.is_my_turn);
+        assert!(!gd.has_moved);
+        assert_eq!(gd.last_move, "e2e4");
+        assert_eq!(gd.seconds_left, Some(300));
+        assert!(matches!(gd.speed, Speed::Blitz));
+    }
+
+    #[test]
+    fn game_data_list_deserializes_now_playing_array() {
+        let json = format!(r#"{{"nowPlaying": [{}]}}"#, sample_game_data_json());
+        let list: GameDataList = serde_json::from_str(&json).unwrap();
+        assert_eq!(list.now_playing.len(), 1);
+        assert_eq!(list.now_playing[0].game_id, "abcdefgh");
+    }
+
+    #[test]
+    fn game_data_last_move_defaults_to_empty_when_missing() {
+        let mut v: serde_json::Value = serde_json::from_str(sample_game_data_json()).unwrap();
+        v.as_object_mut().unwrap().remove("lastMove");
+        let gd: GameData = serde_json::from_value(v).unwrap();
+        assert_eq!(gd.last_move, "");
+    }
+
+    // ── GameStateStreamEvent variants ────────────────────────────────────────
+
+    #[test]
+    fn stream_event_game_full_deserializes() {
+        let json = r#"{
+            "type": "gameFull",
+            "variant": {"key": "standard", "name": "Standard"},
+            "speed": "blitz",
+            "perf": {"name": "blitz"},
+            "rated": false,
+            "createdAt": 1700000000000,
+            "white": {"id": "w", "name": "White", "rating": 1500},
+            "black": {"id": "b", "name": "Black", "rating": 1500},
+            "initialFen": "startpos",
+            "state": {"type": "gameState", "moves": "", "wtime": 300000, "btime": 300000, "winc": 0, "binc": 0, "status": "started"}
+        }"#;
+        let ev: GameStateStreamEvent = serde_json::from_str(json).unwrap();
+        match ev {
+            GameStateStreamEvent::GameFull(full) => {
+                assert_eq!(full.initial_fen, "startpos");
+                assert_eq!(full.state.status, "started");
+                assert_eq!(full.white.display_name(), "White");
+            }
+            _ => panic!("expected GameFull"),
+        }
+    }
+
+    #[test]
+    fn stream_event_game_state_deserializes() {
+        let json = r#"{
+            "type": "gameState",
+            "moves": "e2e4 e7e5",
+            "wtime": 290000,
+            "btime": 295000,
+            "winc": 2000,
+            "binc": 2000,
+            "status": "started",
+            "winner": null
+        }"#;
+        let ev: GameStateStreamEvent = serde_json::from_str(json).unwrap();
+        match ev {
+            GameStateStreamEvent::GameState(gs) => {
+                assert_eq!(gs.moves, "e2e4 e7e5");
+                assert_eq!(gs.winner, None);
+            }
+            _ => panic!("expected GameState"),
+        }
+    }
+
+    #[test]
+    fn stream_event_chat_line_deserializes() {
+        let json =
+            r#"{"type": "chatLine", "username": "opponent", "text": "gg", "room": "player"}"#;
+        let ev: GameStateStreamEvent = serde_json::from_str(json).unwrap();
+        match ev {
+            GameStateStreamEvent::ChatLine(cl) => {
+                assert_eq!(cl.username, "opponent");
+                assert_eq!(cl.text, "gg");
+                assert_eq!(cl.room, "player");
+            }
+            _ => panic!("expected ChatLine"),
+        }
+    }
+
+    #[test]
+    fn stream_event_opponent_gone_deserializes() {
+        let json = r#"{"type": "opponentGone", "gone": true, "claimWinInSeconds": 30}"#;
+        let ev: GameStateStreamEvent = serde_json::from_str(json).unwrap();
+        match ev {
+            GameStateStreamEvent::OpponentGone(og) => {
+                assert!(og.gone);
+                assert_eq!(og.claim_win_in_seconds, 30);
+            }
+            _ => panic!("expected OpponentGone"),
+        }
+    }
+
+    // ── PlayedBy: User vs AI discrimination + display_name ───────────────────
+
+    #[test]
+    fn played_by_user_deserializes_from_name_schema() {
+        let json = r#"{"id": "u1", "name": "Alice", "title": "GM", "rating": 2500}"#;
+        let pb: PlayedBy = serde_json::from_str(json).unwrap();
+        assert_eq!(pb.display_name(), "Alice");
+        match pb {
+            PlayedBy::User(p) => {
+                assert_eq!(p.id, "u1");
+                assert_eq!(p.title, Some("GM".to_string()));
+                assert_eq!(p.rating, 2500);
+            }
+            _ => panic!("expected User variant"),
+        }
+    }
+
+    #[test]
+    fn played_by_user_deserializes_from_username_alias() {
+        // now_playing endpoint uses "username" instead of "name"
+        let json = r#"{"id": "u2", "username": "Bob", "rating": 1800}"#;
+        let pb: PlayedBy = serde_json::from_str(json).unwrap();
+        assert_eq!(pb.display_name(), "Bob");
+    }
+
+    #[test]
+    fn played_by_ai_deserializes_when_ai_level_present() {
+        let json = r#"{"aiLevel": 3}"#;
+        let pb: PlayedBy = serde_json::from_str(json).unwrap();
+        assert_eq!(pb.display_name(), "AI lvl 3");
+        match pb {
+            PlayedBy::Ai(ai) => assert_eq!(ai.ai_level, Some(3)),
+            _ => panic!("expected Ai variant"),
+        }
+    }
+
+    #[test]
+    fn played_by_ai_without_level_shows_plain_ai() {
+        let json = r#"{"ai": null}"#;
+        let pb: PlayedBy = serde_json::from_str(json).unwrap();
+        // ai: null → ai_level is None → falls through to User with empty name
+        // Actually, ai_level is None so it goes to User branch with defaults
+        match pb {
+            PlayedBy::User(p) => assert_eq!(p.name, ""),
+            PlayedBy::Ai(_) => panic!("ai:null should not produce Ai variant"),
+        }
+    }
+
+    #[test]
+    fn played_by_ai_with_null_level_but_present_field() {
+        // When ai is explicitly null, serde reads it as None, falls to User
+        // When aiLevel is a number, it's Ai
+        let json = r#"{"aiLevel": 8}"#;
+        let pb: PlayedBy = serde_json::from_str(json).unwrap();
+        assert_eq!(pb.display_name(), "AI lvl 8");
+    }
+
+    // ── ChallengeMode::days_value ────────────────────────────────────────────
+
+    #[test]
+    fn challenge_mode_days_value() {
+        assert_eq!(ChallengeMode::Unlimited.days_value(), 0);
+        assert_eq!(ChallengeMode::RealTime.days_value(), 0);
+        assert_eq!(ChallengeMode::Correspondence(5).days_value(), 5);
+        assert_eq!(ChallengeMode::Correspondence(14).days_value(), 14);
+    }
+
+    // ── ChallengeSummary::game_id ────────────────────────────────────────────
+
+    #[test]
+    fn challenge_game_id_none_until_accepted() {
+        let c = ChallengeSummary {
+            id: "abc".into(),
+            status: "created".into(),
+            opponent: "Bob".into(),
+            incoming: false,
+            url: "https://lichess.org/abc".into(),
+        };
+        assert_eq!(c.game_id(), None);
+    }
+
+    #[test]
+    fn challenge_game_id_extracted_from_url_when_accepted() {
+        let c = ChallengeSummary {
+            id: "abc".into(),
+            status: "accepted".into(),
+            opponent: "Bob".into(),
+            incoming: false,
+            url: "https://lichess.org/XyZ123ab".into(),
+        };
+        assert_eq!(c.game_id(), Some("XyZ123ab"));
+    }
+
+    #[test]
+    fn allowed_correspondence_days_matches_lichess_contract() {
+        assert_eq!(ALLOWED_CORRESPONDENCE_DAYS, [1, 2, 3, 5, 7, 10, 14]);
+    }
+}

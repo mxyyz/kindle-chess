@@ -189,3 +189,34 @@ impl RectangleExt for Rectangle {
             && py < self.y + self.height as i16
     }
 }
+
+#[cfg(test)]
+mod rectangle_tests {
+    use super::*;
+
+    #[test]
+    fn contains_inside() {
+        let r = Rectangle::new(10, 20, 100, 50);
+        assert!(r.contains(10, 20)); // top-left corner
+        assert!(r.contains(50, 40)); // middle
+        assert!(r.contains(109, 69)); // bottom-right inside
+    }
+
+    #[test]
+    fn contains_edges_exclusive() {
+        let r = Rectangle::new(10, 20, 100, 50);
+        // right edge: x + width = 110, exclusive
+        assert!(!r.contains(110, 40));
+        // bottom edge: y + height = 70, exclusive
+        assert!(!r.contains(50, 70));
+        // just outside
+        assert!(!r.contains(9, 40));
+        assert!(!r.contains(50, 19));
+    }
+
+    #[test]
+    fn contains_zero_size_never_contains() {
+        let r = Rectangle::new(0, 0, 0, 0);
+        assert!(!r.contains(0, 0));
+    }
+}

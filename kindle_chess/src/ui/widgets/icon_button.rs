@@ -72,3 +72,23 @@ impl IconButton {
         Ok(())
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn icon_button_contains_delegates_to_rect() {
+        // IconButton::new loads an icon from disk; if the asset is missing,
+        // icon is None but the rect is still set. contains only uses rect.
+        let btn = IconButton::new(100, 200, "nonexistent.png");
+        assert_eq!(btn.rect.x, 100);
+        assert_eq!(btn.rect.y, 200);
+        assert_eq!(btn.rect.width, ICON_BUTTON_SIZE);
+        assert_eq!(btn.rect.height, ICON_BUTTON_SIZE);
+        assert!(btn.contains(100, 200));
+        assert!(btn.contains(100 + ICON_BUTTON_SIZE as i16 - 1, 200));
+        assert!(!btn.contains(100 + ICON_BUTTON_SIZE as i16, 200));
+        assert!(!btn.contains(99, 200));
+    }
+}
