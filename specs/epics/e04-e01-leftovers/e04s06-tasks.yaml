@@ -2,7 +2,7 @@
 # Story e04s06 — coverage report, no gate (user decision).
 story_id: e04s06
 title: "Coverage report artifact in CI + README badge (no gate)"
-status: pending
+status: passing
 bcps: 2
 delta: ADDED
 tasks:
@@ -13,10 +13,10 @@ tasks:
     verify: >-
       grep -q llvm-cov .github/workflows/rust.yml && ! grep -q fail-under
       .github/workflows/rust.yml
-    status: pending
+    status: passing
   - id: e04s06t02
     description: >-
       README coverage badge (no external service needed if possible,
       e.g. badge generated in CI or shields.io endpoint).
     verify: "grep -qi coverage README.md"
-    status: pending
+    status: passing
