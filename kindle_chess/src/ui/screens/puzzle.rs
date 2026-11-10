@@ -6,6 +6,7 @@ use crate::i18n::{self, tr};
 
 use super::*;
 
+use crate::ui::layout;
 use crate::{
     api::client::{get_home_puzzle, get_next_puzzle, post_puzzle_solution},
     models::{
@@ -49,8 +50,13 @@ impl PuzzleScreen {
     pub fn new(token: Option<TokenInfo>, config: Arc<RwLock<AppConfig>>) -> Self {
         let params = config.read().map(|c| c.puzzle).unwrap_or_default();
         Self {
-            board: BoardWidget::new(Rectangle::new(0, 0, 1072, 1072)),
-            sidebar: PuzzleSidebarWidget::new(Rectangle::new(0, 1072, 1072, 376)),
+            board: BoardWidget::new(Rectangle::new(0, 0, layout::BOARD_SIZE, layout::BOARD_SIZE)),
+            sidebar: PuzzleSidebarWidget::new(Rectangle::new(
+                0,
+                layout::SIDEBAR_Y,
+                layout::SIDEBAR_W,
+                layout::SIDEBAR_H,
+            )),
             session: None,
             token,
             params,

@@ -1,4 +1,5 @@
 use crate::ui::events::RectangleExt;
+use crate::ui::layout::{SCREEN_H_U16, SCREEN_W_U16};
 use fontdue::{Font, FontSettings};
 use image::{ImageBuffer, Luma, Rgba, imageops};
 use log::info;
@@ -370,7 +371,11 @@ impl Renderer {
     }
 
     pub fn clear(&mut self, color: DrawColor) -> Result<(), Box<dyn std::error::Error>> {
-        self.draw_rectangle(Rectangle::new(0, 0, 1072, 1448), color, true)
+        self.draw_rectangle(
+            Rectangle::new(0, 0, SCREEN_W_U16, SCREEN_H_U16),
+            color,
+            true,
+        )
     }
 
     pub fn present(&mut self) -> Result<(), Box<dyn std::error::Error>> {
@@ -430,8 +435,8 @@ impl Renderer {
             screen.root,
             0,
             0,
-            1072,
-            1448,
+            SCREEN_W_U16,
+            0,
             0,
             WindowClass::INPUT_OUTPUT,
             0,

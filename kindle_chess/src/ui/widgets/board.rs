@@ -7,7 +7,7 @@ use image::{ImageBuffer, Rgba};
 use log::{info, warn};
 use std::path::Path;
 
-const SQUARE_SIZE: u16 = 134; // 1072 / 8
+use crate::ui::layout::SQUARE_SIZE;
 // Source PNGs are 128×128, drawn at 96 (≈ 80 % of the 120 we used before)
 // to free up corner real estate for the selection diagonals and last-move
 // brackets without crowding the piece glyph.
@@ -532,13 +532,14 @@ fn square_to_index(sq: Square) -> u8 {
 mod tests {
     use super::*;
     use crate::ui::events::Rectangle;
+    use crate::ui::layout::BOARD_SIZE;
 
     /// The wake-after-lock redraw relies on this contract: invalidate() must
     /// force a full repaint, otherwise the board diffs against a stale
     /// last-drawn cache and stays invisible after the screensaver.
     #[test]
     fn invalidate_forces_full_repaint() {
-        let mut board = BoardWidget::new(Rectangle::new(0, 0, 1072, 1072));
+        let mut board = BoardWidget::new(Rectangle::new(0, 0, BOARD_SIZE, BOARD_SIZE));
         assert!(!board.force_full_repaint);
         board.invalidate();
         assert!(board.force_full_repaint);

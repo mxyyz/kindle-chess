@@ -6,6 +6,7 @@ use crate::i18n::{self, tr};
 
 use super::*;
 
+use crate::ui::layout;
 use crate::{
     api::oauth::{get_user_info, load_token},
     models::{
@@ -51,17 +52,16 @@ pub struct HomeScreen {
 
 impl HomeScreen {
     pub fn new(config: Arc<RwLock<AppConfig>>) -> Self {
-        // Layout: 1072 × 1448 total canvas. The logo occupies the upper half;
+        // Layout: layout::SCREEN_W × layout::SCREEN_H total canvas. The logo occupies the upper half;
         // the five equal buttons are stacked and height-centred in the lower
         // half.
         const BTN_W: u16 = 600;
         const BTN_H: u16 = 96;
         const GAP: i16 = 28;
-        const CENTER_X: i16 = 1072 / 2;
-        let x = CENTER_X - BTN_W as i16 / 2;
+        let x = layout::CENTER_X - BTN_W as i16 / 2;
         let total = 5 * BTN_H as i16 + 4 * GAP;
-        let upper_half = 1448 / 2;
-        let start_y = upper_half + (1448 - upper_half - total) / 2;
+        let upper_half = layout::CENTER_Y;
+        let start_y = upper_half + (layout::SCREEN_H - upper_half - total) / 2;
         let row = |i: i16| start_y + i * (BTN_H as i16 + GAP);
 
         Self {
@@ -144,8 +144,8 @@ impl Screen for HomeScreen {
         if let Some(logo) = &self.logo {
             let dw = logo.width() as u16;
             let dh = logo.height() as u16;
-            let upper_half = 1448 / 2;
-            let lx = (1072 - dw as i16) / 2;
+            let upper_half = layout::CENTER_Y;
+            let lx = (layout::SCREEN_W - dw as i16) / 2;
             let ly = (upper_half - dh as i16) / 2;
             display
                 .renderer
@@ -320,7 +320,7 @@ mod home_screen_tests {
         ];
         for (i, b) in buttons.iter().enumerate() {
             assert!(
-                b.rect.y >= 0 && b.rect.y + b.rect.height as i16 <= 1448,
+                b.rect.y >= 0 && b.rect.y + b.rect.height as i16 <= layout::SCREEN_H,
                 "btn {i} off-canvas"
             );
             if i > 0 {

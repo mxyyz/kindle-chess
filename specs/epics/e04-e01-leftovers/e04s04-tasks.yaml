@@ -3,7 +3,7 @@
 # constants are applied to the new per-screen files once.
 story_id: e04s04
 title: "ui/layout.rs: display + layout constants replace magic numbers"
-status: pending
+status: in_progress
 bcps: 3
 delta: MODIFIED
 tasks:
@@ -13,7 +13,7 @@ tasks:
       (SCREEN_W/8), PIECE_DRAW_SIZE, shared button sizes, icon size, common
       margins. Use them in renderer, screensaver and widgets.
     verify: "cd kindle_chess && cargo test 2>&1 | grep -q 'test result: ok'"
-    status: pending
+    status: passing
   - id: e04s04t02
     description: >-
       Replace the display-size numbers in the screen files with layout
@@ -21,8 +21,8 @@ tasks:
     verify: >-
       cd kindle_chess && ! grep -rnE "\b(1072|1448)\b" src --include=*.rs
       | grep -v "src/ui/layout.rs"
-    status: pending
+    status: passing
   - id: e04s04t03
     description: "Pixel check with run-dev.sh as in e04s03t04."
     verify: "verify-script: compare run-dev.sh screenshots per screen"
-    status: pending
+    

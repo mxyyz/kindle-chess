@@ -6,6 +6,7 @@ use crate::i18n::{self};
 
 use super::*;
 
+use crate::ui::layout;
 use crate::{
     models::{
         chess::ChessApp,
@@ -38,14 +39,19 @@ impl ChessGameScreen {
         // sidebar shows "Your turn" / "Waiting…" immediately, before the
         // game-state stream catches up.
         let loc = crate::i18n::locale_of(&config);
-        let mut sidebar = SidebarWidget::new(Rectangle::new(0, 1072, 1072, 376));
+        let mut sidebar = SidebarWidget::new(Rectangle::new(
+            0,
+            layout::SIDEBAR_Y,
+            layout::SIDEBAR_W,
+            layout::SIDEBAR_H,
+        ));
         if let Some(turn) = app.turn() {
             sidebar.set_turn(turn.clone(), &loc);
         }
         Self {
             app,
             config,
-            board: BoardWidget::new(Rectangle::new(0, 0, 1072, 1072)),
+            board: BoardWidget::new(Rectangle::new(0, 0, layout::BOARD_SIZE, layout::BOARD_SIZE)),
             sidebar,
             stream_started: false,
             stream_cancel: None,

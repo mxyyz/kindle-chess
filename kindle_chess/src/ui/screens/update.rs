@@ -4,6 +4,7 @@ use log::{info, warn};
 
 use crate::i18n::{self, tr};
 
+use crate::ui::layout;
 use crate::{
     api::{
         github::{UpdateInfo, check_for_update},
@@ -48,14 +49,12 @@ impl UpdateScreen {
     pub fn new(config: Arc<RwLock<AppConfig>>) -> Self {
         const BTN_W: u16 = 600;
         const BTN_H: u16 = 120;
-        const CENTER_X: i16 = 1072 / 2;
-        const CENTER_Y: i16 = 1448 / 2;
         Self {
             config,
             state: UpdateState::Checking,
             action_button: Button::new(
-                CENTER_X - BTN_W as i16 / 2,
-                CENTER_Y + BTN_H as i16,
+                layout::CENTER_X - BTN_W as i16 / 2,
+                layout::CENTER_Y + BTN_H as i16,
                 BTN_W,
                 BTN_H,
                 String::from("…"),
@@ -63,8 +62,8 @@ impl UpdateScreen {
                 true,
             ),
             back_button: Button::new(
-                CENTER_X - BTN_W as i16 / 2,
-                CENTER_Y * 2 - (BTN_H as i16 - 20) - 32,
+                layout::CENTER_X - BTN_W as i16 / 2,
+                layout::CENTER_Y * 2 - (BTN_H as i16 - 20) - 32,
                 BTN_W,
                 BTN_H - 20,
                 String::from("back"),
@@ -99,7 +98,7 @@ impl Screen for UpdateScreen {
         let title_size = 56.0;
         let (tw, _) = display.renderer.measure_text(&title, title_size);
         display.renderer.draw_text(
-            (1072 - tw as i16) / 2,
+            (layout::SCREEN_W - tw as i16) / 2,
             120,
             &title,
             title_size,
@@ -166,7 +165,7 @@ impl Screen for UpdateScreen {
         let mut y: i16 = 280;
         for line in &lines {
             let (lw, _) = display.renderer.measure_text(line, info_size);
-            let lx = (1072 - lw as i16) / 2;
+            let lx = (layout::SCREEN_W - lw as i16) / 2;
             display
                 .renderer
                 .draw_text(lx, y, line, info_size, DrawColor::Black)?;

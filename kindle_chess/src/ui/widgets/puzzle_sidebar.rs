@@ -296,9 +296,15 @@ impl PuzzleSidebarWidget {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::ui::layout;
 
     fn widget() -> PuzzleSidebarWidget {
-        PuzzleSidebarWidget::new(Rectangle::new(0, 1072, 1072, 376))
+        PuzzleSidebarWidget::new(Rectangle::new(
+            0,
+            layout::SIDEBAR_Y,
+            layout::SIDEBAR_W,
+            layout::SIDEBAR_H,
+        ))
     }
 
     #[test]

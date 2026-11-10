@@ -4,6 +4,7 @@ use log::{info, warn};
 
 use crate::i18n::{self, tr};
 
+use crate::ui::layout;
 use crate::{
     models::{
         chess::ChessApp,
@@ -43,15 +44,15 @@ pub struct FriendlistScreen {
 
 impl FriendlistScreen {
     pub fn new(app: ChessApp, config: Arc<RwLock<AppConfig>>) -> Self {
-        // Layout: 1072 × 1448. Title strip at top, then 4 stacked 600×96
+        // Layout: layout::SCREEN_W × layout::SCREEN_H. Title strip at top, then 4 stacked 600×96
         // buttons starting at y=400, page icons + back along the bottom.
         const BTN_W: u16 = 600;
         const BTN_H: u16 = 96;
         const GAP: i16 = 28;
         const START_Y: i16 = 400;
-        let x = (1072 - BTN_W as i16) / 2;
+        let x = (layout::SCREEN_W - BTN_W as i16) / 2;
         let row = |i: i16| START_Y + i * (BTN_H as i16 + GAP);
-        let bottom = 1448 - (ICON_BUTTON_SIZE as i16 - 20) - 32;
+        let bottom = layout::SCREEN_H - (ICON_BUTTON_SIZE as i16 - 20) - 32;
         Self {
             app,
             friend_button_0: Button::new(x, row(0), BTN_W, BTN_H, "-".to_string(), 40.0, true),
@@ -59,11 +60,11 @@ impl FriendlistScreen {
             friend_button_2: Button::new(x, row(2), BTN_W, BTN_H, "-".to_string(), 40.0, true),
             friend_button_3: Button::new(x, row(3), BTN_W, BTN_H, "-".to_string(), 40.0, true),
             prev_page_button: IconButton::new(
-                1072 / 2 - (ICON_BUTTON_SIZE as i16 + 8),
+                layout::CENTER_X - (ICON_BUTTON_SIZE as i16 + 8),
                 bottom,
                 "back-page.png",
             ),
-            next_page_button: IconButton::new(1072 / 2 + 8, bottom, "next-page.png"),
+            next_page_button: IconButton::new(layout::CENTER_X + 8, bottom, "next-page.png"),
             back_button: IconButton::new(32 + ICON_BUTTON_SIZE as i16 / 2, bottom, "back-nav.png"),
             config,
             friends: None,
@@ -157,9 +158,13 @@ impl Screen for FriendlistScreen {
         let loc = i18n::locale_of(&self.config);
         let title = tr(&loc, "friends-title");
         let (tw, _) = display.renderer.measure_text(&title, 36.0);
-        display
-            .renderer
-            .draw_text((1072 - tw as i16) / 2, 120, &title, 36.0, DrawColor::Black)?;
+        display.renderer.draw_text(
+            (layout::SCREEN_W - tw as i16) / 2,
+            120,
+            &title,
+            36.0,
+            DrawColor::Black,
+        )?;
 
         let size_px = 24.0;
         if let Some(err) = &self.error {
@@ -170,8 +175,8 @@ impl Screen for FriendlistScreen {
             );
             let (tw, th) = display.renderer.measure_text(&label, size_px);
             display.renderer.draw_text(
-                (1072 - tw as i16) / 2,
-                (1448 - th as i16) / 2,
+                (layout::SCREEN_W - tw as i16) / 2,
+                (layout::SCREEN_H - th as i16) / 2,
                 &label,
                 size_px,
                 DrawColor::Black,
@@ -181,8 +186,8 @@ impl Screen for FriendlistScreen {
                 let label = tr(&loc, "friends-empty");
                 let (tw, th) = display.renderer.measure_text(&label, size_px);
                 display.renderer.draw_text(
-                    (1072 - tw as i16) / 2,
-                    (1448 - th as i16) / 2,
+                    (layout::SCREEN_W - tw as i16) / 2,
+                    (layout::SCREEN_H - th as i16) / 2,
                     &label,
                     size_px,
                     DrawColor::Black,
@@ -200,8 +205,8 @@ impl Screen for FriendlistScreen {
             let label = tr(&loc, "friends-loading");
             let (tw, th) = display.renderer.measure_text(&label, size_px);
             display.renderer.draw_text(
-                (1072 - tw as i16) / 2,
-                (1448 - th as i16) / 2,
+                (layout::SCREEN_W - tw as i16) / 2,
+                (layout::SCREEN_H - th as i16) / 2,
                 &label,
                 size_px,
                 DrawColor::Black,

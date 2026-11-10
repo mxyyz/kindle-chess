@@ -6,6 +6,7 @@ use crate::i18n::{self, tr};
 
 use super::*;
 
+use crate::ui::layout;
 use crate::{
     models::{
         board_api::{GameDataList, PlayedBy},
@@ -46,27 +47,25 @@ pub struct OngoingChessGamesScreen {
 
 impl OngoingChessGamesScreen {
     pub fn new(app: ChessApp, config: Arc<RwLock<AppConfig>>) -> Self {
-        // Layout: 1072 × 1448 total canvas
+        // Layout: layout::SCREEN_W × layout::SCREEN_H total canvas
         const BTN_W: u16 = 800;
         const BTN_H: u16 = 120;
-        const CENTER_X: i16 = 1072 / 2; // 336
-        const CENTER_Y: i16 = 1448 / 2; // 304
         Self {
             config,
             app,
             prev_page_button: IconButton::new(
-                CENTER_X - (ICON_BUTTON_SIZE as i16 + 8),
-                CENTER_Y * 2 - (ICON_BUTTON_SIZE as i16 - 20) - 32,
+                layout::CENTER_X - (ICON_BUTTON_SIZE as i16 + 8),
+                layout::CENTER_Y * 2 - (ICON_BUTTON_SIZE as i16 - 20) - 32,
                 "back-page.png",
             ),
             next_page_button: IconButton::new(
-                CENTER_X + 8,
-                CENTER_Y * 2 - (ICON_BUTTON_SIZE as i16 - 20) - 32,
+                layout::CENTER_X + 8,
+                layout::CENTER_Y * 2 - (ICON_BUTTON_SIZE as i16 - 20) - 32,
                 "next-page.png",
             ),
             chessgame_button_0: Button::new(
-                CENTER_X - (8 + BTN_W as i16 / 2),
-                CENTER_Y - (BTN_H as i16 / 2 + 10),
+                layout::CENTER_X - (8 + BTN_W as i16 / 2),
+                layout::CENTER_Y - (BTN_H as i16 / 2 + 10),
                 BTN_W / 2,
                 BTN_H,
                 "-".to_string(),
@@ -74,8 +73,8 @@ impl OngoingChessGamesScreen {
                 true,
             ),
             chessgame_button_1: Button::new(
-                CENTER_X + 8,
-                CENTER_Y - (BTN_H as i16 / 2 + 10),
+                layout::CENTER_X + 8,
+                layout::CENTER_Y - (BTN_H as i16 / 2 + 10),
                 BTN_W / 2,
                 BTN_H,
                 "-".to_string(),
@@ -83,8 +82,8 @@ impl OngoingChessGamesScreen {
                 true,
             ),
             chessgame_button_2: Button::new(
-                CENTER_X - (8 + BTN_W as i16 / 2),
-                CENTER_Y + (BTN_H as i16 / 2 + 10),
+                layout::CENTER_X - (8 + BTN_W as i16 / 2),
+                layout::CENTER_Y + (BTN_H as i16 / 2 + 10),
                 BTN_W / 2,
                 BTN_H,
                 "-".to_string(),
@@ -92,8 +91,8 @@ impl OngoingChessGamesScreen {
                 true,
             ),
             chessgame_button_3: Button::new(
-                CENTER_X + 8,
-                CENTER_Y + (BTN_H as i16 / 2 + 10),
+                layout::CENTER_X + 8,
+                layout::CENTER_Y + (BTN_H as i16 / 2 + 10),
                 BTN_W / 2,
                 BTN_H,
                 String::from("-"),
@@ -102,7 +101,7 @@ impl OngoingChessGamesScreen {
             ),
             back_button: IconButton::new(
                 32 + ICON_BUTTON_SIZE as i16 / 2,
-                CENTER_Y * 2 - (ICON_BUTTON_SIZE as i16 - 20) - 32,
+                layout::CENTER_Y * 2 - (ICON_BUTTON_SIZE as i16 - 20) - 32,
                 "back-nav.png",
             ),
 
@@ -224,8 +223,8 @@ impl Screen for OngoingChessGamesScreen {
             let loc = i18n::locale_of(&self.config);
             let label = i18n::t(&loc, "common-error", &[("error", err)]);
             let (tw, th) = display.renderer.measure_text(&label, size_px);
-            let tx = (1072 - tw as i16) / 2;
-            let ty = (1448 - th as i16) / 2;
+            let tx = (layout::SCREEN_W - tw as i16) / 2;
+            let ty = (layout::SCREEN_H - th as i16) / 2;
             display
                 .renderer
                 .draw_text(tx, ty, &label, size_px, DrawColor::Black)?;
@@ -243,8 +242,8 @@ impl Screen for OngoingChessGamesScreen {
         } else {
             let label = tr(&i18n::locale_of(&self.config), "common-loading");
             let (tw, th) = display.renderer.measure_text(&label, size_px);
-            let tx = (1072 - tw as i16) / 2;
-            let ty = (1448 - th as i16) / 2;
+            let tx = (layout::SCREEN_W - tw as i16) / 2;
+            let ty = (layout::SCREEN_H - th as i16) / 2;
             display
                 .renderer
                 .draw_text(tx, ty, &label, size_px, DrawColor::Black)?;

@@ -9,6 +9,7 @@ use crate::i18n::{self, tr};
 
 use super::*;
 
+use crate::ui::layout;
 use crate::{
     models::{
         board_api::ChallengeSummary,
@@ -56,7 +57,7 @@ pub struct InvitesScreen {
 
 impl InvitesScreen {
     pub fn new(app: ChessApp, config: Arc<RwLock<AppConfig>>) -> Self {
-        // Layout: 1072 × 1448. "Incoming" section at top (4 rows), "Outgoing"
+        // Layout: layout::SCREEN_W × layout::SCREEN_H. "Incoming" section at top (4 rows), "Outgoing"
         // below (4 rows), status line near the bottom, back/page icons along
         // the bottom edge.
         const NAME_W: u16 = 420;
@@ -71,10 +72,10 @@ impl InvitesScreen {
         let btn = |x: i16, y: i16, w: u16, label: &str| {
             Button::new(x, y, w, ROW_H, label.to_string(), 32.0, true)
         };
-        let bottom = 1448 - (ICON_BUTTON_SIZE as i16 - 20) - 32;
+        let bottom = layout::SCREEN_H - (ICON_BUTTON_SIZE as i16 - 20) - 32;
         // Section label rows: incoming label y=200 (icons y=176), outgoing
         // label y=680 (icons y=656) — icons at the right edge of the canvas.
-        let icon_next_x = 1072 - ICON_BUTTON_SIZE as i16 - 24;
+        let icon_next_x = layout::SCREEN_W - ICON_BUTTON_SIZE as i16 - 24;
         let icon_prev_x = icon_next_x - ICON_BUTTON_SIZE as i16 - 16;
         Self {
             app,
@@ -270,9 +271,13 @@ impl Screen for InvitesScreen {
         let loc = i18n::locale_of(&self.config);
         let title = tr(&loc, "invites-title");
         let (tw, _) = display.renderer.measure_text(&title, 36.0);
-        display
-            .renderer
-            .draw_text((1072 - tw as i16) / 2, 120, &title, 36.0, DrawColor::Black)?;
+        display.renderer.draw_text(
+            (layout::SCREEN_W - tw as i16) / 2,
+            120,
+            &title,
+            36.0,
+            DrawColor::Black,
+        )?;
 
         for btn in self.incoming_accept.iter_mut() {
             btn.label = tr(&loc, "invites-accept");
@@ -301,8 +306,8 @@ impl Screen for InvitesScreen {
             );
             let (w, h) = display.renderer.measure_text(&label, 24.0);
             display.renderer.draw_text(
-                (1072 - w as i16) / 2,
-                (1448 - h as i16) / 2,
+                (layout::SCREEN_W - w as i16) / 2,
+                (layout::SCREEN_H - h as i16) / 2,
                 &label,
                 24.0,
                 DrawColor::Black,
@@ -328,8 +333,8 @@ impl Screen for InvitesScreen {
             let label = tr(&loc, "invites-loading");
             let (w, h) = display.renderer.measure_text(&label, 24.0);
             display.renderer.draw_text(
-                (1072 - w as i16) / 2,
-                (1448 - h as i16) / 2,
+                (layout::SCREEN_W - w as i16) / 2,
+                (layout::SCREEN_H - h as i16) / 2,
                 &label,
                 24.0,
                 DrawColor::Black,
@@ -339,7 +344,7 @@ impl Screen for InvitesScreen {
         if let Some(status) = &self.status {
             let (w, h) = display.renderer.measure_text(status, 24.0);
             display.renderer.draw_text(
-                (1072 - w as i16) / 2,
+                (layout::SCREEN_W - w as i16) / 2,
                 1240 - h as i16 / 2,
                 status,
                 24.0,

@@ -8,8 +8,8 @@ use crate::ui::renderer::{DrawColor, Renderer};
 
 pub type Icon = ImageBuffer<Rgba<u8>, Vec<u8>>;
 
-/// Footprint of an icon button — one chess cell (1072 / 8).
-pub const ICON_BUTTON_SIZE: u16 = 134;
+/// Footprint of an icon button — one chess cell.
+pub use crate::ui::layout::ICON_BUTTON_SIZE;
 /// Default size the icon glyph is drawn at, centred inside the footprint.
 const ICON_GLYPH_SIZE: u16 = 100;
 

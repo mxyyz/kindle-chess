@@ -6,6 +6,7 @@ use crate::i18n::{self, tr};
 
 use super::*;
 
+use crate::ui::layout;
 use crate::{
     models::{
         board_api::{ALLOWED_CORRESPONDENCE_DAYS, ChallengeMode},
@@ -49,20 +50,20 @@ pub struct PlayScreen {
 
 impl PlayScreen {
     pub fn new(app: ChessApp, config: Arc<RwLock<AppConfig>>) -> Self {
-        // Layout: 1072 × 1448. Title top, invites icon top-right, mode row,
+        // Layout: layout::SCREEN_W × layout::SCREEN_H. Title top, invites icon top-right, mode row,
         // spinner row, opponent + send buttons, status line, back bottom-left.
         const MODE_W: u16 = 320;
         const MODE_H: u16 = 80;
         const BTN_W: u16 = 600;
         const BTN_H: u16 = 96;
-        let mode_x0 = (1072 - (3 * MODE_W as i16 + 2 * 16)) / 2;
-        let x = (1072 - BTN_W as i16) / 2;
+        let mode_x0 = (layout::SCREEN_W - (3 * MODE_W as i16 + 2 * 16)) / 2;
+        let x = (layout::SCREEN_W - BTN_W as i16) / 2;
         // Days toggle group: 7 buttons of 100px + 6 gaps of 16 = 796px wide,
         // centred, on the slider's old row (y=310).
         const DAY_W: u16 = 100;
-        let days_x0 = (1072 - (7 * DAY_W as i16 + 6 * 16)) / 2;
+        let days_x0 = (layout::SCREEN_W - (7 * DAY_W as i16 + 6 * 16)) / 2;
         let days_labels = ["1", "2", "3", "5", "7", "10", "14"];
-        let bottom = 1448 - (ICON_BUTTON_SIZE as i16 - 20) - 32;
+        let bottom = layout::SCREEN_H - (ICON_BUTTON_SIZE as i16 - 20) - 32;
         Self {
             app,
             config,
@@ -108,7 +109,7 @@ impl PlayScreen {
             opponent_button: Button::new(x, 470, BTN_W, BTN_H, "Opponent: -".into(), 40.0, true),
             send_button: Button::new(x, 600, BTN_W, BTN_H, "Send challenge".into(), 40.0, true),
             invites_button: IconButton::new(
-                1072 - ICON_BUTTON_SIZE as i16 - 24,
+                layout::SCREEN_W - ICON_BUTTON_SIZE as i16 - 24,
                 24,
                 "invitation.png",
             ),
@@ -228,9 +229,13 @@ impl Screen for PlayScreen {
         let loc = i18n::locale_of(&self.config);
         let title = tr(&loc, "play-title");
         let (tw, _) = display.renderer.measure_text(&title, 36.0);
-        display
-            .renderer
-            .draw_text((1072 - tw as i16) / 2, 120, &title, 36.0, DrawColor::Black)?;
+        display.renderer.draw_text(
+            (layout::SCREEN_W - tw as i16) / 2,
+            120,
+            &title,
+            36.0,
+            DrawColor::Black,
+        )?;
 
         self.mode_button_unlimited.label = tr(&loc, "play-mode-unlimited");
         self.mode_button_realtime.label = tr(&loc, "play-mode-realtime");
@@ -267,7 +272,7 @@ impl Screen for PlayScreen {
         if let Some(status) = &self.status {
             let (sw, sh) = display.renderer.measure_text(status, 24.0);
             display.renderer.draw_text(
-                (1072 - sw as i16) / 2,
+                (layout::SCREEN_W - sw as i16) / 2,
                 1240 - sh as i16 / 2,
                 status,
                 24.0,

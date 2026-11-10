@@ -4,6 +4,7 @@ use log::{info, warn};
 
 use crate::i18n::{self, tr};
 
+use crate::ui::layout;
 use crate::{
     models::{
         puzzle::PuzzleParams,
@@ -39,8 +40,7 @@ impl PuzzleSettingsScreen {
     pub fn new(config: Arc<RwLock<AppConfig>>) -> Self {
         const BTN_W: u16 = 760;
         const BTN_H: u16 = 110;
-        const CENTER_X: i16 = 1072 / 2;
-        let x = CENTER_X - BTN_W as i16 / 2;
+        let x = layout::CENTER_X - BTN_W as i16 / 2;
         let stride = BTN_H as i16 + 24;
         let params = config.read().map(|c| c.puzzle).unwrap_or_default();
         Self {
@@ -84,7 +84,7 @@ impl PuzzleSettingsScreen {
             ),
             back_button: Button::new(
                 x,
-                1448 - BTN_H as i16 - 40,
+                layout::SCREEN_H - BTN_H as i16 - 40,
                 BTN_W,
                 BTN_H - 20,
                 String::from("Back"),
@@ -108,7 +108,7 @@ impl Screen for PuzzleSettingsScreen {
         let title_size = 56.0;
         let (tw, _) = display.renderer.measure_text(&title, title_size);
         display.renderer.draw_text(
-            (1072 - tw as i16) / 2,
+            (layout::SCREEN_W - tw as i16) / 2,
             150,
             &title,
             title_size,
