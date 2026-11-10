@@ -79,3 +79,7 @@ PKCE against `https://lichess.org/oauth`. On auth, the app:
 ### Coordinate system / display
 
 Hard-coded for 1072 × 1448 (Kindle Paperwhite 4). Screen layouts use absolute pixel coords (see `HomeScreen::new`, `ChessGameScreen::new`). `run-dev.sh` matches this exactly so layouts are pixel-identical between dev and device.
+
+## In-app updater (e05+)
+
+Release assets per tag: `update.tar.gz` (bundle: binary + assets + `chess_app.sh` + `MANIFEST.sha256`) + `.sha256` sidecar, plus legacy `kindle-chess-armv7-musl{,.sha256}` for 0.4.0 clients. The app (`crate/src/api/update.rs`) preflights, staged-downloads to `<exe>.bundle.new`, verifies sidecar + MANIFEST; `kindlichess/chess_app.sh` installs atomically at next launch. Host harness: `specs/epics/e05-safe-inapp-update/trampoline-harness.sh`.

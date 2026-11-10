@@ -214,3 +214,7 @@ longer exists. (`flash_display.sh`, which deployed that binary, was deleted in `
 > (This bit the current dev machine: `.env.debug` said `/home/mxy/Repos/…` with a capital
 > `R` while the checkout was at `/home/mxy/repos/…`. Fixed 2026-08-24, along with the
 > missing `rerun-if-changed` in `build.rs` that made the correction a no-op.)
+
+## In-app update flow (e05+)
+
+The release ships an `update.tar.gz` bundle (`bin/kindle-hello` + `assets/*` + `chess_app.sh` + `MANIFEST.sha256`) plus a `.sha256` sidecar, alongside the legacy binary-only pair for 0.4.0 clients. The app preflights (arch/dirs/free space), downloads the bundle to `<exe>.bundle.new`, verifies the sidecar then the per-file MANIFEST, and the launcher (`chess_app.sh`) installs it atomically at next launch. See `docs/ci-cd.md` for the full pipeline.

@@ -1,65 +1,49 @@
----
-# Epic capsule manifest — e05-safe-inapp-update
-# Sliced 2026-11-10; plan-work refined 2026-11-10 (story .md specs + risk/allure/status on tasks).
-# Depends on: spike SPIKE-e05-update-bundle (device tar roundtrip proven on k2).
 epic_id: e05-safe-inapp-update
-status: planned (ready for kickoff-branch)
+status: done (all 6 stories passing)
 scope: specs/product/SCOPE_LATEST.yaml
 planning_context: specs/planning-context.yaml
 spike: specs/archive/spikes/SPIKE-e05-update-bundle.md
 impact: specs/IMPACT_LATEST.md
-# Order: restructure finish first (unblocks clean deploys), release pipeline
-# before the client that consumes it, trampoline before UX polish, verification
-# last.
 stories:
-  - story_id: e05s01
-    title: >-
-      Restructure finish: flash scripts + run-dev.sh + docs point at repo-root
-      kindlichess/, scriptlet-only launch documented, no stale kindle_KUAL refs
-    bcps: 2
-    delta: MODIFIED
-    spec: e05s01-restructure-finish.md
-    tasks_file: e05s01-tasks.yaml
-  - story_id: e05s02
-    title: >-
-      Release pipeline: update.tar.gz bundle (binary + assets + chess_app.sh +
-      MANIFEST.sha256) uploaded with sidecar; release-please extra-files on
-      kindlichess/; legacy binary assets kept for 0.4.0 clients
-    bcps: 5
-    delta: ADDED
-    spec: e05s02-release-pipeline.md
-    tasks_file: e05s02-tasks.yaml
-  - story_id: e05s03
-    title: >-
-      App update client v2: bundle asset lookup, preflight sanity checks
-      (arch/dirs/writable/free space), staged .new download, sidecar + per-file
-      manifest verify, unit tests
-    bcps: 8
-    delta: MODIFIED
-    spec: e05s03-update-client-v2.md
-    tasks_file: e05s03-tasks.yaml
-  - story_id: e05s04
-    title: >-
-      chess_app.sh trampoline v2: atomic staged-bundle install at launch
-      (binary, assets, script self-update via .new + exec), cleanup on failure,
-      host-harness test
-    bcps: 8
-    delta: MODIFIED
-    spec: e05s04-trampoline-v2.md
-    tasks_file: e05s04-tasks.yaml
-  - story_id: e05s05
-    title: >-
-      UpdateScreen UX: bundle size/contents, preflight failure reasons,
-      progress, Applied -> relaunch hint; EN/DE i18n strings
-    bcps: 5
-    delta: MODIFIED
-    spec: e05s05-update-screen-ux.md
-    tasks_file: e05s05-tasks.yaml
-  - story_id: e05s06
-    title: >-
-      Verification + docs: local gates green (build/test/clippy/fmt/cross),
-      CI bundle job, docs describe bundle flow, run-dev smoke
-    bcps: 3
-    delta: ADDED
-    spec: e05s06-verification-docs.md
-    tasks_file: e05s06-tasks.yaml
+- story_id: e05s01
+  title: 'Restructure finish: flash scripts + run-dev.sh + docs point at repo-root kindlichess/, scriptlet-only launch documented,
+    no stale kindle_KUAL refs'
+  bcps: 2
+  delta: MODIFIED
+  spec: e05s01-restructure-finish.md
+  tasks_file: e05s01-tasks.yaml
+- story_id: e05s02
+  title: 'Release pipeline: update.tar.gz bundle (binary + assets + chess_app.sh + MANIFEST.sha256) uploaded with sidecar;
+    release-please extra-files on kindlichess/; legacy binary assets kept for 0.4.0 clients'
+  bcps: 5
+  delta: ADDED
+  spec: e05s02-release-pipeline.md
+  tasks_file: e05s02-tasks.yaml
+- story_id: e05s03
+  title: 'App update client v2: bundle asset lookup, preflight sanity checks (arch/dirs/writable/free space), staged .new
+    download, sidecar + per-file manifest verify, unit tests'
+  bcps: 8
+  delta: MODIFIED
+  spec: e05s03-update-client-v2.md
+  tasks_file: e05s03-tasks.yaml
+- story_id: e05s04
+  title: 'chess_app.sh trampoline v2: atomic staged-bundle install at launch (binary, assets, script self-update via .new
+    + exec), cleanup on failure, host-harness test'
+  bcps: 8
+  delta: MODIFIED
+  spec: e05s04-trampoline-v2.md
+  tasks_file: e05s04-tasks.yaml
+- story_id: e05s05
+  title: 'UpdateScreen UX: bundle size/contents, preflight failure reasons, progress, Applied -> relaunch hint; EN/DE i18n
+    strings'
+  bcps: 5
+  delta: MODIFIED
+  spec: e05s05-update-screen-ux.md
+  tasks_file: e05s05-tasks.yaml
+- story_id: e05s06
+  title: 'Verification + docs: local gates green (build/test/clippy/fmt/cross), CI bundle job, docs describe bundle flow,
+    run-dev smoke'
+  bcps: 3
+  delta: ADDED
+  spec: e05s06-verification-docs.md
+  tasks_file: e05s06-tasks.yaml

@@ -434,3 +434,7 @@ kindle-chess is a **mature, well-architected Rust application** for a niche plat
 - **Quality**: Production-ready for its target use case. Would benefit from test infrastructure for long-term maintainability.
 
 The architecture is **sound and scalable** — adding new screens or features follows established patterns. The main risk is the lack of automated testing, which could lead to regressions as the codebase grows.
+
+### In-app update bundle (e05+)
+
+Release assets per tag include `update.tar.gz` = { `bin/kindle-hello`, `assets/*`, `chess_app.sh`, `MANIFEST.sha256` (per-file sha256, sha256sum format) } + `update.tar.gz.sha256` sidecar. Legacy `kindle-chess-armv7-musl{,.sha256}` kept for 0.4.0 clients. App: preflight (arch/dirs/space) → stream `.bundle.new` → sidecar verify → tar extract → MANIFEST verify. Launcher trampoline installs at next launch. release-please extra-files on `kindlichess/` so asset/script changes trigger a tag.

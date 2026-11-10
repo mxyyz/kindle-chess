@@ -23,18 +23,21 @@ merge its release PR.
             │                (authenticated with a PAT — see "the token gotcha")
             ▼
       release.yml      ──▶ cross-build armv7-musl
-            │                upload kindle-chess-armv7-musl
-            │                upload kindle-chess-armv7-musl.sha256
+            │                upload update.tar.gz            (bundle: binary + assets + chess_app.sh + MANIFEST.sha256)
+            │                upload update.tar.gz.sha256     (sidecar)
+            │                upload kindle-chess-armv7-musl{,.sha256}  (legacy, kept for 0.4.0 clients)
             ▼
    app: Settings ▸ Check for updates
-            │  api/github.rs   GET /repos/{OWNER}/{REPO}/releases/latest
-            │  api/update.rs   stream asset, hash it, compare to sidecar
+            │  api/github.rs   GET /repos/{OWNER}/{REPO}/releases/latest — prefers bundle assets
+            │  api/update.rs   preflight (arch/dirs/space) → stream bundle, hash → sidecar verify
+            │                  → tar extract → MANIFEST per-file verify
             ▼
-        writes <exe>.new  (does NOT replace the running binary)
+        writes <exe>.bundle.new  (does NOT touch the running install)
             │
-      user quits, taps KUAL ▸ ChessApp
+      user quits, relaunches via scriptlet
             ▼
-   chess_app.sh: mv bin/kindle-hello.new bin/kindle-hello; chmod +x; exec
+   chess_app.sh: tar -xzf bundle.new → sha256sum -c MANIFEST → install binary+assets,
+                 self-update script, exec
 ```
 
 ## The three workflows
@@ -173,30 +176,37 @@ minute" instead of a wrong "you're up to date". (This is what commit `56503e1`,
 truth** for what version a binary believes it is. That is also why `release.yml`'s
 tag-vs-manifest check matters.
 
-### Applying — `api/update.rs::apply_update()`
+### Applying — `api/update.rs::apply_update_v2()` (bundle flow, e05+)
 
-1. Stream the asset with `reqwest`, feeding each chunk into a `Sha256` hasher and writing
-   it to `<current_exe>.new`.
-2. Fetch the `.sha256` sidecar; take the first whitespace-separated token
-   (`sha256sum` format is `<hex>  <filename>`).
-3. On mismatch: delete the partial file, return an error, **leave the running binary
-   untouched**.
-4. On match: `chmod 0755` and stop.
+1. **Preflight**: `uname -m` must be `armv7l`, app dirs (bin/assets/log/secrets/config)
+   must exist and be writable, and `df -k ROOT_DIR` must show ≥ 2× bundle size free.
+   Failure returns a human-readable reason before any download starts.
+2. Stream `update.tar.gz` with `reqwest`, hashing each chunk, writing to `<exe>.bundle.new`.
+3. Fetch the `.sha256` sidecar; first whitespace-separated token is the expected hash.
+4. On mismatch: delete the partial bundle, return error, **running install untouched**.
+5. On match: extract to `<exe>.bundle.staging/` via device `tar`, then verify every file
+   against the in-bundle `MANIFEST.sha256` with pure-Rust `Sha256` (no shell-out).
+6. On any failure: remove `.bundle.new` and `.staging`, return error.
+7. On success: remove staging, leave `<exe>.bundle.new` staged for the launcher.
 
-**It deliberately does not rename over the running binary.** `/mnt/us` is VFAT, which lacks
-the inode-based open-file semantics that make replace-a-running-executable work on ext4.
+Legacy releases (no bundle asset) fall back to the old `apply_update()` single-binary path.
 
-### Installing — `kindlichess/chess_app.sh`
+### Installing — `kindlichess/chess_app.sh` (trampoline v2)
 
-The launcher does the swap at startup, when no instance is running:
+At startup, while no instance is running:
 
 ```sh
-if [ -f "$BINARY.new" ]; then
-    if mv "$BINARY.new" "$BINARY"; then
-        chmod +x "$BINARY"
-    fi
+if [ -f "$BINARY.bundle.new" ]; then
+    tar -xzf "$BINARY.bundle.new" -C "$STAGING"
+    (cd "$STAGING" && sha256sum -c MANIFEST.sha256) || { cleanup; }
+    cp "$STAGING/bin/kindle-hello" "$BINARY.tmp" && mv "$BINARY.tmp" "$BINARY"
+    cp -f "$STAGING/assets/"* "$APP_DIR/assets/"
+    # self-update script if changed: .new → mv → exec self
 fi
 ```
+
+The legacy `$BINARY.new` path is kept alongside for 0.4.0 clients. Host-harness test:
+`specs/epics/e05-safe-inapp-update/trampoline-harness.sh`.
 
 If the `mv` fails the current binary is kept. This is why `UpdateScreen` shows
 *"Quit and relaunch from the KUAL menu"* and turns its action button into **Quit** once
