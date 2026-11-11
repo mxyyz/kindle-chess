@@ -1,5 +1,15 @@
 # Changelog
 
+## [0.5.0](https://github.com/mxyyz/kindle-chess/compare/v0.4.0...v0.5.0) (2026-11-11)
+
+
+### Features
+
+* **github:** bundle-first asset lookup with legacy fallback + UpdateInfo.is_bundle (e05s03) ([0d653b4](https://github.com/mxyyz/kindle-chess/commit/0d653b4f2044af7814effaa494edb51dff142430))
+* **i18n:** update-bundle UX keys EN/DE (e05s05) ([cf80a4d](https://github.com/mxyyz/kindle-chess/commit/cf80a4d31057639c2f2bcb933e5569163d9e5811))
+* **ui:** UpdateScreen bundle-aware UX + i18n (e05s05) ([267cc41](https://github.com/mxyyz/kindle-chess/commit/267cc4130763bc83ea565f00c841f3425f0850e1))
+* **update:** bundle update client v2 — preflight, staged download, MANIFEST verify (e05s03) ([a8a6661](https://github.com/mxyyz/kindle-chess/commit/a8a6661181e6f4dbd2dd6d32026eecb97f731c05))
+
 ## [0.4.0](https://github.com/mxyyz/kindle-chess/compare/v0.3.0...v0.4.0) (2026-11-10)
 
 
