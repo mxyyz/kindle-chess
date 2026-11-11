@@ -29,8 +29,17 @@ use crate::{
 const KIND_Y: i16 = 200;
 const KIND_H: u16 = 80;
 /// Row 2: shared selector row (AI level | days | random info) — exactly one.
-const SELECTOR_Y: i16 = 310;
+/// Positioned so the margin above the row equals the margin below it (the
+/// kind row ends at 280, the mode row starts at 470; the 96px selector row
+/// splits the remaining space evenly -> y=327, 47px gaps on both sides).
+/// The 47px upper gap fits the 24px "AI level" label (30px tall) with its
+/// 10px margin to the row, clear of the kind row (BUG fix 2026-11-11: the
+/// label used to fill the old 30px gap and touch the Friend button).
+const SELECTOR_Y: i16 =
+    KIND_Y + KIND_H as i16 + (MODE_Y - KIND_Y - KIND_H as i16 - SELECTOR_H as i16) / 2;
 const SELECTOR_H: u16 = 96;
+/// Margin between the selector row and its labels (AI-level above, days below).
+const SELECTOR_LABEL_MARGIN: i16 = 10;
 /// Row 3: game mode group.
 const MODE_Y: i16 = 470;
 const MODE_H: u16 = 80;
@@ -610,15 +619,14 @@ impl Screen for PlayScreen {
         match self.selector_mode() {
             SelectorMode::AiLevel => {
                 // "AI level" label centered above the row (same horizontal
-                // centering as the days label below), vertically centered in
-                // the gap between the kind row and the selector row.
+                // centering as the days label below), with the SAME margin to
+                // the selector row as the days label has (SELECTOR_LABEL_MARGIN
+                // below it) — clears the kind row above (2026-11-11 fix).
                 let level_label = tr(&loc, "play-ai-level");
                 let (lw, lh) = display.renderer.measure_text(&level_label, 24.0);
-                let gap_top = KIND_Y + KIND_H as i16;
-                let label_y = (gap_top + (SELECTOR_Y - gap_top - lh as i16) / 2).max(gap_top);
                 display.renderer.draw_text(
                     (layout::SCREEN_W - lw as i16) / 2,
-                    label_y,
+                    SELECTOR_Y - SELECTOR_LABEL_MARGIN - lh as i16,
                     &level_label,
                     24.0,
                     DrawColor::Black,
@@ -638,12 +646,13 @@ impl Screen for PlayScreen {
                     &mut display.renderer,
                     &self.days_buttons[self.selected_days_index()].rect,
                 )?;
-                // "Days per move" label BELOW the days selector row.
+                // "Days per move" label BELOW the days selector row, same
+                // margin from the row as the AI-level label above.
                 let days_label = tr(&loc, "play-days-label");
                 let (dw, _) = display.renderer.measure_text(&days_label, 24.0);
                 display.renderer.draw_text(
                     (layout::SCREEN_W - dw as i16) / 2,
-                    SELECTOR_Y + SELECTOR_H as i16 + 10,
+                    SELECTOR_Y + SELECTOR_H as i16 + SELECTOR_LABEL_MARGIN,
                     &days_label,
                     24.0,
                     DrawColor::Black,
@@ -1072,6 +1081,33 @@ mod play_screen_tests {
             "send not lower-half centered"
         );
         assert!(send.y >= half, "send must live in the lower half");
+    }
+
+    // 2026-11-11 fix: the AI-level label touched the Friend button because the
+    // selector row left only a 30px gap above it (exactly the 24px text height,
+    // 30px measured: ascent 24 + descent 6). The row now sits with equal
+    // margins above and below, leaving room for the label + its margin.
+    #[test]
+    fn e06s07_selector_row_has_equal_margins_and_label_clears_kind_row() {
+        let s = PlayScreen::new(ChessApp::new_offline(), test_config());
+        let kind_bottom = KIND_Y + KIND_H as i16;
+        let selector_bottom = SELECTOR_Y + SELECTOR_H as i16;
+        let gap_above = SELECTOR_Y - kind_bottom;
+        let gap_below = MODE_Y - selector_bottom;
+        assert_eq!(
+            gap_above, gap_below,
+            "margin above the selector row must equal the margin below it"
+        );
+        // 24px label text is 30px tall (ascent 24 + descent 6, measured
+        // 2026-11-11); with its SELECTOR_LABEL_MARGIN to the row it must still
+        // clear the kind row — no overlap with the Friend button.
+        const TEXT_H_24PX: i16 = 30;
+        assert!(
+            gap_above >= TEXT_H_24PX + SELECTOR_LABEL_MARGIN,
+            "AI-level label (30px + {SELECTOR_LABEL_MARGIN}px margin) would overlap the kind row: gap={gap_above}"
+        );
+        assert_eq!(s.level_buttons[0].rect.y, SELECTOR_Y);
+        assert_eq!(s.days_buttons[0].rect.y, SELECTOR_Y);
     }
 
     fn assert_visible_layout_ok(s: &PlayScreen, ctx: &str) {

@@ -21,14 +21,17 @@ User-approved design (grill 2026-11-11):
    kind=Friend **and** opens the FriendlistScreen. On `FriendSelected`, the
    button label is replaced with the friend's name. The old standalone
    opponent button is removed — it assimilates into the Friend button.
-2. **Row 2 (y=310, h=96):** shared selector placeholder — exactly one of:
+2. **Row 2 (y=327, h=96):** shared selector placeholder — exactly one of:
    AI level selector (8 × 100px buttons, kind=Computer), days selector
    (7 × 100px, mode=Correspondence and kind≠Computer), or Random info text.
    When Computer AND Correspondence are both active, the **last selected**
-   one is rendered (`selector_focus`, amended 2026-11-11). "AI level" label
-   sits **above** the row, **horizontally centered** (same centering as the
-   days label) and vertically centered in the gap above the row (amended
-   2026-11-11). The correspondence label ("Days per move") goes **below**
+   one is rendered (`selector_focus`, amended 2026-11-11). The row is placed
+   so the margin above it equals the margin below it (47px each, kind row
+   ends 280 / mode row starts 470) — amended 2026-11-11 after the AI-level
+   label was found touching the Friend button in the old 30px gap. "AI level"
+   label sits **above** the row, **horizontally centered** (same centering as
+   the days label) with the **same 10px margin to the row** as the days label
+   has below it. The correspondence label ("Days per move") goes **below**
    the days selector.
 3. **Row 3 (y=470, h=80):** mode group `Unlimited | Real time 10:5 | Correspondence`
    (moved from y=200).
@@ -46,8 +49,9 @@ User-approved design (grill 2026-11-11):
 #### MODIFIED: PlayScreen layout
 **Before:** mode y=200, days y=310, opponent y=470, send y=600, rated y=740,
 kind y=860, level y=980.
-**After:** kind y=200, selector row y=310 (level | days | random info),
-mode y=470, rated y=580 (last upper-half row, hidden for Computer),
+**After:** kind y=200, selector row y=327 (level | days | random info; equal
+47px margins above/below, amended 2026-11-11), mode y=470, rated y=580
+(last upper-half row, hidden for Computer),
 send y=1038 centered in lower half. Opponent button removed; friend name
 lives on the Friend kind button.
 
