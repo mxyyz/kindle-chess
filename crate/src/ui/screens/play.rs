@@ -463,4 +463,109 @@ mod play_screen_tests {
             &s.mode_button_correspondence
         ));
     }
+
+    // ── e06s02: rated toggle + opponent kind + AI level ──────────────────────
+
+    use crate::models::board_api::OpponentKind;
+
+    fn rects_overlap(a: &Rectangle, b: &Rectangle) -> bool {
+        a.x < b.x + b.width as i16
+            && b.x < a.x + a.width as i16
+            && a.y < b.y + b.height as i16
+            && b.y < a.y + a.height as i16
+    }
+
+    #[test]
+    fn e06_buttons_fit_screen_and_do_not_overlap() {
+        let s = PlayScreen::new(ChessApp::new_offline(), test_config());
+        let mut rects: Vec<&Rectangle> = vec![
+            &s.mode_button_unlimited.rect,
+            &s.mode_button_realtime.rect,
+            &s.mode_button_correspondence.rect,
+            &s.opponent_button.rect,
+            &s.send_button.rect,
+            &s.invites_button.rect,
+            &s.back_button.rect,
+        ];
+        for b in &s.days_buttons {
+            rects.push(&b.rect);
+        }
+        for b in &s.rated_buttons {
+            rects.push(&b.rect);
+        }
+        for b in &s.kind_buttons {
+            rects.push(&b.rect);
+        }
+        for b in &s.level_buttons {
+            rects.push(&b.rect);
+        }
+        for r in &rects {
+            assert!(r.x >= 0 && r.y >= 0, "negative origin: {r:?}");
+            assert!(
+                r.x + r.width as i16 <= layout::SCREEN_W,
+                "overflows right: {r:?}"
+            );
+            assert!(
+                r.y + r.height as i16 <= layout::SCREEN_H,
+                "overflows bottom: {r:?}"
+            );
+        }
+        for i in 0..rects.len() {
+            for j in (i + 1)..rects.len() {
+                assert!(
+                    !rects_overlap(rects[i], rects[j]),
+                    "overlap: {:?} vs {:?}",
+                    rects[i],
+                    rects[j]
+                );
+            }
+        }
+    }
+
+    #[test]
+    fn e06_defaults_are_casual_friend_realtime_level_3() {
+        let s = PlayScreen::new(ChessApp::new_offline(), test_config());
+        assert!(!s.rated);
+        assert_eq!(s.selected_kind, 0);
+        assert_eq!(s.ai_level, 3);
+        assert_eq!(s.opponent_kind(), OpponentKind::Friend(String::new()));
+    }
+
+    #[test]
+    fn e06_opponent_kind_mapping() {
+        let mut s = PlayScreen::new(ChessApp::new_offline(), test_config());
+        s.opponent = Some("Alice".into());
+        s.select_kind(0);
+        assert_eq!(s.opponent_kind(), OpponentKind::Friend("Alice".into()));
+        s.select_kind(1);
+        s.select_level(7);
+        assert_eq!(s.opponent_kind(), OpponentKind::Computer(7));
+        s.select_kind(2);
+        assert_eq!(s.opponent_kind(), OpponentKind::Random);
+    }
+
+    #[test]
+    fn e06_rated_toggle_and_visibility_rules() {
+        let mut s = PlayScreen::new(ChessApp::new_offline(), test_config());
+        assert!(s.rated_visible()); // Friend: rated toggle shown
+        s.select_rated(true);
+        assert!(s.rated);
+        s.select_kind(1); // Computer: AI is always casual -> toggle hidden
+        assert!(!s.rated_visible());
+        assert!(s.level_row_visible());
+        s.select_kind(2); // Random: open challenge can be rated
+        assert!(s.rated_visible());
+        assert!(!s.level_row_visible());
+    }
+
+    #[test]
+    fn e06_select_level_rejects_out_of_range() {
+        let mut s = PlayScreen::new(ChessApp::new_offline(), test_config());
+        s.select_level(0);
+        assert_eq!(s.ai_level, 3, "0 is invalid, keep previous");
+        s.select_level(9);
+        assert_eq!(s.ai_level, 3, "9 is invalid, keep previous");
+        s.select_level(8);
+        assert_eq!(s.ai_level, 8);
+    }
 }
