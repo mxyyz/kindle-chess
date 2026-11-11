@@ -65,9 +65,17 @@ Known rough edge: token expiry is not handled — an expired token surfaces as a
 `BoardAPI<S>` is generic over a typestate marker (`Idle` / `InGame`, defined in
 `models/board_api.rs`). What you can call is decided at compile time:
 
-- `impl<S> BoardAPI<S>` — `get_ongoing_games(n)`. Valid in both states.
+- `impl<S> BoardAPI<S>` — `get_ongoing_games(n)`, plus the challenge methods (valid in
+  both states, e06): `send_challenge(username, mode, rated)`, `send_challenge_ai(level, mode)`,
+  `create_open_challenge(mode, rated)`, `list/accept/decline/cancel_challenge`.
 - `impl BoardAPI<Idle>` — `new(token, user)`, `attach_game(game_id, my_turn) -> BoardAPI<InGame>`.
 - `impl BoardAPI<InGame>` — `move_piece`, `resign_game`, `abort_game`, `stream_game_event`.
+
+The challenge methods route per `OpponentKind` (models/board_api.rs): `Friend` →
+`POST /api/challenge/{user}` with the rated flag, `Computer` → `POST /api/challenge/ai`
+(level 1–8; AI games are always casual — litchee's `AiChallengeRequest` has no `rated`
+builder — and start immediately, returning a `LichessGame`), `Random` →
+`POST /api/challenge/open` (an open challenge listed as outgoing in Invites).
 
 `stream_game_event` is the heart of live play. It opens
 `/board/game/stream/{id}` as NDJSON and, for each event:

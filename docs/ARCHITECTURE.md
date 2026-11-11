@@ -218,3 +218,15 @@ longer exists. (`flash_display.sh`, which deployed that binary, was deleted in `
 ## In-app update flow (e05+)
 
 The release ships an `update.tar.gz` bundle (`bin/kindle-hello` + `assets/*` + `chess_app.sh` + `MANIFEST.sha256`) plus a `.sha256` sidecar, alongside the legacy binary-only pair for 0.4.0 clients. The app preflights (arch/dirs/free space), downloads the bundle to `<exe>.bundle.new`, verifies the sidecar then the per-file MANIFEST, and the launcher (`chess_app.sh`) installs it atomically at next launch. See `docs/ci-cd.md` for the full pipeline.
+
+## Challenge flow (e06+)
+
+The Play form sends per `OpponentKind` (models/board_api.rs): `Friend` →
+`send_challenge(name, mode, rated)` (`POST /api/challenge/{user}`), `Computer` →
+`send_challenge_ai(level, mode)` (`POST /api/challenge/ai`, starts immediately —
+`AppEvent::AiGameStarted` pushes `ChessGameScreen` right away; AI games are always
+casual), `Random` → `create_open_challenge(mode, rated)` (`POST /api/challenge/open`,
+shows as outgoing in InvitesScreen). A rated/casual toggle feeds the rated flag
+(hidden for Computer). After game over, `ChessGameScreen` offers a Rematch button
+when a `RematchContext` was attached (Play-originated games), re-issuing the same
+challenge with the same mode + rated.
