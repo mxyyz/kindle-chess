@@ -78,3 +78,15 @@ registry:
       (destUser null -> empty opponent, no open marker). Fix in e06s08.
     file: specs/bugs/BUG-2026-11-11T123000-open-challenges-invisible.md
     status: fixed  # e06s08 on e06-play-form-enhancements (open flag + localized label + cancel wiremock)
+  - bug_id: BUG-2026-11-11T145208
+    date: 2026-11-11
+    severity: high
+    priority: high
+    scope: e06s04-rematch
+    summary: >-
+      Rematch starts the new game on Lichess but the board never loads it:
+      ChessApp::attach_game is a no-op on an already in-game backend, so the
+      pushed game screen stays scoped to the old game id. Affects AI rematch
+      immediately and player rematch after accept.
+    file: specs/bugs/BUG-2026-11-11T145208-rematch-new-game-not-loaded.md
+    status: fixed  # attach_game re-scopes in-game backend via detach(); RED->GREEN verified, gates green

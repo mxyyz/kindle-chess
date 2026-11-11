@@ -25,16 +25,24 @@ impl ChessApp {
         }
     }
 
-    /// Transition the underlying API from `Idle` to `InGame`. `my_turn` is the
-    /// snapshot from `GameData.is_my_turn` so the sidebar can render an initial
-    /// turn status before the game-state stream takes over.
+    /// Scope the underlying API to `game_id`, producing an `InGame` backend.
+    /// `my_turn` is the snapshot from `GameData.is_my_turn` (or the AI
+    /// rematch's `true`) so the sidebar can render an initial turn status
+    /// before the game-state stream takes over.
+    ///
+    /// Works from `Idle` (picking a game) AND from an already in-game backend
+    /// (rematch — BUG-2026-11-11T145208): the in-game scope is detached and
+    /// re-attached to the new game id instead of being ignored.
     pub fn attach_game(mut self, game_id: String, my_turn: bool) -> Self {
         self.backend = match self.backend {
             ChessBackend::OnlineIdle(api) => {
                 ChessBackend::OnlineInGame(Box::new(api.attach_game(game_id, my_turn)))
             }
+            ChessBackend::OnlineInGame(api) => {
+                ChessBackend::OnlineInGame(Box::new(api.detach().attach_game(game_id, my_turn)))
+            }
             other => {
-                warn!("attach_game called on non-idle backend; ignored");
+                warn!("attach_game called on offline backend; ignored");
                 other
             }
         };
@@ -99,5 +107,73 @@ impl ChessApp {
         if let ChessBackend::OnlineInGame(api) = &mut self.backend {
             api.state.turn = turn;
         }
+    }
+}
+
+#[cfg(test)]
+mod attach_game_tests {
+    use super::*;
+    use crate::models::oauth::{LichessUser, TokenInfo};
+
+    fn test_token() -> TokenInfo {
+        TokenInfo {
+            access_token: "test_token_12345".into(),
+            token_type: "Bearer".into(),
+            expires_in: Some(86400),
+            scope: None,
+        }
+    }
+
+    fn test_user() -> LichessUser {
+        LichessUser {
+            id: "testuser".into(),
+            username: "TestUser".into(),
+            perfs: None,
+            created_at: None,
+            disabled: None,
+            tos_violation: None,
+            profile: None,
+            seen_at: None,
+            patron: None,
+            verified: None,
+            play_time: None,
+            title: None,
+        }
+    }
+
+    #[test]
+    fn attach_game_from_idle_scopes_game() {
+        let app = ChessApp::new_online(test_token(), test_user()).unwrap();
+        let app = app.attach_game("gameA".into(), true);
+        let api = app.online_in_game_api().unwrap();
+        assert_eq!(api.game_id(), "gameA");
+        assert!(matches!(api.turn(), Turn::Playing));
+    }
+
+    // BUG-2026-11-11T145208: rematch attaches a NEW game while the app is
+    // already in-game (old game). The transition must re-scope to the new
+    // game id instead of ignoring the call.
+    #[test]
+    fn attach_game_from_in_game_rescopes_to_new_game() {
+        let app = ChessApp::new_online(test_token(), test_user()).unwrap();
+        let app = app.attach_game("oldGame".into(), true);
+        assert_eq!(app.online_in_game_api().unwrap().game_id(), "oldGame");
+
+        let app = app.attach_game("newGame".into(), false);
+        let api = app.online_in_game_api().unwrap();
+        assert_eq!(
+            api.game_id(),
+            "newGame",
+            "rematch must re-scope the in-game backend to the new game id"
+        );
+        assert!(matches!(api.turn(), Turn::Waiting));
+    }
+
+    #[test]
+    fn attach_game_on_offline_backend_stays_offline() {
+        let app = ChessApp::new_offline();
+        let app = app.attach_game("gameX".into(), true);
+        assert!(app.online_in_game_api().is_none());
+        assert!(app.online_idle_api().is_none());
     }
 }

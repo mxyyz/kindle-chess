@@ -220,6 +220,13 @@ impl Screen for ChessGameScreen {
             // e06s04: rematch results arrive here while the game screen is top.
             AppEvent::ChallengeSent(opponent) => {
                 info!("Rematch challenge sent to {opponent}");
+                // Stop the old game's stream task before leaving (Push does
+                // not cancel it); when the opponent accepts, InvitesScreen
+                // attaches the new game id — attach_game re-scopes even from
+                // this in-game backend (BUG-2026-11-11T145208).
+                if let Some(old) = &self.stream_cancel {
+                    old.store(true, std::sync::atomic::Ordering::SeqCst);
+                }
                 Ok(Transition::Push(Box::new(InvitesScreen::new(
                     self.app.clone(),
                     self.config.clone(),
@@ -228,7 +235,15 @@ impl Screen for ChessGameScreen {
 
             AppEvent::AiGameStarted { game_id, my_turn } => {
                 info!("Rematch AI game started: {game_id}");
-                let game_app = self.app.clone().attach_game(game_id, my_turn);
+                // BUG-2026-11-11T145208: the app is still scoped to the old
+                // (finished) game here — attach_game re-scopes it to the new
+                // id. Stop the old game's stream task too: Push does not
+                // cancel it, and a mid-backoff task must not keep emitting
+                // old-game events onto the new screen.
+                if let Some(old) = &self.stream_cancel {
+                    old.store(true, std::sync::atomic::Ordering::SeqCst);
+                }
+                let game_app = rematch_app(&self.app, game_id, my_turn);
                 let mut next = ChessGameScreen::new(game_app, self.config.clone());
                 // keep the same context for a potential next rematch
                 if let Some(ctx) = self.rematch.clone() {
@@ -365,6 +380,13 @@ impl Screen for ChessGameScreen {
     }
 }
 
+/// Re-scope the app to a rematch game. `attach_game` works both from Idle and
+/// from an already in-game backend (the latter is the rematch case —
+/// BUG-2026-11-11T145208), so the pushed screen streams the NEW game id.
+fn rematch_app(app: &ChessApp, game_id: String, my_turn: bool) -> ChessApp {
+    app.clone().attach_game(game_id, my_turn)
+}
+
 // Spawns the game-state stream onto the tokio runtime. The task owns a fresh
 // clone of `BoardAPI<InGame>`; mutations to the clone's `state` are local
 // bookkeeping. Every state change the screen needs is sent back as an
@@ -475,5 +497,45 @@ mod rematch_tests {
         assert_eq!(s.rematch.as_ref(), Some(&ctx));
         assert_eq!(s.rematch.as_ref().unwrap().mode.days_value(), 7);
         assert_eq!(s.rematch.as_ref().unwrap().kind.level(), Some(6));
+    }
+
+    // BUG-2026-11-11T145208: a rematch fires while the app is scoped to the
+    // OLD game — the pushed screen's app must end up scoped to the NEW game
+    // id, or its stream loads the old finished game instead.
+    #[test]
+    fn rematch_app_rescopes_in_game_backend_to_new_game() {
+        use crate::models::oauth::{LichessUser, TokenInfo};
+        let token = TokenInfo {
+            access_token: "test_token_12345".into(),
+            token_type: "Bearer".into(),
+            expires_in: Some(86400),
+            scope: None,
+        };
+        let user = LichessUser {
+            id: "testuser".into(),
+            username: "TestUser".into(),
+            perfs: None,
+            created_at: None,
+            disabled: None,
+            tos_violation: None,
+            profile: None,
+            seen_at: None,
+            patron: None,
+            verified: None,
+            play_time: None,
+            title: None,
+        };
+        let app = ChessApp::new_online(token, user).unwrap();
+        let app = app.attach_game("oldGame".into(), true);
+        assert_eq!(app.online_in_game_api().unwrap().game_id(), "oldGame");
+
+        let next_app = rematch_app(&app, "newGame".into(), true);
+        assert_eq!(
+            next_app.online_in_game_api().unwrap().game_id(),
+            "newGame",
+            "rematch screen must stream the NEW game, not the old one"
+        );
+        // The original app keeps the old scope (clone semantics).
+        assert_eq!(app.online_in_game_api().unwrap().game_id(), "oldGame");
     }
 }
