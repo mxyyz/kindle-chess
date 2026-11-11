@@ -1,0 +1,42 @@
+---
+# Story e06.5s03 — Random rematch via the shared seek helper.
+story_id: e06.5s03
+title: "Rematch kind=Random re-issues a seek (shared kick_seek) instead of create_open_challenge"
+status: failing
+bcps: 3
+delta: MODIFIED
+spec: e06.5s03-rematch-seek.md
+tasks:
+  - id: e06.5s03t01
+    description: >-
+      play.rs: extract kick_seek as pub(crate) shared helper (event stream first,
+      then held-open seek, AiGameStarted on match); chess_game.rs kick_rematch
+      Random arm calls it instead of create_open_challenge.
+    verify: "cd crate && cargo build --all-targets 2>&1 | tail -1 | grep -q 'Finished'"
+    risk: P2
+    security: none
+    status: failing
+    allure:
+      severity: normal
+      categories: ["e06.5", "seek", "rematch"]
+  - id: e06.5s03t02
+    description: >-
+      Unit test: Random rematch context routes to seek and a matched game emits
+      AiGameStarted (not ChallengeSent); no UI path calls create_open_challenge
+      anymore (grep guard).
+    verify: "cd crate && cargo test --lib 2>&1 | grep -q 'test result: ok' && ! grep -rn 'create_open_challenge' crate/src/ui --include='*.rs'"
+    risk: P2
+    security: none
+    status: failing
+    allure:
+      severity: normal
+      categories: ["e06.5", "seek", "unit"]
+  - id: e06.5s03t03
+    description: "Full gates: test + clippy -D warnings + fmt"
+    verify: "cd crate && cargo test 2>&1 | grep -q 'test result: ok' && cargo clippy --all-targets -- -D warnings 2>&1 | tail -1 | grep -q 'Finished' && cargo fmt --check && echo GATES-OK"
+    risk: P2
+    security: none
+    status: failing
+    allure:
+      severity: normal
+      categories: ["e06.5", "gates"]

@@ -118,7 +118,7 @@ epics:
     bcps: 3
     delta: ADDED
 - id: e06-play-form-enhancements
-  status: in progress (s01-s05 done; s06-s09 planned 2026-11-11 — 2 bugfixes + UI reorg + final verify)
+  status: done (9/9 stories + BUG-2026-11-11T145208/T153246 fixed on branch e06-play-form-enhancements; final gates incl. armv7 cross green 2026-11-11)
   wsjf_order: 2
   scope: specs/product/SCOPE_LATEST.yaml
   planning_context: specs/planning-context.yaml
@@ -146,9 +146,33 @@ epics:
     title: 'Verification: build/test/clippy/fmt/cross green; docs updated'
     bcps: 2
     delta: ADDED
+- id: e06.5-random-opponent-seek
+  status: planned (capsule written 2026-11-11; runs after e06, before e07)
+  wsjf_order: 3
+  scope: specs/product/SCOPE_LATEST.yaml
+  planning_context: specs/planning-context.yaml
+  capsule: specs/epics/e06-5-random-opponent-seek/
+  note: Random opponent via official POST /api/board/seek (held-open connection; drop cancels) with GET /api/stream/event opened first; replaces create_open in Play + rematch; impact in specs/IMPACT_LATEST.md
+  stories:
+  - id: e06.5s01
+    title: 'Adapter: stream_events + held-open seek (POST /api/board/seek, gameStart -> game id); wiremock'
+    bcps: 8
+    delta: ADDED
+  - id: e06.5s02
+    title: 'Play flow: Random -> event stream first, then seek; searching status; abort cancels; EN/DE i18n'
+    bcps: 8
+    delta: MODIFIED
+  - id: e06.5s03
+    title: 'Random rematch re-issues a seek via the shared kick_seek helper'
+    bcps: 3
+    delta: MODIFIED
+  - id: e06.5s04
+    title: 'Verification: gates + armv7 cross build + docs'
+    bcps: 2
+    delta: ADDED
 - id: e07-ui-enhancements
   status: sliced (tasks populated; ready for kickoff)
-  wsjf_order: 3
+  wsjf_order: 4
   scope: specs/product/SCOPE_LATEST.yaml
   planning_context: specs/planning-context.yaml
   capsule: specs/epics/e07-ui-enhancements/

@@ -1,0 +1,66 @@
+---
+# Epic capsule manifest — e06.5 random-opponent-seek
+# Sliced 2026-11-11 after user review of e06s08: the Play form's "Random"
+# opponent must use the official board seek endpoint POST /api/board/seek
+# (https://lichess.org/api#tag/board/POST/api/board/seek), NOT
+# POST /api/challenge/open. Per the official API the seek connection must
+# stay established (dropping it cancels the seek), and the event stream
+# GET /api/stream/event (https://lichess.org/api#tag/board/GET/api/stream/event)
+# should be open BEFORE starting the seek so the gameStart event is not missed.
+#
+# litchee 0.2.2 support verified against the vendored source
+# (registry litchee-0.2.2/src/api/gameplay/board.rs):
+# - BoardApi::seek() -> SeekRequest -> POST /api/board/seek, form fields
+#   rated / time (MINUTES, f32) / increment (secs) / days / variant / color /
+#   ratingRange — note: time+increment, NOT clock.limit/clock.increment like
+#   the challenge endpoints. send() returns BoxStream<'static, Result<Value>>
+#   (NDJSON); "Hold the returned stream open to keep the seek active; dropping
+#   it cancels the seek".
+# - BoardApi::stream_events() -> GET /api/stream/event ->
+#   BoxStream<Result<LichessIncomingEvent>> with variants gameStart/gameFinish/
+#   challenge/challengeCanceled/challengeDeclined; gameStart shape
+#   {"type":"gameStart","game":{"gameId":"g",...}} (litchee's own test).
+# - OAuth scope: seek requires board:play (or bot:play) — the app already
+#   requests board:play (models/oauth.rs AuthConfig::default scopes).
+epic_id: e06.5
+status: planned (capsule written 2026-11-11; runs after e06, before e07)
+scope: specs/product/SCOPE_LATEST.yaml
+planning_context: specs/planning-context.yaml
+impact: specs/IMPACT_LATEST.md
+# Order: adapter (event stream + held-open seek) first, then the Play flow,
+# then rematch, then verification.
+stories:
+  - story_id: e06.5s01
+    title: >-
+      Adapter: stream_events (GET /api/stream/event) + seek (POST
+      /api/board/seek, held-open NDJSON stream, gameStart -> game id);
+      form mapping per ChallengeMode + rated; wiremock tests
+    bcps: 8
+    delta: ADDED
+    tasks_file: e06.5s01-tasks.yaml
+    spec_file: e06.5s01-seek-adapter.md
+  - story_id: e06.5s02
+    title: >-
+      Play flow: Random -> open event stream first, then seek; "searching…"
+      status; cancel by aborting the task (drops the connection = cancels the
+      seek); on gameStart emit AiGameStarted and open ChessGameScreen; EN/DE i18n
+    bcps: 8
+    delta: MODIFIED
+    tasks_file: e06.5s02-tasks.yaml
+    spec_file: e06.5s02-play-seek-flow.md
+  - story_id: e06.5s03
+    title: >-
+      Rematch with kind=Random re-issues a seek (same helper as Play) instead of
+      create_open_challenge
+    bcps: 3
+    delta: MODIFIED
+    tasks_file: e06.5s03-tasks.yaml
+    spec_file: e06.5s03-rematch-seek.md
+  - story_id: e06.5s04
+    title: >-
+      Verification: wiremock + unit tests, full gates incl. armv7 cross build,
+      docs (ARCHITECTURE.md challenge flow, api/README.md) describe the seek flow
+    bcps: 2
+    delta: ADDED
+    tasks_file: e06.5s04-tasks.yaml
+    spec_file: e06.5s04-verification.md
