@@ -548,4 +548,51 @@ mod tests {
     fn allowed_correspondence_days_matches_lichess_contract() {
         assert_eq!(ALLOWED_CORRESPONDENCE_DAYS, [1, 2, 3, 5, 7, 10, 14]);
     }
+
+    // ── OpponentKind / RematchContext (e06) ─────────────────────────────────
+
+    #[test]
+    fn opponent_kind_variants_carry_their_payload() {
+        let friend = OpponentKind::Friend("Alice".into());
+        assert_eq!(friend.name(), Some("Alice"));
+        let ai = OpponentKind::Computer(5);
+        assert_eq!(ai.name(), None);
+        assert_eq!(ai.level(), Some(5));
+        assert_eq!(OpponentKind::Random.level(), None);
+        assert_eq!(OpponentKind::Random.name(), None);
+    }
+
+    #[test]
+    fn opponent_kind_rejects_out_of_range_ai_level() {
+        assert!(OpponentKind::computer_level(0).is_none());
+        assert!(OpponentKind::computer_level(9).is_none());
+        assert_eq!(OpponentKind::computer_level(8), Some(OpponentKind::Computer(8)));
+    }
+
+    #[test]
+    fn rematch_context_round_trips_and_preserves_settings() {
+        let ctx = RematchContext {
+            kind: OpponentKind::Friend("Alice".into()),
+            mode: ChallengeMode::Correspondence(7),
+            rated: true,
+        };
+        let json = serde_json::to_string(&ctx).unwrap();
+        let back: RematchContext = serde_json::from_str(&json).unwrap();
+        assert_eq!(back, ctx);
+        assert!(back.rated);
+        assert_eq!(back.mode.days_value(), 7);
+    }
+
+    #[test]
+    fn challenge_summary_carries_rated_flag() {
+        let c = ChallengeSummary {
+            id: "abc".into(),
+            status: "created".into(),
+            opponent: "Bob".into(),
+            incoming: false,
+            url: "https://lichess.org/abc".into(),
+            rated: true,
+        };
+        assert!(c.rated);
+    }
 }
