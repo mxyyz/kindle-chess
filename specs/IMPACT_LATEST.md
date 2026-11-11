@@ -29,7 +29,7 @@ with the official board seek (`POST /api/board/seek`, litchee `BoardApi::seek()`
 - `crate/src/ui/screens/play.rs` tests — send_event per kind, send routing seams
 - `crate/src/ui/screens/chess_game.rs` rematch_tests — context/visibility
 - Gap: no coverage for held-open seek stream, event-stream parsing, seek cancel
-  (new in e06.5)
+  (new in e11)
 
 ## Risk: Medium
 
@@ -40,5 +40,5 @@ switched in one place each.
 
 ## Recommended action
 
-Proceed with e06.5 plan; add wiremock tests for seek form fields + gameStart
+Proceed with e11 plan; add wiremock tests for seek form fields + gameStart
 extraction + event-stream parsing before touching the screens (RED first).

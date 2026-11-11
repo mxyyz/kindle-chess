@@ -15,6 +15,7 @@ play-rated = Wertung
 play-kind-friend = Freund
 play-kind-computer = Computer
 play-kind-random = Zufällig
+play-kind-random-soon = Demnächst
 play-ai-level = KI-Stufe
 play-days-label = Tage pro Zug
 play-random-info = Offene Herausforderung — jeder zufällige Spieler kann annehmen

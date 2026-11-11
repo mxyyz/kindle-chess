@@ -1,13 +1,13 @@
 ---
-# Story e06.5s02 — Play Random flow: event stream first, then held-open seek.
-story_id: e06.5s02
+# Story e11s02 — Play Random flow: event stream first, then held-open seek.
+story_id: e11s02
 title: "Play flow: Random -> stream_events then seek; searching status; abort cancels seek"
 status: failing
 bcps: 8
 delta: MODIFIED
-spec: e06.5s02-play-seek-flow.md
+spec: e11s02-play-seek-flow.md
 tasks:
-  - id: e06.5s02t01
+  - id: e11s02t01
     description: >-
       play.rs: seek_task: Option<AbortHandle> + is_seeking() + cancel_seek() +
       kick_seek(display) (opens stream_events first, then seek(mode, rated), reads
@@ -20,8 +20,8 @@ tasks:
     status: failing
     allure:
       severity: high
-      categories: ["e06.5", "seek", "play-flow"]
-  - id: e06.5s02t02
+      categories: ["e11", "seek", "play-flow"]
+  - id: e11s02t02
     description: >-
       Unit tests: is_seeking/cancel_seek state machine; send_status_key(Random) =
       play-status-seeking; send_event has no ChallengeSent arm for Random;
@@ -32,8 +32,8 @@ tasks:
     status: failing
     allure:
       severity: high
-      categories: ["e06.5", "seek", "unit"]
-  - id: e06.5s02t03
+      categories: ["e11", "seek", "unit"]
+  - id: e11s02t03
     description: >-
       Touch handling: back button while seeking aborts the task then Pops;
       Send while seeking cancels (status play-status-seek-canceled) instead of a
@@ -44,8 +44,8 @@ tasks:
     status: failing
     allure:
       severity: high
-      categories: ["e06.5", "seek", "touch"]
-  - id: e06.5s02t04
+      categories: ["e11", "seek", "touch"]
+  - id: e11s02t04
     description: "i18n EN/DE: play-status-seeking, play-status-seek-canceled"
     verify: "cd crate && grep -q 'play-status-seeking' i18n/en.ftl && grep -q 'play-status-seeking' i18n/de.ftl && grep -q 'play-status-seek-canceled' i18n/en.ftl && grep -q 'play-status-seek-canceled' i18n/de.ftl"
     risk: P2
@@ -53,8 +53,8 @@ tasks:
     status: failing
     allure:
       severity: normal
-      categories: ["e06.5", "i18n"]
-  - id: e06.5s02t05
+      categories: ["e11", "i18n"]
+  - id: e11s02t05
     description: "Full gates: test + clippy -D warnings + fmt"
     verify: "cd crate && cargo test 2>&1 | grep -q 'test result: ok' && cargo clippy --all-targets -- -D warnings 2>&1 | tail -1 | grep -q 'Finished' && cargo fmt --check && echo GATES-OK"
     risk: P2
@@ -62,4 +62,4 @@ tasks:
     status: failing
     allure:
       severity: normal
-      categories: ["e06.5", "gates"]
+      categories: ["e11", "gates"]

@@ -1,5 +1,5 @@
 ---
-story_id: e06.5s03
+story_id: e11s03
 title: "Rematch with kind=Random re-issues a seek instead of create_open_challenge"
 type: feature
 risk: P2
@@ -8,7 +8,7 @@ bcps: 3
 delta: MODIFIED
 ---
 
-# Story e06.5s03 — Random rematch via seek
+# Story e11s03 — Random rematch via seek
 
 ## Context
 
@@ -16,7 +16,7 @@ delta: MODIFIED
 `api.create_open_challenge(&ctx.mode, ctx.rated)` and the result arrives as
 `ChallengeSent("")` → InvitesScreen.
 
-**After (e06.5):** Random rematch uses the same seek helper as the Play flow
+**After (e11):** Random rematch uses the same seek helper as the Play flow
 (shared `pub(crate) fn kick_seek(api, mode, rated, tx)` in play.rs, reused by
 chess_game.rs), emitting `AiGameStarted` on match — the existing
 `AiGameStarted` handler in chess_game.rs already attaches the new game and

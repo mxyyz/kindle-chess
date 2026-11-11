@@ -15,6 +15,7 @@ play-rated = Rated
 play-kind-friend = Friend
 play-kind-computer = Computer
 play-kind-random = Random
+play-kind-random-soon = Coming soon
 play-ai-level = AI level
 play-days-label = Days per move
 play-random-info = Open challenge — any random player can accept

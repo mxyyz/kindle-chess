@@ -1,6 +1,6 @@
 ---
-story_id: e06.5s04
-title: "e06.5 verification: gates + armv7 cross build + docs describe the seek flow"
+story_id: e11s04
+title: "e11 verification: gates + armv7 cross build + docs describe the seek flow"
 type: chore
 risk: P2
 context: infra
@@ -8,11 +8,11 @@ bcps: 2
 delta: ADDED
 ---
 
-# Story e06.5s04 — final verification
+# Story e11s04 — final verification
 
 ## Context
 
-Closing verification for e06.5: full gates, cross build, docs.
+Closing verification for e11: full gates, cross build, docs.
 
 ## Requirements
 

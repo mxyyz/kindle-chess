@@ -106,6 +106,9 @@ impl ChessGameScreen {
             return;
         };
         let tx = display.event_tx.clone();
+        // Random is disabled until e11 — a stale rematch context must not send
+        // an open challenge; surface "coming soon" as the failure reason.
+        let random_soon = i18n::tr(&i18n::locale_of(&self.config), "play-kind-random-soon");
         tokio::spawn(async move {
             let result: Result<AppEvent, String> = match &ctx.kind {
                 crate::models::board_api::OpponentKind::Friend(name) => api
@@ -118,11 +121,7 @@ impl ChessGameScreen {
                     .await
                     .map(|g| PlayScreen::send_event(&ctx.kind, Some(g.id)))
                     .map_err(|e| e.to_string()),
-                crate::models::board_api::OpponentKind::Random => api
-                    .create_open_challenge(&ctx.mode, ctx.rated)
-                    .await
-                    .map(|_| PlayScreen::send_event(&ctx.kind, None))
-                    .map_err(|e| e.to_string()),
+                crate::models::board_api::OpponentKind::Random => Err(random_soon.clone()),
             };
             match result {
                 Ok(ev) => {

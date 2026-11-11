@@ -309,6 +309,16 @@ impl PlayScreen {
         self.selected_kind == KIND_FRIEND && self.opponent.is_none()
     }
 
+    /// Random sends are blocked until e11 (seek-based random opponent) —
+    /// returns the localized "coming soon" status when kind=Random, else None.
+    fn blocked_send_status(&self, loc: &str) -> Option<String> {
+        if matches!(self.opponent_kind(), OpponentKind::Random) {
+            Some(tr(loc, "play-kind-random-soon"))
+        } else {
+            None
+        }
+    }
+
     /// i18n key for the "sent" status; an empty opponent name means an open
     /// (Random) challenge.
     fn sent_status_key(opponent: &str) -> &'static str {
@@ -339,6 +349,11 @@ impl PlayScreen {
         let loc = i18n::locale_of(&self.config);
         if self.send_requires_opponent() {
             self.status = Some(tr(&loc, "play-status-select-first"));
+            return;
+        }
+        // Random is disabled until e11 — never send an open challenge from here.
+        if let Some(status) = self.blocked_send_status(&loc) {
+            self.status = Some(status);
             return;
         }
         let Some(api) = self.app.online_idle_api() else {
@@ -490,6 +505,13 @@ impl PlayScreen {
         }
     }
 
+    /// Whether a kind button can be selected. Random is DISABLED until e11
+    /// (seek-based random opponent via POST /api/board/seek) — the button is
+    /// relabeled "coming soon" and taps are ignored.
+    fn kind_selectable(idx: usize) -> bool {
+        idx != KIND_RANDOM
+    }
+
     /// Select a game mode; Correspondence makes the days selector the
     /// last-selected one on the shared row.
     pub fn select_mode(&mut self, mode: ChallengeMode) {
@@ -610,7 +632,8 @@ impl Screen for PlayScreen {
         self.rated_buttons[0].label = tr(&loc, "play-casual");
         self.rated_buttons[1].label = tr(&loc, "play-rated");
         self.kind_buttons[KIND_COMPUTER].label = tr(&loc, "play-kind-computer");
-        self.kind_buttons[KIND_RANDOM].label = tr(&loc, "play-kind-random");
+        // Random disabled until e11 — relabeled "coming soon".
+        self.kind_buttons[KIND_RANDOM].label = tr(&loc, "play-kind-random-soon");
         // The Friend button carries the picked friend's name (font clamped for
         // long names); falls back to the localized "Friend" label.
         let (friend_label, friend_font) = match &self.opponent {
@@ -816,6 +839,10 @@ impl Screen for PlayScreen {
                 }
                 for (i, btn) in self.kind_buttons.iter().enumerate() {
                     if btn.rect.contains(touch.x, touch.y) {
+                        // Random is disabled until e11 — tap is ignored.
+                        if !Self::kind_selectable(i) {
+                            return Ok(Transition::Stay);
+                        }
                         self.select_kind(i);
                         // e06s07: tapping the Friend kind button selects
                         // kind=Friend AND opens the FriendlistScreen; the
@@ -931,6 +958,27 @@ mod play_screen_tests {
         assert_eq!(s.selector_mode(), SelectorMode::RandomInfo);
         let info = s.selector_info_text(&loc).expect("Random shows info text");
         assert!(!info.is_empty());
+    }
+
+    // e06 close-out: Random is disabled + relabeled "coming soon" until e11
+    // (seek-based random opponent) — taps are ignored, sends are blocked.
+    #[test]
+    fn random_kind_disabled_until_e11() {
+        let mut s = PlayScreen::new(ChessApp::new_offline(), test_config());
+        let loc = i18n::locale_of(&s.config);
+        assert!(!PlayScreen::kind_selectable(KIND_RANDOM));
+        assert!(PlayScreen::kind_selectable(KIND_COMPUTER));
+        assert!(PlayScreen::kind_selectable(KIND_FRIEND));
+        // Programmatic select still maps, but sending is blocked with the
+        // "coming soon" status instead of create_open_challenge.
+        s.select_kind(KIND_RANDOM);
+        assert_eq!(s.opponent_kind(), OpponentKind::Random);
+        let blocked = s
+            .blocked_send_status(&loc)
+            .expect("Random send must be blocked");
+        assert_eq!(blocked, tr(&loc, "play-kind-random-soon"));
+        s.select_kind(KIND_FRIEND);
+        assert_eq!(s.blocked_send_status(&loc), None);
     }
 
     // User design 2026-11-11: Computer + Correspondence both active -> the

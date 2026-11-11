@@ -1,13 +1,13 @@
 ---
-# Story e06.5s01 — adapter: event stream + held-open seek (POST /api/board/seek).
-story_id: e06.5s01
+# Story e11s01 — adapter: event stream + held-open seek (POST /api/board/seek).
+story_id: e11s01
 title: "Adapter: stream_events (GET /api/stream/event) + seek (POST /api/board/seek held-open stream, gameStart -> game id)"
 status: failing
 bcps: 8
 delta: ADDED
-spec: e06.5s01-seek-adapter.md
+spec: e11s01-seek-adapter.md
 tasks:
-  - id: e06.5s01t01
+  - id: e11s01t01
     description: >-
       models/board_api.rs: EventStreamEvent enum (GameStart{game_id},
       GameFinish{game_id}, Challenge, ChallengeCanceled{id}, ChallengeDeclined{id},
@@ -20,8 +20,8 @@ tasks:
     status: failing
     allure:
       severity: high
-      categories: ["e06.5", "seek", "model"]
-  - id: e06.5s01t02
+      categories: ["e11", "seek", "model"]
+  - id: e11s01t02
     description: >-
       litchee_adapter.rs: stream_events() wrapping client.board().stream_events()
       mapped to EventStreamEvent; seek(mode, rated) -> SeekHandle wrapping the
@@ -36,8 +36,8 @@ tasks:
     status: failing
     allure:
       severity: high
-      categories: ["e06.5", "seek", "adapter", "Security Review"]
-  - id: e06.5s01t03
+      categories: ["e11", "seek", "adapter", "Security Review"]
+  - id: e11s01t03
     description: >-
       crate/tests/board_seek.rs wiremock: seek POSTs /api/board/seek with
       body_string_contains rated=true / color=random / time=10 / increment=5
@@ -51,8 +51,8 @@ tasks:
     status: failing
     allure:
       severity: high
-      categories: ["e06.5", "seek", "wiremock", "no new security findings in affected paths"]
-  - id: e06.5s01t04
+      categories: ["e11", "seek", "wiremock", "no new security findings in affected paths"]
+  - id: e11s01t04
     description: "Full gates: test + clippy -D warnings + fmt"
     verify: "cd crate && cargo test 2>&1 | grep -q 'test result: ok' && cargo clippy --all-targets -- -D warnings 2>&1 | tail -1 | grep -q 'Finished' && cargo fmt --check && echo GATES-OK"
     risk: P2
@@ -60,4 +60,4 @@ tasks:
     status: failing
     allure:
       severity: normal
-      categories: ["e06.5", "gates"]
+      categories: ["e11", "gates"]

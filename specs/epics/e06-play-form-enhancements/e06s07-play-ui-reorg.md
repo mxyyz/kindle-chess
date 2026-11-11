@@ -21,6 +21,9 @@ User-approved design (grill 2026-11-11):
    kind=Friend **and** opens the FriendlistScreen. On `FriendSelected`, the
    button label is replaced with the friend's name. The old standalone
    opponent button is removed — it assimilates into the Friend button.
+   **Amended 2026-11-11 (e06 close-out):** the Random button is disabled and
+   relabeled "Coming soon" (`play-kind-random-soon`, EN/DE) until e11
+   (seek-based random opponent); taps are ignored and sends are blocked.
 2. **Row 2 (y=327, h=96):** shared selector placeholder — exactly one of:
    AI level selector (8 × 100px buttons, kind=Computer), days selector
    (7 × 100px, mode=Correspondence and kind≠Computer), or Random info text.

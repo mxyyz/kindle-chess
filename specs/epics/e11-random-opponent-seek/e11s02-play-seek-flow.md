@@ -1,5 +1,5 @@
 ---
-story_id: e06.5s02
+story_id: e11s02
 title: "Play flow: Random -> event stream first, then held-open seek; searching status; cancel aborts"
 type: feature
 risk: P1
@@ -8,15 +8,15 @@ bcps: 8
 delta: MODIFIED
 ---
 
-# Story e06.5s02 — Play form Random flow via board seek
+# Story e11s02 — Play form Random flow via board seek
 
 ## Context
 
-**Before (e06s03/e06s08):** kind=Random → `create_open_challenge(mode, rated)`
+**Before (e06, current):** kind=Random is DISABLED ("coming soon" label, taps ignored) — e06s03/e06s08 originally wired it to `create_open_challenge(mode, rated)` → `ChallengeSent("")` → InvitesScreen
 (`POST /api/challenge/open`) → `ChallengeSent("")` → push InvitesScreen; the
 open challenge shows as an outgoing row there.
 
-**After (e06.5):** kind=Random → open the event stream
+**After (e11):** kind=Random → open the event stream
 (`GET /api/stream/event`) FIRST, then start the held-open seek
 (`POST /api/board/seek`). While searching, the status line shows a localized
 "Searching for opponent…" (`play-status-seeking`). When the seek stream

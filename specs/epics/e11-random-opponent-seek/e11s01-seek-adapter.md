@@ -1,5 +1,5 @@
 ---
-story_id: e06.5s01
+story_id: e11s01
 title: "Adapter: event stream + held-open board seek (POST /api/board/seek)"
 type: feature
 risk: P1
@@ -8,7 +8,7 @@ bcps: 8
 delta: ADDED
 ---
 
-# Story e06.5s01 — seek + event-stream adapter
+# Story e11s01 — seek + event-stream adapter
 
 ## Context
 
