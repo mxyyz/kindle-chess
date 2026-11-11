@@ -3,8 +3,8 @@ use crate::app::game::player0_turn;
 use crate::error::ChessError;
 use crate::models::bitboard::Bitboards;
 use crate::models::board_api::{
-    BoardAPI, ChallengeMode, ChallengeSummary, GameDataList, GameStateStreamEvent, Idle, InGame,
-    PlayedBy, Turn,
+    AiGame, BoardAPI, ChallengeMode, ChallengeSummary, GameDataList, GameStateStreamEvent, Idle,
+    InGame, PlayedBy, Turn,
 };
 use crate::models::oauth::{LichessUser, TokenInfo};
 use crate::ui::events::AppEvent;
@@ -50,12 +50,14 @@ impl<S> BoardAPI<S> {
     }
 
     /// Challenge the Lichess AI at `level` (1–8); the game starts immediately.
-    /// Returns the created game (id + rated flag) for opening ChessGameScreen.
+    /// Returns the created game's id for opening ChessGameScreen (e06s06: the
+    /// live API response doesn't fit litchee's DTOs, so the adapter returns
+    /// just the id).
     pub async fn send_challenge_ai(
         &self,
         level: u8,
         mode: &ChallengeMode,
-    ) -> Result<litchee::api::gameplay::games::LichessGame, ChessError> {
+    ) -> Result<AiGame, ChessError> {
         Ok(self.adapter.send_challenge_ai(level, mode).await?)
     }
 

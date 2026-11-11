@@ -68,8 +68,10 @@ async fn challenge_ai_posts_to_ai_endpoint_with_level_and_returns_game_id() {
         .and(body_string_contains("level=5"))
         .and(body_string_contains("clock.limit=600"))
         .respond_with(ResponseTemplate::new(200).set_body_string(
+            // Live API shape: `variant` is an object, not a string (BUG-2026-11-11T122900).
             r#"{"id":"aiGame42","rated":false,"speed":"blitz","perf":"blitz",
-                "status":"started","source":"ai","variant":"standard"}"#,
+                "status":"started","source":"ai",
+                "variant":{"key":"standard","name":"Standard","short":"Std"}}"#,
         ))
         .mount(&server)
         .await;
@@ -80,6 +82,51 @@ async fn challenge_ai_posts_to_ai_endpoint_with_level_and_returns_game_id() {
         .unwrap();
 
     assert_eq!(game.id, "aiGame42");
+}
+
+#[tokio::test]
+async fn challenge_ai_correspondence_sends_days() {
+    let server = MockServer::start().await;
+    Mock::given(method("POST"))
+        .and(path("/api/challenge/ai"))
+        .and(body_string_contains("level=3"))
+        .and(body_string_contains("days=7"))
+        .and(body_string_contains("color=random"))
+        .respond_with(ResponseTemplate::new(200).set_body_string(
+            r#"{"id":"aiCorr1","status":"started","source":"ai",
+                "variant":{"key":"standard","name":"Standard","short":"Std"}}"#,
+        ))
+        .mount(&server)
+        .await;
+
+    let game = adapter(&server)
+        .send_challenge_ai(3, &ChallengeMode::Correspondence(7))
+        .await
+        .unwrap();
+
+    assert_eq!(game.id, "aiCorr1");
+}
+
+#[tokio::test]
+async fn challenge_ai_response_without_id_errors_cleanly() {
+    let server = MockServer::start().await;
+    Mock::given(method("POST"))
+        .and(path("/api/challenge/ai"))
+        .respond_with(ResponseTemplate::new(200).set_body_string(
+            r#"{"status":"started","variant":{"key":"standard","name":"Standard","short":"Std"}}"#,
+        ))
+        .mount(&server)
+        .await;
+
+    let err = adapter(&server)
+        .send_challenge_ai(5, &ChallengeMode::RealTime)
+        .await
+        .unwrap_err();
+
+    assert!(
+        err.to_string().contains("no game id"),
+        "expected a missing-id error, got: {err}"
+    );
 }
 
 #[tokio::test]

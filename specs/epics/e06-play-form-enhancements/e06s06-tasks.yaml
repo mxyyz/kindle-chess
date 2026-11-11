@@ -2,7 +2,7 @@
 # Story e06s06 — fix BUG-2026-11-11T122900 (AI challenge decode).
 story_id: e06s06
 title: "Bugfix: AI challenge 'failed to decode LichessGame' via raw POST /api/challenge/ai"
-status: failing
+status: passing
 bcps: 5
 delta: MODIFIED
 spec: e06s06-ai-decode-fix.md
@@ -16,7 +16,7 @@ tasks:
     verify: "cd crate && cargo test --test challenge_ai_open 2>&1 | grep -qE 'FAILED|panicked'"
     risk: P0
     security: low
-    status: failing
+    status: passing
     allure:
       severity: critical
       categories: ["e06", "bugfix", "challenge-ai", "wiremock"]
@@ -29,7 +29,7 @@ tasks:
     verify: "cd crate && cargo build --all-targets 2>&1 | tail -1 | grep -q 'Finished'"
     risk: P0
     security: low
-    status: failing
+    status: passing
     allure:
       severity: critical
       categories: ["e06", "bugfix", "challenge-api", "Security Review"]
@@ -40,7 +40,7 @@ tasks:
     verify: "cd crate && cargo test --test challenge_ai_open 2>&1 | grep -q 'test result: ok'"
     risk: P0
     security: low
-    status: failing
+    status: passing
     allure:
       severity: critical
       categories: ["e06", "bugfix", "wiremock", "no new security findings in affected paths"]
@@ -49,7 +49,7 @@ tasks:
     verify: "cd crate && cargo test 2>&1 | grep -q 'test result: ok' && cargo clippy --all-targets -- -D warnings 2>&1 | tail -1 | grep -q 'Finished' && cargo fmt --check && echo GATES-OK"
     risk: P1
     security: none
-    status: failing
+    status: passing
     allure:
       severity: high
       categories: ["e06", "gates"]

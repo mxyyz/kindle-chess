@@ -67,7 +67,7 @@ registry:
       litchee LichessGame.variant is a string enum but the live
       /api/challenge/ai returns a variant object. Fix in e06s06 (raw POST).
     file: specs/bugs/BUG-2026-11-11T122900-ai-challenge-decode.md
-    status: open
+    status: fixed  # e06s06 on e06-play-form-enhancements (raw POST /api/challenge/ai)
   - bug_id: BUG-2026-11-11T123000
     date: 2026-11-11
     severity: medium

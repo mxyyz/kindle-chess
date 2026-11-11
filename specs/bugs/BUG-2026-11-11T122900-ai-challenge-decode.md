@@ -4,7 +4,7 @@ date: 2026-11-11
 severity: high
 priority: high
 scope: e06-challenge-ai
-status: open
+status: fixed  # e06s06 (raw POST, object-variant fixture + negative test green)
 summary: >-
   "Send challenge" with opponent kind Computer fails with
   "API error: failed to decode LichessGame".

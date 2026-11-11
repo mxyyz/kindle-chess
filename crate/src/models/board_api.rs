@@ -306,6 +306,16 @@ pub struct ChallengeSummary {
     pub rated: bool,
 }
 
+/// An AI game created via `POST /api/challenge/ai` (e06s06). The game starts
+/// immediately, so only the id is needed to open ChessGameScreen — the full
+/// game state arrives over the board stream. litchee's `LichessGame` DTO
+/// can't decode the live response (variant is an object, not a string), so
+/// the adapter parses the raw response and extracts just the id.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct AiGame {
+    pub id: String,
+}
+
 /// Who to challenge from the Play form (e06). `Computer` carries the Lichess
 /// AI level 1–8; `Random` is an open challenge anyone can accept.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
