@@ -9,7 +9,7 @@ use super::*;
 use crate::ui::layout;
 use crate::{
     models::{
-        board_api::{ALLOWED_CORRESPONDENCE_DAYS, ChallengeMode},
+        board_api::{ALLOWED_CORRESPONDENCE_DAYS, ChallengeMode, OpponentKind},
         chess::ChessApp,
         ui::{Display, Screen, Transition},
     },
@@ -23,8 +23,9 @@ use crate::{
 
 // ─── PlayScreen ───────────────────────────────────────────────────────────────
 /// The Play flow's form: pick a game mode (Unlimited / Real time 10:5 /
-/// Correspondence with a 1–14 days spinner), pick an opponent via
-/// FriendlistScreen, then send a casual standard challenge with random color.
+/// Correspondence with a days toggle), rated/casual, opponent kind
+/// (Friend via FriendlistScreen / Computer AI level 1–8 / Random open
+/// challenge), then send the challenge.
 pub struct PlayScreen {
     pub app: ChessApp,
     pub config: Arc<RwLock<AppConfig>>,
@@ -37,6 +38,13 @@ pub struct PlayScreen {
     /// triple-tap-to-quit gesture and values can't be invalid.
     pub days_buttons: [Button; 7],
     pub selected_days: u8,
+    /// Rated/casual toggle (e06) — hidden for Computer (AI games are always
+    /// casual on Lichess). Index 0 = casual, 1 = rated.
+    pub rated_buttons: [Button; 2],
+    /// Opponent-kind selector (e06): 0 = Friend, 1 = Computer, 2 = Random.
+    pub kind_buttons: [Button; 3],
+    /// AI level row (e06) — only drawn when Computer is selected.
+    pub level_buttons: [Button; 8],
     pub opponent_button: Button,
     pub send_button: Button,
     pub invites_button: IconButton,
@@ -44,6 +52,10 @@ pub struct PlayScreen {
 
     pub selected_mode: ChallengeMode,
     pub opponent: Option<String>,
+    /// Index into `kind_buttons`; see `opponent_kind()`.
+    pub selected_kind: usize,
+    pub rated: bool,
+    pub ai_level: u8,
     pub status: Option<String>,
     pub sending: bool,
 }
@@ -63,6 +75,12 @@ impl PlayScreen {
         const DAY_W: u16 = 100;
         let days_x0 = (layout::SCREEN_W - (7 * DAY_W as i16 + 6 * 16)) / 2;
         let days_labels = ["1", "2", "3", "5", "7", "10", "14"];
+        // e06 rows: rated toggle (y=740), kind selector (y=860), AI level
+        // row (y=980) — all above the status line (y=1240).
+        const RATED_W: u16 = (BTN_W - 16) / 2;
+        const KIND_H: u16 = 80;
+        const LEVEL_W: u16 = 100;
+        let level_x0 = (layout::SCREEN_W - (8 * LEVEL_W as i16 + 7 * 12)) / 2;
         let bottom = layout::SCREEN_H - (ICON_BUTTON_SIZE as i16 - 20) - 32;
         Self {
             app,
@@ -106,6 +124,50 @@ impl PlayScreen {
                 )
             }),
             selected_days: 3,
+            rated_buttons: [
+                Button::new(x, 740, RATED_W, BTN_H, "Casual".into(), 36.0, true),
+                Button::new(
+                    x + RATED_W as i16 + 16,
+                    740,
+                    RATED_W,
+                    BTN_H,
+                    "Rated".into(),
+                    36.0,
+                    true,
+                ),
+            ],
+            kind_buttons: [
+                Button::new(mode_x0, 860, MODE_W, KIND_H, "Friend".into(), 32.0, true),
+                Button::new(
+                    mode_x0 + MODE_W as i16 + 16,
+                    860,
+                    MODE_W,
+                    KIND_H,
+                    "Computer".into(),
+                    32.0,
+                    true,
+                ),
+                Button::new(
+                    mode_x0 + 2 * (MODE_W as i16 + 16),
+                    860,
+                    MODE_W,
+                    KIND_H,
+                    "Random".into(),
+                    32.0,
+                    true,
+                ),
+            ],
+            level_buttons: std::array::from_fn(|i| {
+                Button::new(
+                    level_x0 + i as i16 * (LEVEL_W as i16 + 12),
+                    980,
+                    LEVEL_W,
+                    KIND_H,
+                    (i + 1).to_string(),
+                    32.0,
+                    true,
+                )
+            }),
             opponent_button: Button::new(x, 470, BTN_W, BTN_H, "Opponent: -".into(), 40.0, true),
             send_button: Button::new(x, 600, BTN_W, BTN_H, "Send challenge".into(), 40.0, true),
             invites_button: IconButton::new(
@@ -116,6 +178,9 @@ impl PlayScreen {
             back_button: IconButton::new(32 + ICON_BUTTON_SIZE as i16 / 2, bottom, "back-nav.png"),
             selected_mode: ChallengeMode::RealTime,
             opponent: None,
+            selected_kind: 0,
+            rated: false,
+            ai_level: 3,
             status: None,
             sending: false,
         }
@@ -194,6 +259,55 @@ impl PlayScreen {
             ChallengeMode::Correspondence(_) => &self.mode_button_correspondence,
         }
     }
+
+    // ── e06: rated toggle + opponent kind + AI level ─────────────────────────
+
+    /// The opponent kind matching the current selector state.
+    pub fn opponent_kind(&self) -> OpponentKind {
+        match self.selected_kind {
+            1 => OpponentKind::Computer(self.ai_level),
+            2 => OpponentKind::Random,
+            _ => OpponentKind::Friend(self.opponent.clone().unwrap_or_default()),
+        }
+    }
+
+    pub fn select_kind(&mut self, idx: usize) {
+        if idx < self.kind_buttons.len() {
+            self.selected_kind = idx;
+        }
+    }
+
+    pub fn select_rated(&mut self, rated: bool) {
+        self.rated = rated;
+    }
+
+    /// Sets the AI level; out-of-range values (Lichess allows 1–8) are ignored.
+    pub fn select_level(&mut self, level: u8) {
+        if let Some(kind) = OpponentKind::computer_level(level) {
+            self.ai_level = match kind {
+                OpponentKind::Computer(l) => l,
+                _ => unreachable!(),
+            };
+        }
+    }
+
+    /// Rated toggle is hidden for Computer — Lichess AI games are always casual.
+    fn rated_visible(&self) -> bool {
+        self.selected_kind != 1
+    }
+
+    /// The AI level row is only shown when Computer is selected.
+    fn level_row_visible(&self) -> bool {
+        self.selected_kind == 1
+    }
+
+    fn selected_rated_button(&self) -> &Button {
+        &self.rated_buttons[usize::from(self.rated)]
+    }
+
+    fn selected_kind_button(&self) -> &Button {
+        &self.kind_buttons[self.selected_kind]
+    }
 }
 
 /// Selected-file-style marker around `rect`: four 45° diagonal lines from
@@ -242,6 +356,11 @@ impl Screen for PlayScreen {
         self.mode_button_realtime.label = tr(&loc, "play-mode-realtime");
         self.mode_button_correspondence.label = tr(&loc, "play-mode-correspondence");
         self.send_button.label = tr(&loc, "play-send");
+        self.rated_buttons[0].label = tr(&loc, "play-casual");
+        self.rated_buttons[1].label = tr(&loc, "play-rated");
+        self.kind_buttons[0].label = tr(&loc, "play-kind-friend");
+        self.kind_buttons[1].label = tr(&loc, "play-kind-computer");
+        self.kind_buttons[2].label = tr(&loc, "play-kind-random");
 
         self.invites_button.draw(&mut display.renderer)?;
         self.mode_button_unlimited.draw(&mut display.renderer)?;
@@ -263,9 +382,38 @@ impl Screen for PlayScreen {
             )?;
         }
 
-        self.opponent_button.label = match &self.opponent {
-            Some(name) => i18n::t(&loc, "play-opponent", &[("name", name)]),
-            None => tr(&loc, "play-opponent-none"),
+        // e06: rated toggle (hidden for Computer), kind selector, AI level row.
+        if self.rated_visible() {
+            for btn in &self.rated_buttons {
+                btn.draw(&mut display.renderer)?;
+            }
+            draw_selection_marker(&mut display.renderer, &self.selected_rated_button().rect)?;
+        }
+        for btn in &self.kind_buttons {
+            btn.draw(&mut display.renderer)?;
+        }
+        draw_selection_marker(&mut display.renderer, &self.selected_kind_button().rect)?;
+        if self.level_row_visible() {
+            let level_label = tr(&loc, "play-ai-level");
+            display.renderer.draw_text(
+                (layout::SCREEN_W - 200) / 2,
+                962,
+                &level_label,
+                24.0,
+                DrawColor::Black,
+            )?;
+            for (i, btn) in self.level_buttons.iter().enumerate() {
+                btn.draw(&mut display.renderer)?;
+                if i + 1 == self.ai_level as usize {
+                    draw_selection_marker(&mut display.renderer, &btn.rect)?;
+                }
+            }
+        }
+
+        self.opponent_button.label = match (self.selected_kind, &self.opponent) {
+            (2, _) => tr(&loc, "play-opponent-random"),
+            (_, Some(name)) => i18n::t(&loc, "play-opponent", &[("name", name)]),
+            (_, None) => tr(&loc, "play-opponent-none"),
         };
         self.opponent_button.draw(&mut display.renderer)?;
         self.send_button.draw(&mut display.renderer)?;
@@ -356,7 +504,29 @@ impl Screen for PlayScreen {
                     }
                 }
 
-                if self.opponent_button.rect.contains(touch.x, touch.y) {
+                // e06: rated toggle + kind selector + AI level rows.
+                for (i, btn) in self.rated_buttons.iter().enumerate() {
+                    if btn.rect.contains(touch.x, touch.y) {
+                        self.select_rated(i == 1);
+                        return Ok(Transition::Redraw);
+                    }
+                }
+                for (i, btn) in self.kind_buttons.iter().enumerate() {
+                    if btn.rect.contains(touch.x, touch.y) {
+                        self.select_kind(i);
+                        return Ok(Transition::Redraw);
+                    }
+                }
+                for (i, btn) in self.level_buttons.iter().enumerate() {
+                    if btn.rect.contains(touch.x, touch.y) {
+                        self.select_level((i + 1) as u8);
+                        return Ok(Transition::Redraw);
+                    }
+                }
+
+                // Friend picking still goes through FriendlistScreen; Computer
+                // and Random need no opponent name.
+                if self.selected_kind == 0 && self.opponent_button.rect.contains(touch.x, touch.y) {
                     info!("Opening friend list");
                     return Ok(Transition::Push(Box::new(FriendlistScreen::new(
                         self.app.clone(),
