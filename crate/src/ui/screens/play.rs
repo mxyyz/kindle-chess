@@ -22,30 +22,67 @@ use crate::{
 };
 
 // ─── PlayScreen ───────────────────────────────────────────────────────────────
-/// The Play flow's form: pick a game mode (Unlimited / Real time 10:5 /
-/// Correspondence with a days toggle), rated/casual, opponent kind
-/// (Friend via FriendlistScreen / Computer AI level 1–8 / Random open
-/// challenge), then send the challenge.
+
+// e06s07 layout rows (user-approved design 2026-11-11). Rows 1–4 live in the
+// upper half (y < SCREEN_H/2 = 724); Send is centered in the lower half.
+/// Row 1: opponent-kind group.
+const KIND_Y: i16 = 200;
+const KIND_H: u16 = 80;
+/// Row 2: shared selector row (AI level | days | random info) — exactly one.
+const SELECTOR_Y: i16 = 310;
+const SELECTOR_H: u16 = 96;
+/// Row 3: game mode group.
+const MODE_Y: i16 = 470;
+const MODE_H: u16 = 80;
+/// Row 4: rated toggle — last row of the upper half (hidden for Computer).
+const RATED_Y: i16 = 580;
+/// Send button, centered in the lower half.
+const SEND_Y: i16 = 1038;
+/// Selector-row x origins (both groups are centered on the same row).
+const LEVEL_X0: i16 = (layout::SCREEN_W - (8 * 100 + 7 * 12)) / 2; // 8 × 100px + 7 × 12
+const DAYS_X0: i16 = (layout::SCREEN_W - (7 * 100 + 6 * 16)) / 2; // 7 × 100px + 6 × 16
+
+/// kind_buttons indices (e06s07): Computer | Friend | Random.
+const KIND_COMPUTER: usize = 0;
+const KIND_FRIEND: usize = 1;
+const KIND_RANDOM: usize = 2;
+
+/// What the shared selector row (row 2) currently hosts.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum SelectorMode {
+    /// AI level 1–8 button row (kind = Computer).
+    AiLevel,
+    /// Days-per-move button row (Correspondence and kind ≠ Computer).
+    Days,
+    /// Random/open-challenge info text (fallback).
+    RandomInfo,
+}
+
+/// The Play flow's form (e06s07 layout): row 1 opponent kind
+/// (Computer / Friend / Random — Friend also opens the FriendlistScreen and
+/// then shows the picked name), row 2 shared selector (level | days | info),
+/// row 3 game mode, row 4 rated/casual (hidden for Computer), Send centered
+/// in the lower half.
 pub struct PlayScreen {
     pub app: ChessApp,
     pub config: Arc<RwLock<AppConfig>>,
     pub mode_button_unlimited: Button,
     pub mode_button_realtime: Button,
     pub mode_button_correspondence: Button,
-    /// Days-per-move toggle group — only drawn in correspondence mode. One
-    /// button per Lichess-allowed value (ALLOWED_CORRESPONDENCE_DAYS); a
-    /// button group instead of a slider/spinner so rapid taps can't hit the
+    /// Days-per-move toggle group — drawn in the shared selector row when
+    /// mode = Correspondence and kind ≠ Computer. One button per
+    /// Lichess-allowed value (ALLOWED_CORRESPONDENCE_DAYS); a button group
+    /// instead of a slider/spinner so rapid taps can't hit the
     /// triple-tap-to-quit gesture and values can't be invalid.
     pub days_buttons: [Button; 7],
     pub selected_days: u8,
-    /// Rated/casual toggle (e06) — hidden for Computer (AI games are always
-    /// casual on Lichess). Index 0 = casual, 1 = rated.
+    /// Rated/casual toggle (e06s07 row 4) — hidden for Computer (AI games are
+    /// always casual on Lichess). Index 0 = casual, 1 = rated.
     pub rated_buttons: [Button; 2],
-    /// Opponent-kind selector (e06): 0 = Friend, 1 = Computer, 2 = Random.
+    /// Opponent-kind selector (e06s07 row 1): Computer | Friend | Random.
     pub kind_buttons: [Button; 3],
-    /// AI level row (e06) — only drawn when Computer is selected.
+    /// AI level row (e06s07 selector row) — drawn when Computer is selected.
     pub level_buttons: [Button; 8],
-    pub opponent_button: Button,
     pub send_button: Button,
     pub invites_button: IconButton,
     pub back_button: IconButton,
@@ -62,32 +99,34 @@ pub struct PlayScreen {
 
 impl PlayScreen {
     pub fn new(app: ChessApp, config: Arc<RwLock<AppConfig>>) -> Self {
-        // Layout: layout::SCREEN_W × layout::SCREEN_H. Title top, invites icon top-right, mode row,
-        // spinner row, opponent + send buttons, status line, back bottom-left.
+        // e06s07 layout (layout::SCREEN_W × layout::SCREEN_H = 1072×1448):
+        //   row 1  y=200 h=80   kind group Computer | Friend | Random
+        //   row 2  y=310 h=96   shared selector (level | days | info)
+        //   row 3  y=470 h=80   mode group
+        //   row 4  y=580 h=96   rated toggle (last upper-half row, ends 676 < 724)
+        //   lower half          Send centered (y=1038, x=236, 600×96)
+        // Title top, invites icon top-right, status line y=1240, back bottom-left.
         const MODE_W: u16 = 320;
-        const MODE_H: u16 = 80;
         const BTN_W: u16 = 600;
         const BTN_H: u16 = 96;
         let mode_x0 = (layout::SCREEN_W - (3 * MODE_W as i16 + 2 * 16)) / 2;
         let x = (layout::SCREEN_W - BTN_W as i16) / 2;
-        // Days toggle group: 7 buttons of 100px + 6 gaps of 16 = 796px wide,
-        // centred, on the slider's old row (y=310).
+        // Selector row: days group 7 × 100px + 6 gaps of 16, AI level group
+        // 8 × 100px + 7 gaps of 12 — both centered on the same row (y=310);
+        // only one is drawn at a time.
         const DAY_W: u16 = 100;
-        let days_x0 = (layout::SCREEN_W - (7 * DAY_W as i16 + 6 * 16)) / 2;
+        let days_x0 = DAYS_X0;
         let days_labels = ["1", "2", "3", "5", "7", "10", "14"];
-        // e06 rows: rated toggle (y=740), kind selector (y=860), AI level
-        // row (y=980) — all above the status line (y=1240).
         const RATED_W: u16 = (BTN_W - 16) / 2;
-        const KIND_H: u16 = 80;
         const LEVEL_W: u16 = 100;
-        let level_x0 = (layout::SCREEN_W - (8 * LEVEL_W as i16 + 7 * 12)) / 2;
+        let level_x0 = LEVEL_X0;
         let bottom = layout::SCREEN_H - (ICON_BUTTON_SIZE as i16 - 20) - 32;
         Self {
             app,
             config,
             mode_button_unlimited: Button::new(
                 mode_x0,
-                200,
+                MODE_Y,
                 MODE_W,
                 MODE_H,
                 "Unlimited".into(),
@@ -96,7 +135,7 @@ impl PlayScreen {
             ),
             mode_button_realtime: Button::new(
                 mode_x0 + MODE_W as i16 + 16,
-                200,
+                MODE_Y,
                 MODE_W,
                 MODE_H,
                 "Real time 10:5".into(),
@@ -105,7 +144,7 @@ impl PlayScreen {
             ),
             mode_button_correspondence: Button::new(
                 mode_x0 + 2 * (MODE_W as i16 + 16),
-                200,
+                MODE_Y,
                 MODE_W,
                 MODE_H,
                 "Correspondence".into(),
@@ -115,9 +154,9 @@ impl PlayScreen {
             days_buttons: std::array::from_fn(|i| {
                 Button::new(
                     days_x0 + i as i16 * (DAY_W as i16 + 16),
-                    310,
+                    SELECTOR_Y,
                     DAY_W,
-                    96,
+                    SELECTOR_H,
                     days_labels[i].to_string(),
                     32.0,
                     true,
@@ -125,10 +164,10 @@ impl PlayScreen {
             }),
             selected_days: 3,
             rated_buttons: [
-                Button::new(x, 740, RATED_W, BTN_H, "Casual".into(), 36.0, true),
+                Button::new(x, RATED_Y, RATED_W, BTN_H, "Casual".into(), 36.0, true),
                 Button::new(
                     x + RATED_W as i16 + 16,
-                    740,
+                    RATED_Y,
                     RATED_W,
                     BTN_H,
                     "Rated".into(),
@@ -137,10 +176,9 @@ impl PlayScreen {
                 ),
             ],
             kind_buttons: [
-                Button::new(mode_x0, 860, MODE_W, KIND_H, "Friend".into(), 32.0, true),
                 Button::new(
-                    mode_x0 + MODE_W as i16 + 16,
-                    860,
+                    mode_x0,
+                    KIND_Y,
                     MODE_W,
                     KIND_H,
                     "Computer".into(),
@@ -148,8 +186,17 @@ impl PlayScreen {
                     true,
                 ),
                 Button::new(
+                    mode_x0 + MODE_W as i16 + 16,
+                    KIND_Y,
+                    MODE_W,
+                    KIND_H,
+                    "Friend".into(),
+                    32.0,
+                    true,
+                ),
+                Button::new(
                     mode_x0 + 2 * (MODE_W as i16 + 16),
-                    860,
+                    KIND_Y,
                     MODE_W,
                     KIND_H,
                     "Random".into(),
@@ -160,16 +207,15 @@ impl PlayScreen {
             level_buttons: std::array::from_fn(|i| {
                 Button::new(
                     level_x0 + i as i16 * (LEVEL_W as i16 + 12),
-                    980,
+                    SELECTOR_Y,
                     LEVEL_W,
-                    KIND_H,
+                    SELECTOR_H,
                     (i + 1).to_string(),
                     32.0,
                     true,
                 )
             }),
-            opponent_button: Button::new(x, 470, BTN_W, BTN_H, "Opponent: -".into(), 40.0, true),
-            send_button: Button::new(x, 600, BTN_W, BTN_H, "Send challenge".into(), 40.0, true),
+            send_button: Button::new(x, SEND_Y, BTN_W, BTN_H, "Send challenge".into(), 40.0, true),
             invites_button: IconButton::new(
                 layout::SCREEN_W - ICON_BUTTON_SIZE as i16 - 24,
                 24,
@@ -178,7 +224,7 @@ impl PlayScreen {
             back_button: IconButton::new(32 + ICON_BUTTON_SIZE as i16 / 2, bottom, "back-nav.png"),
             selected_mode: ChallengeMode::RealTime,
             opponent: None,
-            selected_kind: 0,
+            selected_kind: KIND_FRIEND,
             rated: false,
             ai_level: 3,
             status: None,
@@ -186,12 +232,23 @@ impl PlayScreen {
         }
     }
 
-    /// Label for the opponent button reflecting the current pick.
-    pub fn opponent_label(&self) -> String {
+    /// Label shown on the Friend kind button: the picked friend's name, or
+    /// the localized default. Long names get a smaller font so the label
+    /// stays inside the button (e06s07).
+    pub fn friend_button_label(&self) -> (String, f32) {
         match &self.opponent {
-            Some(name) => format!("Opponent: {name}"),
-            None => "Opponent: -".to_string(),
+            Some(name) => (name.clone(), friend_label_font(name.len())),
+            None => ("Friend".to_string(), 32.0),
         }
+    }
+}
+
+/// Font size for the Friend kind button so long usernames still fit.
+fn friend_label_font(len: usize) -> f32 {
+    match len {
+        0..=10 => 32.0,
+        11..=16 => 26.0,
+        _ => 20.0,
     }
 }
 
@@ -218,15 +275,15 @@ impl PlayScreen {
     /// i18n key for the "sending" status, per opponent kind.
     fn send_status_key(&self) -> &'static str {
         match self.selected_kind {
-            1 => "play-status-sending-ai",
-            2 => "play-status-sending-open",
+            KIND_COMPUTER => "play-status-sending-ai",
+            KIND_RANDOM => "play-status-sending-open",
             _ => "play-status-sending",
         }
     }
 
     /// Whether the current kind needs a picked opponent name before sending.
     fn send_requires_opponent(&self) -> bool {
-        self.selected_kind == 0 && self.opponent.is_none()
+        self.selected_kind == KIND_FRIEND && self.opponent.is_none()
     }
 
     /// i18n key for the "sent" status; an empty opponent name means an open
@@ -315,10 +372,18 @@ impl PlayScreen {
         });
     }
 
-    /// The correspondence days-spinner is only shown in correspondence mode;
-    /// in other modes its row stays blank (layout positions never move).
-    fn spinner_visible(&self) -> bool {
-        matches!(self.mode(), ChallengeMode::Correspondence(_))
+    /// What the shared selector row (row 2) hosts for the current state:
+    /// AI level buttons for Computer, the days group for Correspondence with
+    /// any other kind, and the random/open info text otherwise. Exactly one
+    /// of the three is ever drawn (e06s07).
+    fn selector_mode(&self) -> SelectorMode {
+        if self.selected_kind == KIND_COMPUTER {
+            SelectorMode::AiLevel
+        } else if matches!(self.mode(), ChallengeMode::Correspondence(_)) {
+            SelectorMode::Days
+        } else {
+            SelectorMode::RandomInfo
+        }
     }
 
     /// The currently selected mode button, for drawing the selection marker.
@@ -330,13 +395,13 @@ impl PlayScreen {
         }
     }
 
-    // ── e06: rated toggle + opponent kind + AI level ─────────────────────────
+    // ── e06s07: rated toggle + opponent kind + selector row ──────────────────
 
     /// The opponent kind matching the current selector state.
     pub fn opponent_kind(&self) -> OpponentKind {
         match self.selected_kind {
-            1 => OpponentKind::Computer(self.ai_level),
-            2 => OpponentKind::Random,
+            KIND_COMPUTER => OpponentKind::Computer(self.ai_level),
+            KIND_RANDOM => OpponentKind::Random,
             _ => OpponentKind::Friend(self.opponent.clone().unwrap_or_default()),
         }
     }
@@ -361,14 +426,19 @@ impl PlayScreen {
         }
     }
 
-    /// Rated toggle is hidden for Computer — Lichess AI games are always casual.
-    fn rated_visible(&self) -> bool {
-        self.selected_kind != 1
+    /// Apply a friend picked on the FriendlistScreen: remember the name and
+    /// show it on the Friend kind button (with a clamped font for long names).
+    pub fn apply_friend_selected(&mut self, name: String) {
+        self.opponent = Some(name.clone());
+        let btn = &mut self.kind_buttons[KIND_FRIEND];
+        btn.label = name;
+        btn.font_size = friend_label_font(btn.label.len());
     }
 
-    /// The AI level row is only shown when Computer is selected.
-    fn level_row_visible(&self) -> bool {
-        self.selected_kind == 1
+    /// Rated toggle is hidden for Computer — Lichess AI games are always casual.
+    /// When hidden the row stays blank so nothing below shifts.
+    fn rated_visible(&self) -> bool {
+        self.selected_kind != KIND_COMPUTER
     }
 
     fn selected_rated_button(&self) -> &Button {
@@ -377,6 +447,30 @@ impl PlayScreen {
 
     fn selected_kind_button(&self) -> &Button {
         &self.kind_buttons[self.selected_kind]
+    }
+
+    /// Rects of every button visible in the current state — used by the
+    /// layout-invariant test to prove in-bounds + pairwise non-overlap.
+    #[cfg(test)]
+    fn visible_rects(&self) -> Vec<Rectangle> {
+        let mut rects: Vec<Rectangle> = vec![
+            self.mode_button_unlimited.rect,
+            self.mode_button_realtime.rect,
+            self.mode_button_correspondence.rect,
+            self.send_button.rect,
+            self.invites_button.rect,
+            self.back_button.rect,
+        ];
+        rects.extend(self.kind_buttons.iter().map(|b| b.rect));
+        if self.rated_visible() {
+            rects.extend(self.rated_buttons.iter().map(|b| b.rect));
+        }
+        match self.selector_mode() {
+            SelectorMode::AiLevel => rects.extend(self.level_buttons.iter().map(|b| b.rect)),
+            SelectorMode::Days => rects.extend(self.days_buttons.iter().map(|b| b.rect)),
+            SelectorMode::RandomInfo => {}
+        }
+        rects
     }
 }
 
@@ -428,11 +522,81 @@ impl Screen for PlayScreen {
         self.send_button.label = tr(&loc, "play-send");
         self.rated_buttons[0].label = tr(&loc, "play-casual");
         self.rated_buttons[1].label = tr(&loc, "play-rated");
-        self.kind_buttons[0].label = tr(&loc, "play-kind-friend");
-        self.kind_buttons[1].label = tr(&loc, "play-kind-computer");
-        self.kind_buttons[2].label = tr(&loc, "play-kind-random");
+        self.kind_buttons[KIND_COMPUTER].label = tr(&loc, "play-kind-computer");
+        self.kind_buttons[KIND_RANDOM].label = tr(&loc, "play-kind-random");
+        // The Friend button carries the picked friend's name (font clamped for
+        // long names); falls back to the localized "Friend" label.
+        let (friend_label, friend_font) = match &self.opponent {
+            Some(name) => (name.clone(), friend_label_font(name.len())),
+            None => (tr(&loc, "play-kind-friend"), 32.0),
+        };
+        self.kind_buttons[KIND_FRIEND].label = friend_label;
+        self.kind_buttons[KIND_FRIEND].font_size = friend_font;
 
         self.invites_button.draw(&mut display.renderer)?;
+
+        // Row 1: kind group (Computer | Friend | Random).
+        for btn in &self.kind_buttons {
+            btn.draw(&mut display.renderer)?;
+        }
+        draw_selection_marker(&mut display.renderer, &self.selected_kind_button().rect)?;
+
+        // Row 2: shared selector — exactly one of level row / days row / info.
+        match self.selector_mode() {
+            SelectorMode::AiLevel => {
+                // "AI level" label ABOVE the row, left-aligned at the row's x0.
+                let level_label = tr(&loc, "play-ai-level");
+                display.renderer.draw_text(
+                    LEVEL_X0,
+                    KIND_Y + KIND_H as i16 + 4,
+                    &level_label,
+                    24.0,
+                    DrawColor::Black,
+                )?;
+                for (i, btn) in self.level_buttons.iter().enumerate() {
+                    btn.draw(&mut display.renderer)?;
+                    if i + 1 == self.ai_level as usize {
+                        draw_selection_marker(&mut display.renderer, &btn.rect)?;
+                    }
+                }
+            }
+            SelectorMode::Days => {
+                for btn in &self.days_buttons {
+                    btn.draw(&mut display.renderer)?;
+                }
+                draw_selection_marker(
+                    &mut display.renderer,
+                    &self.days_buttons[self.selected_days_index()].rect,
+                )?;
+                // "Days per move" label BELOW the days selector row.
+                let days_label = tr(&loc, "play-days-label");
+                let (dw, _) = display.renderer.measure_text(&days_label, 24.0);
+                display.renderer.draw_text(
+                    (layout::SCREEN_W - dw as i16) / 2,
+                    SELECTOR_Y + SELECTOR_H as i16 + 10,
+                    &days_label,
+                    24.0,
+                    DrawColor::Black,
+                )?;
+            }
+            SelectorMode::RandomInfo => {
+                let info = if self.selected_kind == KIND_RANDOM {
+                    tr(&loc, "play-random-info")
+                } else {
+                    tr(&loc, "play-opponent-none")
+                };
+                let (iw, ih) = display.renderer.measure_text(&info, 24.0);
+                display.renderer.draw_text(
+                    (layout::SCREEN_W - iw as i16) / 2,
+                    SELECTOR_Y + (SELECTOR_H as i16 - ih as i16) / 2,
+                    &info,
+                    24.0,
+                    DrawColor::Black,
+                )?;
+            }
+        }
+
+        // Row 3: mode group.
         self.mode_button_unlimited.draw(&mut display.renderer)?;
         self.mode_button_realtime.draw(&mut display.renderer)?;
         self.mode_button_correspondence
@@ -440,52 +604,15 @@ impl Screen for PlayScreen {
         // Selection marker on the active mode button (selected-file style).
         draw_selection_marker(&mut display.renderer, &self.selected_mode_button().rect)?;
 
-        // Days toggle group — only in correspondence mode; the row stays
-        // blank otherwise so nothing below shifts.
-        if self.spinner_visible() {
-            for btn in &self.days_buttons {
-                btn.draw(&mut display.renderer)?;
-            }
-            draw_selection_marker(
-                &mut display.renderer,
-                &self.days_buttons[self.selected_days_index()].rect,
-            )?;
-        }
-
-        // e06: rated toggle (hidden for Computer), kind selector, AI level row.
+        // Row 4: rated toggle (hidden for Computer; the row stays blank).
         if self.rated_visible() {
             for btn in &self.rated_buttons {
                 btn.draw(&mut display.renderer)?;
             }
             draw_selection_marker(&mut display.renderer, &self.selected_rated_button().rect)?;
         }
-        for btn in &self.kind_buttons {
-            btn.draw(&mut display.renderer)?;
-        }
-        draw_selection_marker(&mut display.renderer, &self.selected_kind_button().rect)?;
-        if self.level_row_visible() {
-            let level_label = tr(&loc, "play-ai-level");
-            display.renderer.draw_text(
-                (layout::SCREEN_W - 200) / 2,
-                962,
-                &level_label,
-                24.0,
-                DrawColor::Black,
-            )?;
-            for (i, btn) in self.level_buttons.iter().enumerate() {
-                btn.draw(&mut display.renderer)?;
-                if i + 1 == self.ai_level as usize {
-                    draw_selection_marker(&mut display.renderer, &btn.rect)?;
-                }
-            }
-        }
 
-        self.opponent_button.label = match (self.selected_kind, &self.opponent) {
-            (2, _) => tr(&loc, "play-opponent-random"),
-            (_, Some(name)) => i18n::t(&loc, "play-opponent", &[("name", name)]),
-            (_, None) => tr(&loc, "play-opponent-none"),
-        };
-        self.opponent_button.draw(&mut display.renderer)?;
+        // Lower half: Send centered.
         self.send_button.draw(&mut display.renderer)?;
 
         if let Some(status) = &self.status {
@@ -510,10 +637,11 @@ impl Screen for PlayScreen {
         display: &mut Display,
     ) -> Result<Transition, Box<dyn std::error::Error>> {
         match event {
-            // Bubbled up from the popped FriendlistScreen.
+            // Bubbled up from the popped FriendlistScreen: the picked name
+            // replaces the Friend kind button's label (e06s07).
             AppEvent::FriendSelected(name) => {
                 info!("Opponent selected: {}", name);
-                self.opponent = Some(name);
+                self.apply_friend_selected(name);
                 self.status = None;
                 Ok(Transition::Redraw)
             }
@@ -602,6 +730,16 @@ impl Screen for PlayScreen {
                 for (i, btn) in self.kind_buttons.iter().enumerate() {
                     if btn.rect.contains(touch.x, touch.y) {
                         self.select_kind(i);
+                        // e06s07: tapping the Friend kind button selects
+                        // kind=Friend AND opens the FriendlistScreen; the
+                        // picked name lands back via FriendSelected.
+                        if i == KIND_FRIEND {
+                            info!("Opening friend list");
+                            return Ok(Transition::Push(Box::new(FriendlistScreen::new(
+                                self.app.clone(),
+                                self.config.clone(),
+                            ))));
+                        }
                         return Ok(Transition::Redraw);
                     }
                 }
@@ -610,16 +748,6 @@ impl Screen for PlayScreen {
                         self.select_level((i + 1) as u8);
                         return Ok(Transition::Redraw);
                     }
-                }
-
-                // Friend picking still goes through FriendlistScreen; Computer
-                // and Random need no opponent name.
-                if self.selected_kind == 0 && self.opponent_button.rect.contains(touch.x, touch.y) {
-                    info!("Opening friend list");
-                    return Ok(Transition::Push(Box::new(FriendlistScreen::new(
-                        self.app.clone(),
-                        self.config.clone(),
-                    ))));
                 }
 
                 if self.send_button.rect.contains(touch.x, touch.y) {
@@ -659,11 +787,12 @@ mod play_screen_tests {
     use crate::ui::screens::test_config;
 
     #[test]
-    fn opponent_label_reflects_selection() {
+    fn friend_button_label_reflects_selection() {
         let mut s = PlayScreen::new(ChessApp::new_offline(), test_config());
-        assert_eq!(s.opponent_label(), "Opponent: -");
-        s.opponent = Some("Alice42".into());
-        assert_eq!(s.opponent_label(), "Opponent: Alice42");
+        assert_eq!(s.friend_button_label().0, "Friend");
+        s.apply_friend_selected("Alice42".into());
+        assert_eq!(s.kind_buttons[KIND_FRIEND].label, "Alice42");
+        assert_eq!(s.friend_button_label().0, "Alice42");
     }
 
     #[test]
@@ -676,15 +805,46 @@ mod play_screen_tests {
         assert_eq!(s.mode(), ChallengeMode::RealTime);
     }
 
+    // ── e06s07: shared selector row ──────────────────────────────────────────
+
     #[test]
-    fn days_group_only_visible_in_correspondence_mode() {
+    fn selector_row_hosts_exactly_one_of_level_days_info() {
         let mut s = PlayScreen::new(ChessApp::new_offline(), test_config());
+        // Computer -> AI level row, even in correspondence mode (documented
+        // limitation: Computer + Correspondence shows the level row).
+        s.select_kind(KIND_COMPUTER);
         s.selected_mode = ChallengeMode::RealTime;
-        assert!(!s.spinner_visible());
+        assert_eq!(s.selector_mode(), SelectorMode::AiLevel);
         s.selected_mode = ChallengeMode::Correspondence(3);
-        assert!(s.spinner_visible());
+        assert_eq!(s.selector_mode(), SelectorMode::AiLevel);
+        // Friend + Correspondence -> days row.
+        s.select_kind(KIND_FRIEND);
+        assert_eq!(s.selector_mode(), SelectorMode::Days);
+        // Friend + non-correspondence -> info text.
+        s.selected_mode = ChallengeMode::RealTime;
+        assert_eq!(s.selector_mode(), SelectorMode::RandomInfo);
         s.selected_mode = ChallengeMode::Unlimited;
-        assert!(!s.spinner_visible());
+        assert_eq!(s.selector_mode(), SelectorMode::RandomInfo);
+        // Random + non-correspondence -> info text.
+        s.select_kind(KIND_RANDOM);
+        assert_eq!(s.selector_mode(), SelectorMode::RandomInfo);
+        s.selected_mode = ChallengeMode::Correspondence(5);
+        assert_eq!(s.selector_mode(), SelectorMode::Days);
+    }
+
+    #[test]
+    fn friend_button_font_clamps_for_long_names() {
+        let mut s = PlayScreen::new(ChessApp::new_offline(), test_config());
+        s.apply_friend_selected("Alice".into());
+        assert_eq!(s.kind_buttons[KIND_FRIEND].font_size, 32.0);
+        s.apply_friend_selected("BartholomewLong".into()); // 15 chars
+        assert_eq!(s.kind_buttons[KIND_FRIEND].font_size, 26.0);
+        s.apply_friend_selected("AVeryLongLichessUsername".into()); // 24 chars
+        assert_eq!(s.kind_buttons[KIND_FRIEND].font_size, 20.0);
+        assert_eq!(
+            s.kind_buttons[KIND_FRIEND].label,
+            "AVeryLongLichessUsername"
+        );
     }
 
     #[test]
@@ -733,49 +893,93 @@ mod play_screen_tests {
             && b.y < a.y + a.height as i16
     }
 
+    // ── e06s07: layout invariants (user-approved design) ────────────────────
+
     #[test]
-    fn e06_buttons_fit_screen_and_do_not_overlap() {
+    fn e06s07_rows_1_to_4_end_above_screen_half_and_send_is_lower_half_centered() {
         let s = PlayScreen::new(ChessApp::new_offline(), test_config());
-        let mut rects: Vec<&Rectangle> = vec![
-            &s.mode_button_unlimited.rect,
-            &s.mode_button_realtime.rect,
-            &s.mode_button_correspondence.rect,
-            &s.opponent_button.rect,
-            &s.send_button.rect,
-            &s.invites_button.rect,
-            &s.back_button.rect,
-        ];
-        for b in &s.days_buttons {
-            rects.push(&b.rect);
-        }
-        for b in &s.rated_buttons {
-            rects.push(&b.rect);
-        }
+        let half = layout::SCREEN_H / 2; // 724
+        // Row 1: kind group.
         for b in &s.kind_buttons {
-            rects.push(&b.rect);
-        }
-        for b in &s.level_buttons {
-            rects.push(&b.rect);
-        }
-        for r in &rects {
-            assert!(r.x >= 0 && r.y >= 0, "negative origin: {r:?}");
             assert!(
-                r.x + r.width as i16 <= layout::SCREEN_W,
-                "overflows right: {r:?}"
-            );
-            assert!(
-                r.y + r.height as i16 <= layout::SCREEN_H,
-                "overflows bottom: {r:?}"
+                b.rect.y + b.rect.height as i16 <= half,
+                "kind row below half: {:?}",
+                b.rect
             );
         }
-        for i in 0..rects.len() {
-            for j in (i + 1)..rects.len() {
-                assert!(
-                    !rects_overlap(rects[i], rects[j]),
-                    "overlap: {:?} vs {:?}",
-                    rects[i],
-                    rects[j]
-                );
+        // Row 2: selector band (level and days share the row).
+        for b in s.level_buttons.iter().chain(s.days_buttons.iter()) {
+            assert_eq!(b.rect.y, SELECTOR_Y);
+            assert!(
+                b.rect.y + b.rect.height as i16 <= half,
+                "selector row below half"
+            );
+        }
+        // Row 3: mode group.
+        for b in [
+            &s.mode_button_unlimited,
+            &s.mode_button_realtime,
+            &s.mode_button_correspondence,
+        ] {
+            assert!(
+                b.rect.y + b.rect.height as i16 <= half,
+                "mode row below half"
+            );
+        }
+        // Row 4: rated toggle — last row of the upper half.
+        for b in &s.rated_buttons {
+            assert!(
+                b.rect.y + b.rect.height as i16 <= half,
+                "rated row below half"
+            );
+        }
+        // Send centered in the lower half: center == (SCREEN_W/2, (half + SCREEN_H)/2).
+        let send = &s.send_button.rect;
+        let cx = send.x + send.width as i16 / 2;
+        let cy = send.y + send.height as i16 / 2;
+        assert_eq!(cx, layout::SCREEN_W / 2, "send not horizontally centered");
+        assert_eq!(
+            cy,
+            (half + layout::SCREEN_H) / 2,
+            "send not lower-half centered"
+        );
+        assert!(send.y >= half, "send must live in the lower half");
+    }
+
+    #[test]
+    fn e06s07_visible_buttons_in_bounds_and_non_overlapping_in_every_state() {
+        let mut s = PlayScreen::new(ChessApp::new_offline(), test_config());
+        let modes = [
+            ChallengeMode::Unlimited,
+            ChallengeMode::RealTime,
+            ChallengeMode::Correspondence(3),
+        ];
+        for kind in [KIND_COMPUTER, KIND_FRIEND, KIND_RANDOM] {
+            for mode in modes {
+                s.select_kind(kind);
+                s.selected_mode = mode;
+                let rects = s.visible_rects();
+                for r in &rects {
+                    assert!(r.x >= 0 && r.y >= 0, "negative origin: {r:?}");
+                    assert!(
+                        r.x + r.width as i16 <= layout::SCREEN_W,
+                        "overflows right: {r:?}"
+                    );
+                    assert!(
+                        r.y + r.height as i16 <= layout::SCREEN_H,
+                        "overflows bottom: {r:?}"
+                    );
+                }
+                for i in 0..rects.len() {
+                    for j in (i + 1)..rects.len() {
+                        assert!(
+                            !rects_overlap(&rects[i], &rects[j]),
+                            "kind={kind} mode={mode:?} overlap: {:?} vs {:?}",
+                            rects[i],
+                            rects[j]
+                        );
+                    }
+                }
             }
         }
     }
@@ -784,7 +988,7 @@ mod play_screen_tests {
     fn e06_defaults_are_casual_friend_realtime_level_3() {
         let s = PlayScreen::new(ChessApp::new_offline(), test_config());
         assert!(!s.rated);
-        assert_eq!(s.selected_kind, 0);
+        assert_eq!(s.selected_kind, KIND_FRIEND);
         assert_eq!(s.ai_level, 3);
         assert_eq!(s.opponent_kind(), OpponentKind::Friend(String::new()));
     }
@@ -793,12 +997,12 @@ mod play_screen_tests {
     fn e06_opponent_kind_mapping() {
         let mut s = PlayScreen::new(ChessApp::new_offline(), test_config());
         s.opponent = Some("Alice".into());
-        s.select_kind(0);
+        s.select_kind(KIND_FRIEND);
         assert_eq!(s.opponent_kind(), OpponentKind::Friend("Alice".into()));
-        s.select_kind(1);
+        s.select_kind(KIND_COMPUTER);
         s.select_level(7);
         assert_eq!(s.opponent_kind(), OpponentKind::Computer(7));
-        s.select_kind(2);
+        s.select_kind(KIND_RANDOM);
         assert_eq!(s.opponent_kind(), OpponentKind::Random);
     }
 
@@ -808,12 +1012,12 @@ mod play_screen_tests {
         assert!(s.rated_visible()); // Friend: rated toggle shown
         s.select_rated(true);
         assert!(s.rated);
-        s.select_kind(1); // Computer: AI is always casual -> toggle hidden
+        s.select_kind(KIND_COMPUTER); // Computer: AI is always casual -> toggle hidden
         assert!(!s.rated_visible());
-        assert!(s.level_row_visible());
-        s.select_kind(2); // Random: open challenge can be rated
+        assert_eq!(s.selector_mode(), SelectorMode::AiLevel);
+        s.select_kind(KIND_RANDOM); // Random: open challenge can be rated
         assert!(s.rated_visible());
-        assert!(!s.level_row_visible());
+        assert_ne!(s.selector_mode(), SelectorMode::AiLevel);
     }
 
     #[test]
@@ -832,25 +1036,25 @@ mod play_screen_tests {
     #[test]
     fn e06s03_send_status_key_per_kind() {
         let mut s = PlayScreen::new(ChessApp::new_offline(), test_config());
-        s.select_kind(0);
+        s.select_kind(KIND_FRIEND);
         assert_eq!(s.send_status_key(), "play-status-sending");
-        s.select_kind(1);
+        s.select_kind(KIND_COMPUTER);
         assert_eq!(s.send_status_key(), "play-status-sending-ai");
-        s.select_kind(2);
+        s.select_kind(KIND_RANDOM);
         assert_eq!(s.send_status_key(), "play-status-sending-open");
     }
 
     #[test]
     fn e06s03_friend_without_opponent_needs_selection_first() {
         let mut s = PlayScreen::new(ChessApp::new_offline(), test_config());
-        s.select_kind(0);
+        s.select_kind(KIND_FRIEND);
         s.opponent = None;
         assert!(s.send_requires_opponent());
         s.opponent = Some("Alice".into());
         assert!(!s.send_requires_opponent());
-        s.select_kind(1); // Computer: no opponent name needed
+        s.select_kind(KIND_COMPUTER); // Computer: no opponent name needed
         assert!(!s.send_requires_opponent());
-        s.select_kind(2); // Random: open challenge, no opponent name needed
+        s.select_kind(KIND_RANDOM); // Random: open challenge, no opponent name needed
         assert!(!s.send_requires_opponent());
     }
 

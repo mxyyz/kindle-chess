@@ -2,7 +2,7 @@
 # Story e06s07 — PlayScreen reorganization per user-approved design (grill 2026-11-11).
 story_id: e06s07
 title: "PlayScreen reorg: kind row first, shared selector row, mode row, centered Send in lower half"
-status: failing
+status: passing
 bcps: 8
 delta: MODIFIED
 spec: e06s07-play-ui-reorg.md
@@ -15,7 +15,7 @@ tasks:
     verify: "cd crate && cargo build 2>&1 | tail -1 | grep -q 'Finished'"
     risk: P1
     security: none
-    status: failing
+    status: passing
     allure:
       severity: high
       categories: ["e06", "ui", "reorg"]
@@ -28,7 +28,7 @@ tasks:
     verify: "cd crate && cargo test --lib play 2>&1 | grep -q 'test result: ok'"
     risk: P1
     security: none
-    status: failing
+    status: passing
     allure:
       severity: high
       categories: ["e06", "ui", "selector-row"]
@@ -39,7 +39,7 @@ tasks:
     verify: "cd crate && cargo test --lib play 2>&1 | grep -q 'test result: ok'"
     risk: P1
     security: none
-    status: failing
+    status: passing
     allure:
       severity: high
       categories: ["e06", "ui", "friend-picker"]
@@ -50,7 +50,7 @@ tasks:
     verify: "cd crate && cargo test --lib play 2>&1 | grep -q 'test result: ok'"
     risk: P1
     security: none
-    status: failing
+    status: passing
     allure:
       severity: high
       categories: ["e06", "ui", "layout"]
@@ -59,7 +59,7 @@ tasks:
     verify: "cd crate && grep -q 'play-days-label' i18n/en.ftl && grep -q 'play-days-label' i18n/de.ftl && grep -q 'play-random-info' i18n/en.ftl && grep -q 'play-random-info' i18n/de.ftl"
     risk: P2
     security: none
-    status: failing
+    status: passing
     allure:
       severity: normal
       categories: ["e06", "i18n"]
@@ -68,7 +68,7 @@ tasks:
     verify: "cd crate && cargo test 2>&1 | grep -q 'test result: ok' && cargo clippy --all-targets -- -D warnings 2>&1 | tail -1 | grep -q 'Finished' && cargo fmt --check && echo GATES-OK"
     risk: P1
     security: none
-    status: failing
+    status: passing
     allure:
       severity: high
       categories: ["e06", "gates"]
