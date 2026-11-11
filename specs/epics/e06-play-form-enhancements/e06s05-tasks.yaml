@@ -1,16 +1,39 @@
 ---
-# Story e06s05 — verification + docs.
+# Story e06s05 — verification + docs for e06.
+# Plan-work 2026-11-11: failing ledger.
 story_id: e06s05
 title: "Verification: local gates green, docs updated"
-status: todo
+status: failing
 bcps: 2
 delta: ADDED
+spec: e06s05-verification.md
 tasks:
   - id: e06s05t01
-    description: "Full local gates: build (dev + armv7 cross), test, clippy -D warnings, fmt --check"
-    verify: "cd crate && cargo build && cargo test 2>&1 | grep -q 'test result: ok' && cargo clippy -- -D warnings 2>&1 | tail -1 | grep -q 'Finished' && cargo fmt --check"
-    status: todo
+    description: "Full local gates: build + test + clippy -D warnings + fmt --check"
+    verify: "cd crate && cargo build 2>&1 | tail -1 | grep -q 'Finished' && cargo test 2>&1 | grep -q 'test result: ok' && cargo clippy --all-targets -- -D warnings 2>&1 | tail -1 | grep -q 'Finished' && cargo fmt --check && echo GATES-OK"
+    risk: P2
+    security: none
+    status: failing
+    allure:
+      severity: normal
+      categories: ["e06", "gates"]
   - id: e06s05t02
-    description: "Docs: ARCHITECTURE.md + crate/src/api/README.md describe new challenge flow"
-    verify: 'grep -q ''challenge_ai\|OpponentKind\|rated'' docs/ARCHITECTURE.md crate/src/api/README.md'
-    status: todo
+    description: "armv7 musl cross build (same flags as CI workflow)"
+    verify: "cd crate && RUSTFLAGS=\"-C target-feature=+crt-static\" cross build --target armv7-unknown-linux-musleabi --release 2>&1 | tail -1 | grep -q 'Finished'"
+    risk: P2
+    security: none
+    status: failing
+    allure:
+      severity: normal
+      categories: ["e06", "cross-build"]
+  - id: e06s05t03
+    description: >-
+      Docs: docs/ARCHITECTURE.md + crate/src/api/README.md describe OpponentKind routing
+      (friend / challenge_ai / create_open), rated flag, AI always casual.
+    verify: "grep -q 'challenge_ai' docs/ARCHITECTURE.md && grep -q 'OpponentKind' crate/src/api/README.md"
+    risk: P3
+    security: none
+    status: failing
+    allure:
+      severity: minor
+      categories: ["e06", "docs"]

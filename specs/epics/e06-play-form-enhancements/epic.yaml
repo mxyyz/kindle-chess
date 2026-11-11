@@ -4,27 +4,33 @@
 # specs/planning-context.yaml. litchee 0.2.2 APIs verified: challenge_ai,
 # create_open, seek, rated flag on ChallengeRequest.
 epic_id: e06-play-form-enhancements
-status: sliced (plan-work pending)
+status: planned (plan-work done 2026-11-11; story specs + failing-ledger tasks in capsule; ready for kickoff-branch)
 scope: specs/product/SCOPE_LATEST.yaml
 planning_context: specs/planning-context.yaml
 # Order: model/API layer first (opponent kind + rated param), then Play form UI,
-# then rematch, then verification.
+# then send flow, then rematch, then verification.
+# litchee 0.2.2 signatures verified 2026-11-11 against vendored source:
+# ChallengeRequest.rated (:200), OpenChallengeRequest.rated (:403),
+# AiChallengeRequest has NO rated (AI games always casual), challenge_ai().send()
+# -> LichessGame. Friend picking stays on FriendlistScreen (e07 list-picker lands later).
 stories:
   - story_id: e06s01
     title: >-
       Challenge model + litchee adapter: OpponentKind enum (Friend/Computer/Random),
-      rated flag on send_challenge, challenge_ai(level), create_open/seek for
+      rated flag on send_challenge, challenge_ai(level), create_open for
       random opponent; unit tests on param mapping
     bcps: 8
     delta: MODIFIED
     tasks_file: e06s01-tasks.yaml
+    spec_file: e06s01-challenge-model.md
   - story_id: e06s02
     title: >-
-      PlayScreen UI: rated/casual toggle + opponent picker (Friend -> list-picker,
-      Computer -> level spinner, Random -> direct send); layout fits 1072x1448
+      PlayScreen UI: rated/casual toggle + opponent picker (Friend -> FriendlistScreen,
+      Computer -> level selector 1-8, Random -> direct send); layout fits 1072x1448
     bcps: 8
     delta: MODIFIED
     tasks_file: e06s02-tasks.yaml
+    spec_file: e06s02-playscreen-ui.md
   - story_id: e06s03
     title: >-
       Challenge send flow: route to correct litchee call per OpponentKind +
@@ -33,6 +39,7 @@ stories:
     bcps: 5
     delta: MODIFIED
     tasks_file: e06s03-tasks.yaml
+    spec_file: e06s03-send-flow.md
   - story_id: e06s04
     title: >-
       Rematch button on ChessGameScreen game-over state: re-challenge same opponent
@@ -40,10 +47,12 @@ stories:
     bcps: 3
     delta: ADDED
     tasks_file: e06s04-tasks.yaml
+    spec_file: e06s04-rematch.md
   - story_id: e06s05
     title: >-
       Verification: cargo build (dev+cross) + test + clippy -D warnings + fmt
-      green; unit tests for challenge params; docs updated
+      green; docs updated
     bcps: 2
     delta: ADDED
     tasks_file: e06s05-tasks.yaml
+    spec_file: e06s05-verification.md

@@ -1,34 +1,29 @@
 session:
   active_flow: planning
-  active_epic: e05-safe-inapp-update (DONE — all 6 stories passing on branch e05-safe-inapp-update)
+  active_epic: e06-play-form-enhancements (planned 2026-11-11; plan-work done; ready for kickoff-branch)
   active_story: null
-  phase: e05 done + verified + audited — READY TO SHIP; user is pushing/PR-merging manually and will release v0.5.0 (device
-    has v0.4.0 + new update infra via USB flash)
+  phase: "v0.5.0 released on main (e05 merged via PR 40 + release-please 41); release cycle 2 (e06-e10) scoped, sliced, and task-populated — awaiting kickoff-branch for e06"
 vcs:
   kind: git
-  branch: e05-safe-inapp-update
-  head: 86a426d
-  worktree: /home/mxy/repos/e05-safe-inapp-update
+  branch: main
+  head: dc22e2b
+  worktree: /home/mxy/repos/kindle-chess
 handoff:
-  last_step_completed: audit-code PASS; branch e05-safe-inapp-update has 18 commits, all gates green; user takes over release-branch
-    (push + PR merge + tag v0.5.0) manually
+  last_step_completed: plan-work e06 done 2026-11-11 — 5 story specs + failing-ledger tasks in specs/epics/e06-play-form-enhancements/ (prior survey-context + session-state reconciliation to main @ dc22e2b / v0.5.0)
   open_decisions:
-  - User releases e05 alone as v0.5.0 (not batched with e06-e08) to test the new update-asset flow on-device
   - On-device UAT of the v0.5.0 bundle update needs the k2 on the LAN (device currently holds v0.4.0 + new infra)
   required_reading:
   - CLAUDE.md
   - specs/product/SCOPE_LATEST.yaml
   - specs/planning-context.yaml
   - specs/release-plan.yaml
-  - specs/epics/e05-safe-inapp-update/epic.yaml
-  next_skill: 'release-branch (user-driven); after merge: e06 plan-work -> kickoff-branch'
+  - specs/epics/e06-play-form-enhancements/epic.yaml
+  next_skill: kickoff-branch (feat/e06-play-form-enhancements), then build-epic from e06s01 via develop-tdd
 notes:
-  e02: merged to main (PR
-  e03: merged to main (PR
-  e04: merged to main (PR
-  e05-e10: sliced 2026-11-10 (release cycle 2), plan-work pending
+  e02-e05: merged to main; tags v0.1.2-v0.5.0 present
+  e06-e10: sliced 2026-11-10 (release cycle 2); per-story -tasks.yaml populated, plan-ready
   ci: '.github/workflows/rust.yml — cargo test + cross build on push/PR (working-directory: crate)'
 metrics:
-  reconciled: 2026-11-05 00:00:00+00:00
+  reconciled: 2026-11-11T10:23:33Z
 release:
-  last_tag: v0.4.0
+  last_tag: v0.5.0

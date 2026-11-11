@@ -1,36 +1,71 @@
 ---
 # Story e06s01 — challenge model + litchee adapter extensions.
+# Plan-work 2026-11-11: all tasks start status: failing (e45s06 ledger);
+# flip to passing only after verify exits 0 during develop-tdd.
 story_id: e06s01
-title: "Challenge model + litchee adapter: OpponentKind enum, rated flag, challenge_ai, create_open/seek"
-status: todo
+title: "Challenge model + litchee adapter: OpponentKind enum, rated flag, challenge_ai, create_open"
+status: failing
 bcps: 8
 delta: MODIFIED
+spec: e06s01-challenge-model.md
 tasks:
   - id: e06s01t01
     description: >-
-      models/board_api.rs: add OpponentKind enum (Friend(String)/Computer(u8)/Random)
-      + RatedFlag (or bool on ChallengeParams); extend ChallengeMode or add
-      ChallengeParams { mode, rated } struct.
+      models/board_api.rs: add OpponentKind enum (Friend(String)/Computer(u8)/Random),
+      RematchContext struct, and rated: bool on ChallengeSummary; unit tests for
+      enum + serde round-trip.
     verify: "cd crate && cargo test --lib board_api 2>&1 | grep -q 'test result: ok'"
-    status: todo
+    risk: P0
+    security: low
+    status: failing
+    allure:
+      severity: critical
+      categories: ["e06", "challenge-api", "unit"]
   - id: e06s01t02
     description: >-
-      litchee_adapter.rs: extend send_challenge to accept rated flag
-      (ChallengeRequest.rated(bool)); add send_challenge_ai(level, mode, rated)
-      via challenges().challenge_ai(level); add create_open_challenge(mode, rated)
-      via challenges().create_open() or board().seek().
-    verify: "cd crate && cargo build 2>&1 | grep -q 'error' || true && cd crate && cargo test --lib litchee_adapter 2>&1 | grep -q 'test result: ok'"
-    status: todo
+      litchee_adapter.rs: extend send_challenge(username, mode, rated: bool) using
+      ChallengeRequest.rated(bool) (litchee challenges.rs:200) instead of hardcoded
+      false; map_challenge carries rated from LichessChallenge.rated (default false).
+    verify: "cd crate && cargo build 2>&1 | tail -1 | grep -q 'Finished'"
+    risk: P0
+    security: low
+    status: failing
+    allure:
+      severity: critical
+      categories: ["e06", "challenge-api", "Security Review"]
   - id: e06s01t03
     description: >-
-      Unit tests: wiremock tests proving rated=true sends rated:true in form body;
-      challenge_ai sends level + correct path; create_open sends correct params;
-      mapping of LichessChallenge -> ChallengeSummary preserves rated flag.
-    verify: "cd crate && cargo test 2>&1 | grep -qE 'test result: ok' && cd crate && cargo test --test '*' 2>&1 | grep -q 'test result: ok'"
-    status: todo
+      litchee_adapter.rs: add send_challenge_ai(level, mode) via challenges().challenge_ai(level)
+      (POST /api/challenge/ai, .send() -> LichessGame; NO rated method — AI is always casual)
+      and create_open_challenge(mode, rated) via challenges().create_open()
+      (POST /api/challenge/open, OpenChallengeRequest.rated at :403); apply clock(600,5)/days like send_challenge.
+    verify: "cd crate && cargo build 2>&1 | tail -1 | grep -q 'Finished'"
+    risk: P0
+    security: low
+    status: failing
+    allure:
+      severity: critical
+      categories: ["e06", "challenge-api", "external-integration"]
   - id: e06s01t04
     description: >-
-      board.rs (BoardAPI facade): expose new methods with ChessError mapping;
-      compile green.
-    verify: "cd crate && cargo build 2>&1 | tail -1 | grep -q 'Finished'"
-    status: todo
+      api/board.rs BoardAPI facade: expose send_challenge_ai + create_open_challenge with
+      ChessError mapping; update existing send_challenge call sites for the new rated param.
+    verify: "cd crate && cargo build --all-targets 2>&1 | tail -1 | grep -q 'Finished'"
+    risk: P1
+    security: none
+    status: failing
+    allure:
+      severity: high
+      categories: ["e06", "challenge-api", "facade"]
+  - id: e06s01t05
+    description: >-
+      wiremock tests (dev-dep wiremock 0.6): rated=true sends rated=true form field to
+      /api/challenge/{user}; challenge_ai POSTs /api/challenge/ai with level; create_open
+      POSTs /api/challenge/open with rated/clock/days; ChallengeSummary.rated mapping preserves flag.
+    verify: "cd crate && cargo test --lib litchee_adapter 2>&1 | grep -q 'test result: ok'"
+    risk: P0
+    security: low
+    status: failing
+    allure:
+      severity: critical
+      categories: ["e06", "challenge-api", "wiremock", "no new security findings in affected paths"]
