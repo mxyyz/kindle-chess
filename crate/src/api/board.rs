@@ -39,13 +39,34 @@ impl<S> BoardAPI<S> {
         Ok(self.adapter.get_following().await?)
     }
 
-    /// Send a friend challenge with the given game mode.
+    /// Send a friend challenge with the given game mode and rated flag.
     pub async fn send_challenge(
         &self,
         username: &str,
         mode: &ChallengeMode,
+        rated: bool,
     ) -> Result<ChallengeSummary, ChessError> {
-        Ok(self.adapter.send_challenge(username, mode).await?)
+        Ok(self.adapter.send_challenge(username, mode, rated).await?)
+    }
+
+    /// Challenge the Lichess AI at `level` (1–8); the game starts immediately.
+    /// Returns the created game (id + rated flag) for opening ChessGameScreen.
+    pub async fn send_challenge_ai(
+        &self,
+        level: u8,
+        mode: &ChallengeMode,
+    ) -> Result<litchee::api::gameplay::games::LichessGame, ChessError> {
+        Ok(self.adapter.send_challenge_ai(level, mode).await?)
+    }
+
+    /// Create an open challenge (Random opponent); appears as outgoing in
+    /// the Invites screen until someone accepts.
+    pub async fn create_open_challenge(
+        &self,
+        mode: &ChallengeMode,
+        rated: bool,
+    ) -> Result<ChallengeSummary, ChessError> {
+        Ok(self.adapter.create_open_challenge(mode, rated).await?)
     }
 
     /// Incoming + outgoing challenges (InvitesScreen data source).

@@ -6,7 +6,7 @@ use litchee::{
     api::gameplay::{
         board::{LichessBoardEvent, LichessGameEventPlayer, LichessGameState, LichessVariantInfo},
         challenges::{LichessChallenge, LichessChallengeColor},
-        games::LichessGameStatusName,
+        games::{LichessGame, LichessGameStatusName},
     },
     model::{LichessColor, LichessTitle, LichessVariantKey},
 };
@@ -319,13 +319,14 @@ impl LitcheeAdapter {
     }
 
     // Challenges
-    /// Send a friend challenge. Fixed defaults per e03 scope: standard variant,
-    /// casual (`rated=false`), random color; only the time control varies with
-    /// `mode`. Returns the created challenge mapped to our summary type.
+    /// Send a friend challenge. Standard variant, random color; the time
+    /// control varies with `mode` and the rated flag is forwarded (e06).
+    /// Returns the created challenge mapped to our summary type.
     pub async fn send_challenge(
         &self,
         username: &str,
         mode: &ChallengeMode,
+        rated: bool,
     ) -> Result<ChallengeSummary, LichessError> {
         if self.token.is_none() {
             return Err(LichessError::InvalidRequest(
@@ -336,7 +337,7 @@ impl LitcheeAdapter {
             .client
             .challenges()
             .challenge(username)
-            .rated(false)
+            .rated(rated)
             .color(LichessChallengeColor::Random);
         let req = match mode {
             ChallengeMode::Unlimited => req,
@@ -346,6 +347,62 @@ impl LitcheeAdapter {
         };
         let challenge: LichessChallenge = req.send().await?;
         Ok(map_challenge(&challenge, false))
+    }
+
+    /// Challenge the Lichess AI (`POST /api/challenge/ai`). The returned game
+    /// starts immediately. AI games are always casual on Lichess — litchee's
+    /// `AiChallengeRequest` has no `rated` builder, so no rated flag is sent.
+    pub async fn send_challenge_ai(
+        &self,
+        level: u8,
+        mode: &ChallengeMode,
+    ) -> Result<LichessGame, LichessError> {
+        if self.token.is_none() {
+            return Err(LichessError::InvalidRequest(
+                "send_challenge_ai requires authentication".into(),
+            ));
+        }
+        let req = self
+            .client
+            .challenges()
+            .challenge_ai(level)
+            .color(LichessChallengeColor::Random);
+        let req = match mode {
+            ChallengeMode::Unlimited => req,
+            ChallengeMode::RealTime => req.clock(600, 5),
+            ChallengeMode::Correspondence(days) => req.days(u32::from(*days)),
+        };
+        req.send().await
+    }
+
+    /// Create an open challenge anyone can accept (`POST /api/challenge/open`).
+    /// Shows up as outgoing in the Invites screen until accepted.
+    pub async fn create_open_challenge(
+        &self,
+        mode: &ChallengeMode,
+        rated: bool,
+    ) -> Result<ChallengeSummary, LichessError> {
+        if self.token.is_none() {
+            return Err(LichessError::InvalidRequest(
+                "create_open_challenge requires authentication".into(),
+            ));
+        }
+        let challenges = self.client.challenges();
+        let req = challenges.create_open().rated(rated);
+        let req = match mode {
+            ChallengeMode::Unlimited => req,
+            ChallengeMode::RealTime => req.clock(600, 5),
+            ChallengeMode::Correspondence(days) => req.days(u32::from(*days)),
+        };
+        let open: litchee::api::gameplay::challenges::LichessOpenChallenge = req.send().await?;
+        Ok(ChallengeSummary {
+            id: open.id,
+            status: format!("{:?}", open.status).to_lowercase(),
+            opponent: String::new(), // open challenge: no opponent until accepted
+            incoming: false,
+            url: open.url,
+            rated: open.rated.unwrap_or(false),
+        })
     }
 
     /// List incoming + outgoing challenges, mapped to summaries.

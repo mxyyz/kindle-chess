@@ -335,7 +335,9 @@ impl OpponentKind {
 
     /// Validated constructor for the AI level (Lichess accepts 1–8).
     pub fn computer_level(level: u8) -> Option<OpponentKind> {
-        (1..=8).contains(&level).then_some(OpponentKind::Computer(level))
+        (1..=8)
+            .contains(&level)
+            .then_some(OpponentKind::Computer(level))
     }
 }
 
@@ -612,7 +614,10 @@ mod tests {
     fn opponent_kind_rejects_out_of_range_ai_level() {
         assert!(OpponentKind::computer_level(0).is_none());
         assert!(OpponentKind::computer_level(9).is_none());
-        assert_eq!(OpponentKind::computer_level(8), Some(OpponentKind::Computer(8)));
+        assert_eq!(
+            OpponentKind::computer_level(8),
+            Some(OpponentKind::Computer(8))
+        );
     }
 
     #[test]

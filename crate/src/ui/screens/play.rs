@@ -168,7 +168,8 @@ impl PlayScreen {
         let mode = self.mode();
         let tx = display.event_tx.clone();
         tokio::spawn(async move {
-            match api.send_challenge(&opponent, &mode).await {
+            // e06s03 wires the rated toggle / opponent kind here; casual for now.
+            match api.send_challenge(&opponent, &mode, false).await {
                 Ok(_) => {
                     let _ = tx.send(AppEvent::ChallengeSent(opponent));
                 }
