@@ -305,3 +305,57 @@ fn kick_game_stream(
         }
     });
 }
+
+#[cfg(test)]
+mod rematch_tests {
+    use super::*;
+    use crate::models::board_api::{ChallengeMode, OpponentKind, RematchContext, Turn};
+    use crate::ui::screens::test_config;
+
+    fn screen() -> ChessGameScreen {
+        ChessGameScreen::new(ChessApp::new_offline(), test_config())
+    }
+
+    #[test]
+    fn e06s04_game_over_detected_from_turn_over() {
+        assert!(ChessGameScreen::is_game_over(&Turn::Over { winner: None }));
+        assert!(ChessGameScreen::is_game_over(&Turn::Over {
+            winner: Some("white".into())
+        }));
+        assert!(!ChessGameScreen::is_game_over(&Turn::Playing));
+        assert!(!ChessGameScreen::is_game_over(&Turn::Waiting));
+    }
+
+    #[test]
+    fn e06s04_rematch_button_only_when_game_over_and_context_present() {
+        let mut s = screen();
+        assert!(!s.rematch_button_visible());
+        s.set_rematch(RematchContext {
+            kind: OpponentKind::Friend("Alice".into()),
+            mode: ChallengeMode::RealTime,
+            rated: true,
+        });
+        assert!(!s.rematch_button_visible(), "not game over yet");
+        s.mark_game_over();
+        assert!(s.rematch_button_visible());
+        // Button must sit inside the sidebar area and clear of the corner icons.
+        let r = &s.rematch_button.rect;
+        assert!(r.x >= 0 && r.y >= layout::SIDEBAR_Y);
+        assert!(r.x + r.width as i16 <= layout::SCREEN_W);
+        assert!(r.y + r.height as i16 <= layout::SCREEN_H);
+    }
+
+    #[test]
+    fn e06s04_rematch_context_preserved_verbatim() {
+        let mut s = screen();
+        let ctx = RematchContext {
+            kind: OpponentKind::Computer(6),
+            mode: ChallengeMode::Correspondence(7),
+            rated: false,
+        };
+        s.set_rematch(ctx.clone());
+        assert_eq!(s.rematch.as_ref(), Some(&ctx));
+        assert_eq!(s.rematch.as_ref().unwrap().mode.days_value(), 7);
+        assert_eq!(s.rematch.as_ref().unwrap().kind.level(), Some(6));
+    }
+}
