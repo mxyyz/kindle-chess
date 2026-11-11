@@ -503,6 +503,7 @@ mod invites_tests {
             opponent: "X".into(),
             incoming,
             url: url.into(),
+            rated: false,
         }
     }
 

@@ -406,6 +406,7 @@ fn map_challenge(c: &LichessChallenge, incoming: bool) -> ChallengeSummary {
         opponent,
         incoming,
         url: c.url.clone(),
+        rated: c.rated.unwrap_or(false),
     }
 }
 

@@ -271,7 +271,7 @@ pub enum Speed {
 
 /// Game mode for a friend challenge. Fixed defaults per e03 scope: standard
 /// variant, casual (rated=false), random color — only the time control varies.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 pub enum ChallengeMode {
     /// No clock at all.
     Unlimited,
@@ -302,6 +302,50 @@ pub struct ChallengeSummary {
     pub incoming: bool,
     /// Challenge URL (`https://lichess.org/{gameId}` once accepted).
     pub url: String,
+    /// Whether the challenge is rated (e06).
+    pub rated: bool,
+}
+
+/// Who to challenge from the Play form (e06). `Computer` carries the Lichess
+/// AI level 1–8; `Random` is an open challenge anyone can accept.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub enum OpponentKind {
+    Friend(String),
+    Computer(u8),
+    Random,
+}
+
+impl OpponentKind {
+    /// Opponent username for friend challenges; `None` for Computer/Random.
+    pub fn name(&self) -> Option<&str> {
+        match self {
+            OpponentKind::Friend(name) => Some(name),
+            _ => None,
+        }
+    }
+
+    /// AI level for computer challenges; `None` otherwise.
+    pub fn level(&self) -> Option<u8> {
+        match self {
+            OpponentKind::Computer(level) => Some(*level),
+            _ => None,
+        }
+    }
+
+    /// Validated constructor for the AI level (Lichess accepts 1–8).
+    pub fn computer_level(level: u8) -> Option<OpponentKind> {
+        (1..=8).contains(&level).then_some(OpponentKind::Computer(level))
+    }
+}
+
+/// Everything needed to offer a rematch after game over (e06s04): the same
+/// opponent kind, time control, and rated flag as the original challenge.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct RematchContext {
+    pub kind: OpponentKind,
+    pub mode: ChallengeMode,
+    pub rated: bool,
 }
 
 /// Day values Lichess accepts for correspondence challenges
@@ -528,6 +572,7 @@ mod tests {
             opponent: "Bob".into(),
             incoming: false,
             url: "https://lichess.org/abc".into(),
+            rated: false,
         };
         assert_eq!(c.game_id(), None);
     }
@@ -540,6 +585,7 @@ mod tests {
             opponent: "Bob".into(),
             incoming: false,
             url: "https://lichess.org/XyZ123ab".into(),
+            rated: false,
         };
         assert_eq!(c.game_id(), Some("XyZ123ab"));
     }
