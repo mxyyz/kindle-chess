@@ -32,7 +32,9 @@ User-approved design (grill 2026-11-11):
    label sits **above** the row, **horizontally centered** (same centering as
    the days label) with the **same 10px margin to the row** as the days label
    has below it. The correspondence label ("Days per move") goes **below**
-   the days selector.
+   the days selector. The fallback slot shows the open-challenge info text
+   only for Random — the row stays **blank** when Friend is picked
+   (amended 2026-11-11; the friend's name lives on the Friend kind button).
 3. **Row 3 (y=470, h=80):** mode group `Unlimited | Real time 10:5 | Correspondence`
    (moved from y=200).
 4. **Row 4 (y=580, h=96):** rated toggle (Casual | Rated) — the **last row of

@@ -63,7 +63,8 @@ enum SelectorMode {
     AiLevel,
     /// Days-per-move button row (Correspondence and kind ≠ Computer).
     Days,
-    /// Random/open-challenge info text (fallback).
+    /// Fallback slot: open-challenge info text for Random, blank row for
+    /// Friend (2026-11-11 adjustment).
     RandomInfo,
 }
 
@@ -412,6 +413,18 @@ impl PlayScreen {
         }
     }
 
+    /// Text for the selector row's fallback (`RandomInfo`) slot: the
+    /// open-challenge hint when kind=Random, `None` (blank row) otherwise —
+    /// for Friend there is nothing to show, the friend's name is on the
+    /// Friend kind button (2026-11-11 adjustment).
+    fn selector_info_text(&self, loc: &str) -> Option<String> {
+        if self.selected_kind == KIND_RANDOM {
+            Some(tr(loc, "play-random-info"))
+        } else {
+            None
+        }
+    }
+
     /// Hit-test the shared selector row at (x, y); returns true when a
     /// selector button consumed the touch.
     ///
@@ -659,19 +672,19 @@ impl Screen for PlayScreen {
                 )?;
             }
             SelectorMode::RandomInfo => {
-                let info = if self.selected_kind == KIND_RANDOM {
-                    tr(&loc, "play-random-info")
-                } else {
-                    tr(&loc, "play-opponent-none")
-                };
-                let (iw, ih) = display.renderer.measure_text(&info, 24.0);
-                display.renderer.draw_text(
-                    (layout::SCREEN_W - iw as i16) / 2,
-                    SELECTOR_Y + (SELECTOR_H as i16 - ih as i16) / 2,
-                    &info,
-                    24.0,
-                    DrawColor::Black,
-                )?;
+                // Fallback slot: the open-challenge hint for Random; the row
+                // stays BLANK for Friend (2026-11-11 adjustment) — the picked
+                // friend's name already lives on the Friend kind button.
+                if let Some(info) = self.selector_info_text(&loc) {
+                    let (iw, ih) = display.renderer.measure_text(&info, 24.0);
+                    display.renderer.draw_text(
+                        (layout::SCREEN_W - iw as i16) / 2,
+                        SELECTOR_Y + (SELECTOR_H as i16 - ih as i16) / 2,
+                        &info,
+                        24.0,
+                        DrawColor::Black,
+                    )?;
+                }
             }
         }
 
@@ -896,6 +909,28 @@ mod play_screen_tests {
         assert_eq!(s.selector_mode(), SelectorMode::RandomInfo);
         s.select_mode(ChallengeMode::Correspondence(5));
         assert_eq!(s.selector_mode(), SelectorMode::Days);
+    }
+
+    // 2026-11-11 adjustment: the selector row's fallback slot is blank when
+    // Friend is picked (the friend's name lives on the Friend kind button);
+    // only Random shows the open-challenge info text.
+    #[test]
+    fn selector_fallback_blank_for_friend_info_for_random() {
+        let s = PlayScreen::new(ChessApp::new_offline(), test_config());
+        let loc = i18n::locale_of(&s.config);
+        let mut s = s;
+        s.select_kind(KIND_FRIEND);
+        s.select_mode(ChallengeMode::RealTime);
+        assert_eq!(s.selector_mode(), SelectorMode::RandomInfo);
+        assert_eq!(
+            s.selector_info_text(&loc),
+            None,
+            "Friend must leave the selector row blank"
+        );
+        s.select_kind(KIND_RANDOM);
+        assert_eq!(s.selector_mode(), SelectorMode::RandomInfo);
+        let info = s.selector_info_text(&loc).expect("Random shows info text");
+        assert!(!info.is_empty());
     }
 
     // User design 2026-11-11: Computer + Correspondence both active -> the

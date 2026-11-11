@@ -9,7 +9,6 @@ play-mode-unlimited = Unlimited
 play-mode-realtime = Real time 10:5
 play-mode-correspondence = Correspondence
 play-opponent = Opponent: {$name}
-play-opponent-none = Opponent: -
 play-opponent-random = Random (open challenge)
 play-casual = Casual
 play-rated = Rated

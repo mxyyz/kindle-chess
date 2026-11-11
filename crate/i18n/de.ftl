@@ -9,7 +9,6 @@ play-mode-unlimited = Unbegrenzt
 play-mode-realtime = Echtzeit 10:5
 play-mode-correspondence = Fernschach
 play-opponent = Gegner: {$name}
-play-opponent-none = Gegner: -
 play-opponent-random = Zufällig (offene Herausforderung)
 play-casual = Casual
 play-rated = Wertung
