@@ -73,9 +73,12 @@ Known rough edge: token expiry is not handled — an expired token surfaces as a
 
 The challenge methods route per `OpponentKind` (models/board_api.rs): `Friend` →
 `POST /api/challenge/{user}` with the rated flag, `Computer` → `POST /api/challenge/ai`
-(level 1–8; AI games are always casual — litchee's `AiChallengeRequest` has no `rated`
-builder — and start immediately, returning a `LichessGame`), `Random` →
-`POST /api/challenge/open` (an open challenge listed as outgoing in Invites).
+(level 1–8; AI games are always casual and start immediately). The AI call is a raw
+reqwest POST returning `AiGame { id }` — litchee's `LichessGame` DTO expects `variant`
+as a string but the live API returns an object, so only the id is extracted
+(BUG-2026-11-11T122900), `Random` → `POST /api/challenge/open` (an open challenge
+listed as outgoing in Invites under the `invites-open-challenge` label, cancellable
+via `POST /api/challenge/{id}/cancel`).
 
 `stream_game_event` is the heart of live play. It opens
 `/board/game/stream/{id}` as NDJSON and, for each event:

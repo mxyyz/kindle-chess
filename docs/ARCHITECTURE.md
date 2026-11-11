@@ -221,12 +221,24 @@ The release ships an `update.tar.gz` bundle (`bin/kindle-hello` + `assets/*` + `
 
 ## Challenge flow (e06+)
 
-The Play form sends per `OpponentKind` (models/board_api.rs): `Friend` →
+The Play form's layout (e06s07, 1072×1448): row 1 opponent kind
+`Computer | Friend | Random` (y=200) — tapping Friend also opens the
+FriendlistScreen and the picked name becomes the Friend button's label; row 2
+is a shared selector (y=310) hosting exactly one of the AI-level row, the
+days-per-move row (Correspondence, kind ≠ Computer), or an info line; row 3
+the mode group (y=470); row 4 the rated/casual toggle (y=580, last row of the
+upper half, hidden for Computer since AI games are always casual); Send is
+centered in the lower half (y=1038).
+
+Sending routes per `OpponentKind` (models/board_api.rs): `Friend` →
 `send_challenge(name, mode, rated)` (`POST /api/challenge/{user}`), `Computer` →
-`send_challenge_ai(level, mode)` (`POST /api/challenge/ai`, starts immediately —
-`AppEvent::AiGameStarted` pushes `ChessGameScreen` right away; AI games are always
-casual), `Random` → `create_open_challenge(mode, rated)` (`POST /api/challenge/open`,
-shows as outgoing in InvitesScreen). A rated/casual toggle feeds the rated flag
-(hidden for Computer). After game over, `ChessGameScreen` offers a Rematch button
-when a `RematchContext` was attached (Play-originated games), re-issuing the same
-challenge with the same mode + rated.
+`send_challenge_ai(level, mode)` — a raw `POST /api/challenge/ai` (litchee's
+`LichessGame` DTO can't decode the live response's object-shaped `variant`),
+returning just the game id as `AiGame`; the game starts immediately and
+`AppEvent::AiGameStarted` pushes `ChessGameScreen` right away, `Random` →
+`create_open_challenge(mode, rated)` (`POST /api/challenge/open`), which shows
+as an outgoing row in InvitesScreen labeled "Open — random player (created)"
+and is cancellable there like any outgoing challenge. After game over,
+`ChessGameScreen` offers a Rematch button when a `RematchContext` was attached
+(Play-originated games), re-issuing the same challenge with the same mode +
+rated.
