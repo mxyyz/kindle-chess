@@ -1,0 +1,28 @@
+---
+# Story e07s06 — per-item detail rows on OngoingGames + Invites.
+story_id: e07s06
+title: "Per-item details: OngoingGames rows show opponent/rating/mode/time; Invites rows show challenger details"
+status: todo
+bcps: 5
+delta: MODIFIED
+tasks:
+  - id: e07s06t01
+    description: >-
+      ongoing_games.rs: extend game button labels to include opponent name,
+      rating, speed/mode, last-move time; or add a detail line below each row.
+    verify: "cd crate && cargo build 2>&1 | tail -1 | grep -q 'Finished'"
+    status: todo
+  - id: e07s06t02
+    description: >-
+      invites.rs: extend challenge rows to show challenger rating, time control
+      (clock/days), rated/casual badge; use ChallengeSummary fields.
+    verify: "cd crate && cargo build 2>&1 | tail -1 | grep -q 'Finished'"
+    status: todo
+  - id: e07s06t03
+    description: "Unit tests: label formatting with/without rating, clock vs correspondence"
+    verify: "cd crate && cargo test --lib ongoing_games 2>&1 | grep -q 'test result: ok' && cd crate && cargo test --lib invites 2>&1 | grep -q 'test result: ok'"
+    status: todo
+  - id: e07s06t04
+    description: "EN/DE i18n for detail labels (rating, mode, time, rated badge)"
+    verify: 'grep -rn ''rated-badge\|opponent-rating\|time-control\|game-mode'' crate/assets/locales/ 2>/dev/null | wc -l | grep -q ''[1-9]'''
+    status: todo

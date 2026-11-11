@@ -1,0 +1,33 @@
+---
+# Epic capsule manifest — e08-settings-tabs
+# Sliced 2026-11-10 from specs/product/SCOPE_LATEST.yaml (release cycle 2).
+epic_id: e08-settings-tabs
+status: sliced (plan-work pending)
+scope: specs/product/SCOPE_LATEST.yaml
+planning_context: specs/planning-context.yaml
+# Order: settings model + persistence first, then 2-tab UI, then migration of
+# existing per-screen settings into the pattern.
+stories:
+  - story_id: e08s01
+    title: >-
+      General settings model + persistence: shared AppConfig fields (language,
+      board orientation, update check interval, etc.) persisted to config file;
+      screen-specific settings stay local
+    bcps: 5
+    delta: ADDED
+    tasks_file: e08s01-tasks.yaml
+  - story_id: e08s02
+    title: >-
+      SettingsScreen 2-tab UI: primary tab = screen-relevant settings (context
+      passed in), secondary tab = shared general settings; tab toggle buttons
+    bcps: 5
+    delta: MODIFIED
+    tasks_file: e08s02-tasks.yaml
+  - story_id: e08s03
+    title: >-
+      Migrate existing screens: Game screen settings, Puzzle settings, Home
+      settings all route through the 2-tab pattern; general settings accessible
+      from any screen with a settings entry point
+    bcps: 3
+    delta: MODIFIED
+    tasks_file: e08s03-tasks.yaml

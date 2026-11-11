@@ -1,0 +1,43 @@
+---
+# Epic capsule manifest — e09-mauseedition
+# Sliced 2026-11-10 from specs/product/SCOPE_LATEST.yaml (release cycle 2).
+# Depends on e05 (update bundle) for the second release asset delivery.
+epic_id: e09-mauseedition
+status: sliced (plan-work pending)
+scope: specs/product/SCOPE_LATEST.yaml
+planning_context: specs/planning-context.yaml
+# Order: puzzle set data + unlock model first, then Mauseedition screen,
+# then release pipeline for second asset + unlock, then verification.
+stories:
+  - story_id: e09s01
+    title: >-
+      Mauseedition data + model: hardcoded puzzle set (IDs + unlock letters),
+      progress tracking (which puzzles solved, which letters unlocked), sentence
+      assembly; persisted to config
+    bcps: 5
+    delta: ADDED
+    tasks_file: e09s01-tasks.yaml
+  - story_id: e09s02
+    title: >-
+      Mauseedition main screen: shows progress (puzzles solved / total), collected
+      letters, sentence reveal when complete; entry point from HomeScreen
+      (locked until unlocked via UpdateScreen)
+    bcps: 8
+    delta: ADDED
+    tasks_file: e09s02-tasks.yaml
+  - story_id: e09s03
+    title: >-
+      Mauseedition puzzle play: reuse puzzle engine + PuzzleScreen with custom
+      sidebar showing unlocked letters for current puzzle; correct move unlocks
+      letter
+    bcps: 5
+    delta: MODIFIED
+    tasks_file: e09s03-tasks.yaml
+  - story_id: e09s04
+    title: >-
+      Release pipeline + unlock: second release asset (mauseedition.tar.gz or
+      feature flag in bundle); UpdateScreen unlock input (code/method) enables
+      Mauseedition entry on HomeScreen; CI builds both assets
+    bcps: 3
+    delta: ADDED
+    tasks_file: e09s04-tasks.yaml

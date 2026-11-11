@@ -1,0 +1,43 @@
+story_id: e05s05
+title: 'UpdateScreen: bundle size/contents, preflight failure reasons, progress, Applied->relaunch; EN/DE'
+status: passing
+bcps: 5
+delta: MODIFIED
+tasks:
+- id: e05s05t01
+  description: 'UpdateScreen states extended: PreflightFailed(reason) shows the reason (arch/dir/space) with retry; Available
+    shows bundle size + contents (binary/assets/launcher); Downloading shows progress (bytes so far / total); Applied -> "relaunch
+    to finish" hint.'
+  verify: 'cd crate && cargo build 2>&1 | tail -1 && cargo test --lib ui 2>&1 | grep -q ''test result: ok'''
+  risk: P1
+  status: passing
+  allure:
+    severity: high
+    categories:
+    - e05-update-bundle
+    - ui
+    - update-screen
+- id: e05s05t02
+  description: 'i18n: new keys in crate/i18n/en.ftl and de.ftl for the new states (update-preflight-failed, update-bundle-size,
+    update-downloading, update-applied-relaunch, ...), wired via tr().'
+  verify: 'cd crate && for k in $(grep -o ''update-[a-z-]*'' i18n/en.ftl | sort -u); do grep -q "^$k" i18n/de.ftl || exit
+    1; done && cargo test --lib i18n 2>&1 | grep -q ''test result: ok'''
+  risk: P1
+  status: passing
+  allure:
+    severity: high
+    categories:
+    - e05-update-bundle
+    - ui
+    - i18n
+- id: e05s05t03
+  description: fmt + clippy clean
+  verify: cd crate && cargo fmt --check && cargo clippy --all-targets -- -D warnings
+  risk: P2
+  status: passing
+  allure:
+    severity: normal
+    categories:
+    - e05-update-bundle
+    - ui
+    - lint

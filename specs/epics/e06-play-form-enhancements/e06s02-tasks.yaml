@@ -1,0 +1,30 @@
+---
+# Story e06s02 — PlayScreen UI for rated/casual + opponent picker.
+story_id: e06s02
+title: "PlayScreen UI: rated/casual toggle + opponent picker (Friend/Computer/Random)"
+status: todo
+bcps: 8
+delta: MODIFIED
+tasks:
+  - id: e06s02t01
+    description: >-
+      play.rs: add rated/casual toggle buttons (2-button group) above/below mode
+      row; add opponent-type selector (Friend/Computer/Random) — Friend opens
+      list-picker (from e07), Computer shows level spinner (1-8), Random sends
+      directly.
+    verify: "cd crate && cargo build 2>&1 | tail -1 | grep -q 'Finished'"
+    status: todo
+  - id: e06s02t02
+    description: >-
+      Layout fits 1072x1448: all new buttons within layout::SCREEN_W/H bounds;
+      no overlap with existing mode/days/opponent/send buttons; triple-tap-safe.
+    verify: "cd crate && cargo test --lib play 2>&1 | grep -q 'test result: ok'"
+    status: todo
+  - id: e06s02t03
+    description: "EN/DE i18n strings for all new labels (rated, casual, opponent types, AI level)"
+    verify: 'cd crate && grep -c ''e06\|rated\|opponent\|computer\|random'' crate/src/i18n.rs 2>/dev/null || grep -rn ''rated\|computer'' crate/assets/locales/ 2>/dev/null | wc -l | grep -q ''[1-9]'''
+    status: todo
+  - id: e06s02t04
+    description: "Widget hit-test unit tests for new buttons"
+    verify: "cd crate && cargo test --lib play 2>&1 | grep -q 'test result: ok'"
+    status: todo

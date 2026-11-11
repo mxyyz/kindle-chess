@@ -1,0 +1,23 @@
+---
+# Story e08s01 — general settings model + persistence.
+story_id: e08s01
+title: "General settings model + persistence in AppConfig"
+status: todo
+bcps: 5
+delta: ADDED
+tasks:
+  - id: e08s01t01
+    description: >-
+      utils/config.rs: add GeneralSettings struct (language, board_orientation,
+      auto_update_check, poll_interval_secs, theme?) with serde defaults; persist
+      to config file (JSON) under ROOT_DIR/config/.
+    verify: "cd crate && cargo build 2>&1 | tail -1 | grep -q 'Finished'"
+    status: todo
+  - id: e08s01t02
+    description: "Unit tests: serde round-trip, defaults, load-from-missing-file"
+    verify: "cd crate && cargo test --lib config 2>&1 | grep -q 'test result: ok'"
+    status: todo
+  - id: e08s01t03
+    description: "Migration: existing AppConfig fields (language) move to GeneralSettings; backward-compat load"
+    verify: "cd crate && cargo test 2>&1 | grep -q 'test result: ok'"
+    status: todo

@@ -1,10 +1,12 @@
 name: Release
 
 # Triggered when a `v*` tag is pushed (e.g. `v0.2.0`). The in-app updater
-# parses tag_name through `parse_tag_version` and downloads two assets:
-#   - kindle-chess-armv7-musl         (the cross-compiled binary)
-#   - kindle-chess-armv7-musl.sha256  (sha256sum-format sidecar)
-# These names are the contract with src/api/github.rs — keep them in sync.
+# parses tag_name through `parse_tag_version` and downloads assets:
+#   - update.tar.gz            bundle: bin/kindle-hello + assets/* + chess_app.sh + MANIFEST.sha256
+#   - update.tar.gz.sha256     sha256sum-format sidecar for the bundle
+#   - kindle-chess-armv7-musl{,.sha256}   legacy binary-only pair (kept during
+#                              transition so 0.4.0 clients can still update)
+# The bundle names are the contract with crate/src/api/github.rs — keep in sync.
 
 on:
   push:
@@ -26,6 +28,7 @@ jobs:
 
     env:
       ASSET_NAME: kindle-chess-armv7-musl
+      BUNDLE_NAME: update.tar.gz
       TARGET: armv7-unknown-linux-musleabi
 
     steps:
@@ -45,7 +48,7 @@ jobs:
           fetch-depth: 0
 
       - name: Sanity-check tag matches Cargo.toml version
-        working-directory: kindle_chess
+        working-directory: crate
         run: |
           TAG_VERSION="${{ steps.tag.outputs.name }}"
           TAG_VERSION="${TAG_VERSION#v}"
@@ -60,27 +63,35 @@ jobs:
         run: cargo install cross --git https://github.com/cross-rs/cross --locked
 
       - name: Cross-compile (armv7-musl, release)
-        working-directory: kindle_chess
+        working-directory: crate
         run: |
           RUSTFLAGS="-C target-feature=+crt-static" \
             cross build --target "$TARGET" --release
 
       - name: Stage release assets
-        working-directory: kindle_chess
         run: |
-          mkdir -p ../dist
-          cp "target/${TARGET}/release/kindle-hello" "../dist/${ASSET_NAME}"
-          cd ../dist
-          sha256sum "${ASSET_NAME}" > "${ASSET_NAME}.sha256"
-          ls -la
+          mkdir -p dist
+          # Legacy binary-only pair (kept during transition for 0.4.0 clients)
+          cp "crate/target/${TARGET}/release/kindle-hello" "dist/${ASSET_NAME}"
+          (cd dist && sha256sum "${ASSET_NAME}" > "${ASSET_NAME}.sha256")
+          # Update bundle: binary + assets + launcher + per-file manifest
+          mkdir -p dist/bundle/bin dist/bundle/assets
+          cp "crate/target/${TARGET}/release/kindle-hello" dist/bundle/bin/
+          cp kindlichess/assets/* dist/bundle/assets/
+          cp kindlichess/chess_app.sh dist/bundle/
+          (cd dist/bundle && find . -type f ! -name MANIFEST.sha256 | sort | xargs sha256sum > MANIFEST.sha256)
+          tar -czf "dist/${BUNDLE_NAME}" -C dist/bundle .
+          (cd dist && sha256sum "${BUNDLE_NAME}" > "${BUNDLE_NAME}.sha256")
+          rm -rf dist/bundle
+          ls -la dist
 
       - name: Upload assets to GitHub release
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
           TAG="${{ steps.tag.outputs.name }}"
-          # Create the release if it doesn't exist; upload (and overwrite) the
-          # two assets either way.
+          # Create the release if it doesn't exist; upload (and overwrite) all
+          # assets either way.
           if ! gh release view "$TAG" >/dev/null 2>&1; then
             gh release create "$TAG" \
               --title "$TAG" \
@@ -89,4 +100,6 @@ jobs:
           gh release upload "$TAG" \
             "dist/${ASSET_NAME}" \
             "dist/${ASSET_NAME}.sha256" \
+            "dist/${BUNDLE_NAME}" \
+            "dist/${BUNDLE_NAME}.sha256" \
             --clobber

@@ -1,0 +1,30 @@
+---
+# Story e07s02 — uniform screen title bar.
+story_id: e07s02
+title: "Uniform screen title bar + layout helper across all 12 screens"
+status: todo
+bcps: 5
+delta: MODIFIED
+tasks:
+  - id: e07s02t01
+    description: >-
+      Add draw_title_bar(renderer, title, font_size) helper to ui/layout.rs or
+      new widgets/title_bar.rs; consistent y-position, centered, same font size
+      per screen type.
+    verify: "cd crate && cargo build 2>&1 | tail -1 | grep -q 'Finished'"
+    status: todo
+  - id: e07s02t02
+    description: >-
+      Apply to all 12 screens (home, chess_auth, chess_game, friendlist,
+      game_actions, invites, ongoing_games, play, puzzle, puzzle_settings,
+      settings, update) — replace inline title rendering with helper call.
+    verify: 'cd crate && grep -rl ''draw_title_bar'' crate/src/ui/screens/ | wc -l | grep -q ''1[0-2]\|[1-9]'''
+    status: todo
+  - id: e07s02t03
+    description: "Unit test: title bar position/size constants"
+    verify: "cd crate && cargo test --lib layout 2>&1 | grep -q 'test result: ok'"
+    status: todo
+  - id: e07s02t04
+    description: "All screens still compile + tests green"
+    verify: "cd crate && cargo test 2>&1 | grep -q 'test result: ok'"
+    status: todo

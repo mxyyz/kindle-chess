@@ -24,8 +24,8 @@ set -euo pipefail
 
 # ── Config ────────────────────────────────────────────────────────────────────
 REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-CRATE_DIR="$REPO_ROOT/kindle_chess"
-HELLOKINDLE_DIR="$REPO_ROOT/kindle_KUAL/kindlichess"
+CRATE_DIR="$REPO_ROOT/crate"
+HELLOKINDLE_DIR="$REPO_ROOT/kindlichess"
 
 # Kindle Paperwhite 4 resolution
 KINDLE_W=1072
@@ -130,7 +130,7 @@ fi
 
 if [[ ! -x "$BINARY" ]]; then
     echo "ERROR: Binary not found: $BINARY"
-    echo "  Run without --no-build, or: cd kindle_chess && cargo build"
+    echo "  Run without --no-build, or: cd crate && cargo build"
     exit 1
 fi
 

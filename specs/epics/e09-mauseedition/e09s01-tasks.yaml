@@ -1,0 +1,23 @@
+---
+# Story e09s01 — Mauseedition data model.
+story_id: e09s01
+title: "Mauseedition puzzle set data + unlock progress model"
+status: todo
+bcps: 5
+delta: ADDED
+tasks:
+  - id: e09s01t01
+    description: >-
+      New module models/mauseedition.rs: hardcoded Vec of puzzle IDs + corresponding
+      unlock letters; MauseeditionProgress { solved: Vec<bool>, letters_unlocked:
+      Vec<char> }; sentence assembly from unlocked letters in order.
+    verify: "cd crate && cargo build 2>&1 | tail -1 | grep -q 'Finished'"
+    status: todo
+  - id: e09s01t02
+    description: "Persistence: save/load progress to config file (JSON)"
+    verify: "cd crate && cargo test --lib mauseedition 2>&1 | grep -q 'test result: ok'"
+    status: todo
+  - id: e09s01t03
+    description: "Unit tests: sentence assembly, progress serde round-trip, letter unlock on solve"
+    verify: "cd crate && cargo test --lib mauseedition 2>&1 | grep -q 'test result: ok'"
+    status: todo

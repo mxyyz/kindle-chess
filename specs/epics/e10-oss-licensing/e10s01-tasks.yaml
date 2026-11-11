@@ -1,0 +1,19 @@
+---
+# Story e10s01 — license research + ADR decision.
+story_id: e10s01
+title: "License comparison + ADR decision (MIT vs Apache 2.0 vs GPL v3)"
+status: todo
+bcps: 3
+delta: ADDED
+tasks:
+  - id: e10s01t01
+    description: >-
+      Research: choosealicense.com, SPDX, compatibility with litchee (MIT) and
+      all cargo deps; write specs/adr/NNNN-oss-license.md with comparison +
+      recommendation.
+    verify: 'test -f specs/adr/*oss-license*.md && grep -q ''MIT\|Apache\|GPL'' specs/adr/*oss-license*.md'
+    status: todo
+  - id: e10s01t02
+    description: "User reviews ADR and approves license choice"
+    verify: "grep -q 'decision:' specs/adr/*oss-license*.md"
+    status: todo

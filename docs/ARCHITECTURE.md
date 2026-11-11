@@ -11,7 +11,7 @@ pixel-identically, because every layout is absolute against a hard-coded 1072 ×
 
 ```
 kindle-chess/
-├── kindle_chess/            ← the crate. All cargo commands run from here.
+├── crate/            ← the crate. All cargo commands run from here.
 │   ├── build.rs             ← bakes .env.* + git SHA + build timestamp into the binary
 │   ├── .env.debug/.release  ← ROOT_DIR per profile
 │   └── src/
@@ -23,9 +23,12 @@ kindle-chess/
 │       ├── ui/              ← renderer, screens, widgets         → src/ui/README.md
 │       ├── local/           ← offline board (stub)               → src/local/README.md
 │       └── examples/        ← uncompiled snippets                → src/examples/README.md
-├── kindle_KUAL/             ← what gets copied to /mnt/us on the device
-│   ├── extensions/hellokindle/  ← menu.json + config.xml (KUAL wiring)
-│   └── hellokindle/         ← chess_app.sh, bin/, assets/, log/, secrets/
+├── kindlichess/             ← what gets copied to /mnt/us on the device
+│   ├── bin/                 ← kindle-hello binary
+│   ├── assets/              ← piece sprites, logo.png
+│   ├── chess_app.sh        ← launcher (update trampoline, PID mgmt)
+│   └── log/ secrets/ settings.toml
+├── scriptlet/               ← kindlichess.sh (deployed to /mnt/us/documents/)
 ├── .github/workflows/       ← rust.yml, release-please.yml, release.yml → docs/ci-cd.md
 ├── run-dev.sh               ← local Xvfb/Xephyr harness
 └── flash*.sh                ← build + deploy to device        → docs/kindle-usb-ssh.md
@@ -173,14 +176,14 @@ longer exists. (`flash_display.sh`, which deployed that binary, was deleted in `
 - `authenticated_request`'s non-GET arms `.unwrap()` on transport errors.
 
 **Repo hygiene:**
-- `kindle_chess/Cargo.lock` is now tracked, so CI resolves the same dependency versions
+- `crate/Cargo.lock` is now tracked, so CI resolves the same dependency versions
   you build against. (It was gitignored until 2026-08-24.)
 - `CLAUDE.md` is listed in `.gitignore`, so it does **not** travel with a clone. Anything
   that must survive a move to another machine belongs in `docs/` or a module README,
   not in `CLAUDE.md`.
-- A committed ARM binary lives at `kindle_KUAL/kindlichess/bin/kindle-hello` (~10 MB) and
+- A committed ARM binary lives at `kindlichess/kindlichess/bin/kindle-hello` (~10 MB) and
   is re-committed on every flash.
-- There is a stray, remote-less `kindle_chess/.git/` directory. The crate's files are
+- There is a stray, remote-less `crate/.git/` directory. The crate's files are
   tracked by the outer repo; this nested git dir is inert leftover but can confuse tooling.
 
 ## Setting up on a second machine
@@ -188,8 +191,8 @@ longer exists. (`flash_display.sh`, which deployed that binary, was deleted in `
 1. `git clone git@github.com:mxyyz/kindle-chess.git`
 2. `rustup target add armv7-unknown-linux-musleabi`
 3. `cargo install cross --git https://github.com/cross-rs/cross` (needs Docker or Podman)
-4. **Edit `kindle_chess/.env.debug`** — `ROOT_DIR` must be the absolute path of *that*
-   checkout's `kindle_KUAL/kindlichess/` directory, with a trailing slash.
+4. **Edit `crate/.env.debug`** — `ROOT_DIR` must be the absolute path of *that*
+   checkout's `kindlichess/kindlichess/` directory, with a trailing slash.
 5. Dev harness deps (Arch): `xorg-server-xvfb`, plus `xorg-server-xephyr` (recommended).
 6. `./run-dev.sh`
 7. For flashing: see [`kindle-usb-ssh.md`](kindle-usb-ssh.md).
@@ -204,10 +207,14 @@ longer exists. (`flash_display.sh`, which deployed that binary, was deleted in `
 > After editing `.env.debug`, confirm the value actually landed in the binary:
 >
 > ```sh
-> cd kindle_chess && cargo build
-> strings target/debug/kindle-hello | grep hellokindle/
+> cd crate && cargo build
+> strings target/debug/kindle-hello | grep kindlichess/
 > ```
 >
 > (This bit the current dev machine: `.env.debug` said `/home/mxy/Repos/…` with a capital
 > `R` while the checkout was at `/home/mxy/repos/…`. Fixed 2026-08-24, along with the
 > missing `rerun-if-changed` in `build.rs` that made the correction a no-op.)
+
+## In-app update flow (e05+)
+
+The release ships an `update.tar.gz` bundle (`bin/kindle-hello` + `assets/*` + `chess_app.sh` + `MANIFEST.sha256`) plus a `.sha256` sidecar, alongside the legacy binary-only pair for 0.4.0 clients. The app preflights (arch/dirs/free space), downloads the bundle to `<exe>.bundle.new`, verifies the sidecar then the per-file MANIFEST, and the launcher (`chess_app.sh`) installs it atomically at next launch. See `docs/ci-cd.md` for the full pipeline.

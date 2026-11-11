@@ -1,0 +1,16 @@
+---
+# Story e06s05 — verification + docs.
+story_id: e06s05
+title: "Verification: local gates green, docs updated"
+status: todo
+bcps: 2
+delta: ADDED
+tasks:
+  - id: e06s05t01
+    description: "Full local gates: build (dev + armv7 cross), test, clippy -D warnings, fmt --check"
+    verify: "cd crate && cargo build && cargo test 2>&1 | grep -q 'test result: ok' && cargo clippy -- -D warnings 2>&1 | tail -1 | grep -q 'Finished' && cargo fmt --check"
+    status: todo
+  - id: e06s05t02
+    description: "Docs: ARCHITECTURE.md + crate/src/api/README.md describe new challenge flow"
+    verify: 'grep -q ''challenge_ai\|OpponentKind\|rated'' docs/ARCHITECTURE.md crate/src/api/README.md'
+    status: todo

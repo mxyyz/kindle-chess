@@ -1,41 +1,34 @@
-# bigpowers session source-of-truth. See survey-context / session-state.
 session:
-  active_flow: review
-  active_epic: e04-e01-leftovers
-  active_story: null (e04 complete)
-  phase: Review (all 6 stories done; ready for PR)
-
+  active_flow: planning
+  active_epic: e05-safe-inapp-update (DONE — all 6 stories passing on branch e05-safe-inapp-update)
+  active_story: null
+  phase: e05 done + verified + audited — READY TO SHIP; user is pushing/PR-merging manually and will release v0.5.0 (device
+    has v0.4.0 + new update infra via USB flash)
 vcs:
   kind: git
-  branch: e04-e01-leftovers
-  head: 38568e4
-  worktree: /home/mxy/repos/e04-e01-leftovers
-  # KICKOFF 2026-11-05 from main @ da6c845. Preflight green: cargo build
-  # clean, 150 tests pass. plan-work skipped (user): story specs per story.
-
+  branch: e05-safe-inapp-update
+  head: 86a426d
+  worktree: /home/mxy/repos/e05-safe-inapp-update
 handoff:
-  last_step_completed: >-
-    kickoff-branch e04-e01-leftovers; preflight green (150 tests)
+  last_step_completed: audit-code PASS; branch e05-safe-inapp-update has 18 commits, all gates green; user takes over release-branch
+    (push + PR merge + tag v0.5.0) manually
   open_decisions:
-    - >-
-      e04 decisions (user): add clippy + fmt + cache to CI; coverage
-      report only, no gate; ChessError at api/ boundary only
-    - >-
-      stale worktree /home/mxy/repos/e03-target-device-restructure
-      (64b6c70) can be removed
+  - User releases e05 alone as v0.5.0 (not batched with e06-e08) to test the new update-asset flow on-device
+  - On-device UAT of the v0.5.0 bundle update needs the k2 on the LAN (device currently holds v0.4.0 + new infra)
   required_reading:
-    - CLAUDE.md
-    - specs/product/SCOPE_LATEST.yaml
-    - specs/epics/e04-e01-leftovers/epic.yaml
-  next_skill: release-branch (user handles push + PR)
-
+  - CLAUDE.md
+  - specs/product/SCOPE_LATEST.yaml
+  - specs/planning-context.yaml
+  - specs/release-plan.yaml
+  - specs/epics/e05-safe-inapp-update/epic.yaml
+  next_skill: 'release-branch (user-driven); after merge: e06 plan-work -> kickoff-branch'
 notes:
-  e02: merged to main (PR #35)
-  e03: merged to main (PR #37), released 0.3.0 (ca1c424)
-  ci: .github/workflows/rust.yml — cargo test + cross build on push/PR
-
+  e02: merged to main (PR
+  e03: merged to main (PR
+  e04: merged to main (PR
+  e05-e10: sliced 2026-11-10 (release cycle 2), plan-work pending
+  ci: '.github/workflows/rust.yml — cargo test + cross build on push/PR (working-directory: crate)'
 metrics:
-  reconciled: 2026-11-05T00:00:00Z
-
+  reconciled: 2026-11-05 00:00:00+00:00
 release:
-  last_tag: v0.3.0
+  last_tag: v0.4.0

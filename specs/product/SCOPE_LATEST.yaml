@@ -1,105 +1,91 @@
 ---
-# specs/product/SCOPE_LATEST.yaml — bounded PRD for the current initiative (e04)
-# Written by scope-work. Consumed by slice-tasks / plan-work.
-# Previous (e03) scope archived at
-# specs/epics/e03-target-device-directory-restructure/SCOPE.yaml
-feature_name: e04-e01-leftovers (code organization, tests, errors, CI)
+# specs/product/SCOPE_LATEST.yaml — bounded PRD for release cycle 2 (e06-e10)
+# Written by scope-work from specs/planning-context.yaml (elaborate-spec, 2026-11-10).
+# Consumed by slice-tasks / plan-work. Previous (e05) scope archived at
+# specs/epics/e05-safe-inapp-update/SCOPE.yaml
+feature_name: "release-cycle-2: e06 play-form enhancements + e07 UI polish + e08 settings tabs + e09 Mauseedition + e10 OSS licensing"
 core_value: >-
-  Make the codebase easier to change safely: smaller screen files, named layout
-  values, tests on untested modules, one error type at the API boundary, and
-  CI that checks lint, format and coverage.
+  After e05's safe in-app update lands, the app becomes a fuller chess client:
+  rated and computer/random games from the Play form with one-tap rematch,
+  a polished uniform UI with auto-refresh and reusable components, a shared
+  settings pattern, a fun unlockable puzzle edition, and proper open-source
+  licensing so the project can be published.
 summary: >-
-  e04 finishes the e01 backlog (t05-t13, t15) plus the unfinished part of
-  t14. There is no user-visible change: behavior on the device stays the same.
+  Release cycle 2 builds on e05 (safe in-app update bundle). e06 extends the
+  Play form with a rated/casual toggle, opponent choices (friend via list-picker,
+  computer via Lichess AI, random via open challenge/seek), and a rematch button
+  on game-over. e07 is a UI-enhancements sweep: fix the invites pagination
+  overlap bug, add conditional next-page buttons, recurring fetch on
+  Games/Invites screens (5s × 30s then manual refresh), a daily-puzzle indicator
+  on the Home button, per-item detail rows on OngoingGames and Invites, uniform
+  screen titles and layout, a reusable list-picker modal, color-orientation-aware
+  file/rank labels on the board, and fix the piece-move shadow residue. e08
+  restructures the settings screen into 2 tabs (screen-specific + shared general
+  settings). e09 adds the "Mauseedition" — a hardcoded puzzle set where each
+  correct move unlocks a letter forming a sentence, shipped as a second release
+  asset with an unlock method in the UpdateScreen. e10 researches and applies
+  OSS licensing: choose a license, add LICENSE + NOTICE/THIRD-PARTY attribution
+  for icons, fonts, and all cargo dependencies.
 
-  The screen code is now in two very large files (models/ui.rs ~840 lines,
-  ui/screens.rs ~2600 lines). They split into one file per screen. Hard-coded
-  pixel values move into one layout module. The game, OAuth, board-API and
-  widget modules get tests. Code outside api/ sees one ChessError type in
-  place of Box<dyn Error>. CI adds clippy, rustfmt, dependency caching and
-  a coverage report.
-
-  The e01 task details predate the litchee migration and e02/e03. Slicing
-  must check each against current code (for example, which oauth/board types
-  still exist, which tests in kindle_chess/tests/ already cover them).
 in_scope:
-- >-
-  e04-code-org (from e01 t05, t06): one file per screen for the screen structs
-  and Screen impls; models/ui.rs and ui/screens.rs become small
-- >-
-  e04-code-org (from e01 t07): display dimensions and layout magic numbers
-  in one layout module
-- >-
-  e04-tests (from e01 t08-t11): unit tests for game models, OAuth, board API
-  and widget logic (hit tests, geometry), skipping cases already covered
-- >-
-  e04-errors (from e01 t12, t13): ChessError (Send + Sync) returned from api/
-  functions; wraps litchee, HTTP, IO and parse errors
-- >-
-  e04-ci (from e01 t14 rest): rust.yml runs cargo clippy and cargo fmt --check,
-  with dependency caching; fix existing clippy/fmt findings so CI is green
-- >-
-  e04-ci (from e01 t15): coverage report as a CI artifact plus a README badge,
-  report only
+  - >-
+    e06 play-form enhancements: rated/casual toggle, opponent picker
+    (friend/computer/random), rematch button; litchee challenge_ai /
+    create_open / seek / rated APIs
+  - >-
+    e07 UI enhancements: invites pagination bug fix, conditional pagination,
+    recurring fetch (Games + Invites), Home puzzle indicator, per-item details
+    (OngoingGames + Invites), uniform titles/layout, list-picker modal,
+    file/rank labels, piece-move shadow fix
+  - >-
+    e08 2-tab settings screen: screen-specific primary tab + shared general
+    settings secondary tab
+  - >-
+    e09 Mauseedition: hardcoded puzzle set with letter-unlock mechanic, custom
+    sidebar + main screen, second release asset + UpdateScreen unlock
+  - >-
+    e10 OSS licensing: research, choose license, LICENSE file, NOTICE/THIRD-PARTY
+    attribution for icons/fonts/libraries, README license reference
+
 out_of_scope:
-- >-
-  Any user-visible behavior or layout change — this is a no-behavior-change
-  refactor (e04 is cleanup)
-- >-
-  ChessError outside the api/ boundary (app/, ui/ internals keep their current
-  error handling) — user decision; extend later if useful
-- >-
-  A coverage threshold that fails CI — user decision: report only; add a gate
-  once coverage is meaningful
-- >-
-  Multi-device layouts / resolutions other than 1072x1448 — layout constants
-  only make this possible later
-- >-
-  X11 rendering tests (pixel output) — need a display; widget tests cover
-  pure logic only
-- >-
-  New features, new screens, new Lichess endpoints — separate epic
+  - Game variants (Chess960 etc.) in the challenge form — deferred
+  - Separate bot-play mode — "computer" is an opponent option only
+  - Multi-device layout support — separate initiative
+  - Lobby/browse open challenges as a new screen — InvitesScreen already covers this
+  - Physical on-device UAT beyond CI/host tests — manual, needs k2 on LAN
+  - Rewriting historical artifacts (specs/epics/, CHANGELOG.md)
+
 constraints:
-- >-
-  Rust + x11rb; static musl armv7-unknown-linux-musleabi cross build must
-  stay green
-- >-
-  Tests must run headless on the CI runner (no X11, no network, no assets)
-- >-
-  run-dev.sh harness keeps working; pixel layout identical before and after
-- >-
-  No new runtime dependencies; a dev-only coverage tool (cargo-llvm-cov or
-  tarpaulin) is allowed in CI
+  - Rust + x11rb; static musl armv7 cross build green; CI fmt + clippy -D warnings + test + cross + coverage
+  - 1072x1448 canvas; new UI fits within ui/layout.rs constants
+  - litchee 0.2.2 already integrated — use its APIs, no new HTTP client
+  - No new runtime dependencies unless justified
+  - EN/DE i18n for all new strings
+  - e05 lands first (wsjf_order 1); e09's second release asset depends on e05's bundle pipeline
+  - Shell scripts stay POSIX sh
+
 success_criteria:
-- >-
-  models/ui.rs and ui/screens.rs no longer hold per-screen code; each screen
-  has its own file
-- >-
-  No raw 1072/1448/134-style layout numbers outside the layout module (where
-  they are layout values)
-- >-
-  New tests for game, OAuth, board API and widgets; cargo test green
-- >-
-  api/ public functions return Result<T, ChessError>; callers compile without
-  Box<dyn Error> from api/
-- >-
-  CI on main runs test, clippy (-D warnings), fmt --check, cross build and
-  coverage — all green
-- README shows a coverage badge
-- On-device smoke check after merge: app behaves as in 0.3.0
+  - e06: rated/casual + friend/computer/random opponent + rematch all work end-to-end; unit tests on challenge params
+  - e07: all listed UI bugs fixed, QOL features live, uniform layout, list-picker reused in ≥2 places, board labels + shadow fix verified
+  - e08: settings 2-tab pattern live; general settings accessible from any screen with settings
+  - e09: Mauseedition playable, letters unlock, sentence revealed, second asset in release
+  - e10: LICENSE + NOTICE files present, license decision in ADR, README references license
+  - All epics: cargo build (dev + cross) + test + clippy -D warnings + fmt --check green
+
 trade_offs:
-- item: ChessError only at api/ boundary
-  reason: >-
-    smallest change that gives callers one error type; whole-app migration
-    has more risk for little gain
-- item: coverage report only, no gate
-  reason: a threshold on a low baseline only adds CI noise
-- item: no rendering tests
-  reason: needs an X server in CI; cost greater than value now
+  - item: "random opponent via create_open vs seek"
+    reason: create_open creates a challenge anyone can accept (shows in Invites); seek is the lobby mechanism. Plan-work will pick per UX fit — both available in litchee 0.2.2
+  - item: rematch as new challenge vs dedicated API
+    reason: Lichess has no dedicated rematch endpoint for board games; sending a new challenge with same params is the standard approach
+  - item: e09 as second release asset vs compile-time feature flag
+  - item: "e09 as second release asset vs compile-time feature flag"
+    reason: "user wants a separate edition — second asset rides e05 bundle pipeline; alternative (feature flag in one binary) deferred"
+  - item: "Apache 2.0 vs MIT for e10"
+
 references:
-- >-
-  specs/epics/e01-refactor-and-tests/tasks.yaml (t05-t15 original detail)
-- >-
-  specs/epics/e01-refactor-and-tests/samples/chess_error_sample.rs
-- .github/workflows/rust.yml
-- specs/tech-architecture/tech-stack.md
+  - specs/planning-context.yaml (elaborate-spec decisions, 2026-11-10)
+  - litchee 0.2.2 source: ~/.cargo/registry/.../litchee-0.2.2/src/api/gameplay/challenges.rs, board.rs
+  - crate/src/ui/screens/play.rs, invites.rs, ongoing_games.rs, home.rs, chess_game.rs, settings.rs
+  - crate/src/ui/layout.rs, crate/src/ui/widgets/
+  - kindlichess/assets/ (icons), crate/assets/AdwaitaSans-Regular.ttf (font)
+  - choosealicense.com, cargo-about for licensing

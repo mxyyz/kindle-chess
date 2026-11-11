@@ -32,8 +32,8 @@
 - **Cargo.toml**: Binary named `kindle-hello`, entry at `src/main.rs`
 - **build.rs**: Bakes git SHA and build timestamp as compile-time `env!()` constants
 - **Environment Files**:
-  - `.env.debug`: `ROOT_DIR=/home/mxy/repos/kindle-chess/kindle_KUAL/hellokindle/`
-  - `.env.release`: `ROOT_DIR=/mnt/us/hellokindle/`
+  - `.env.debug`: `ROOT_DIR=/home/mxy/repos/kindle-chess/kindlichess/`
+  - `.env.release`: `ROOT_DIR=/mnt/us/kindlichess/`
   - Both: `LICHESS_API_BASE=https://lichess.org/api`
 - **Derived Paths**: `LOG_FILE_DIR`, `ASSETS_DIR`, `AUTH_TOKEN` (path to `secrets/token.json`)
 
@@ -115,7 +115,7 @@ pub struct BoardAPI<S> {
 ### Module Layout
 
 ```
-kindle_chess/
+crate/
 ├── src/
 │   ├── main.rs              # Entry point, logging init, App::new() → run()
 │   ├── version.rs           # Build metadata (VERSION, GIT_SHA, BUILD_TIMESTAMP)
@@ -173,25 +173,24 @@ kindle_chess/
 └── Cargo.toml
 ```
 
-### Kindle Deployment Structure
+### Repo + Kindle Deployment Structure
 
 ```
-kindle_KUAL/
-├── extensions/
-│   └── hellokindle/
-│       └── menu.json       # KUAL menu entries pointing to scripts
-└── hellokindle/
-    ├── bin/
-    │   └── kindle-hello     # Cross-compiled binary
-    ├── assets/             # Piece sprites, logo.png
-    ├── log/
-    │   └── app.log          # Runtime logs from log4rs
-    ├── secrets/
-    │   └── token.json       # OAuth token persistence
-    ├── chess_app.sh        # Launcher script (handles updates, PID management)
-    ├── display_test.sh     # X11 display test
-    ├── x11test.sh          # Alternative X11 test
-    └── settings.toml       # App settings
+(repo root)
+├── kindlichess/             ← what gets copied to /mnt/us on the device
+│   ├── bin/
+│   │   └── kindle-hello     # Cross-compiled binary
+│   ├── assets/             # Piece sprites, logo.png
+│   ├── log/
+│   │   └── app.log          # Runtime logs from log4rs
+│   ├── secrets/
+│   │   └── token.json       # OAuth token persistence
+│   ├── chess_app.sh        # Launcher script (handles updates, PID management)
+│   └── settings.toml       # App settings
+└── scriptlet/
+    └── kindlichess.sh       # Scriptlet entry point → exec chess_app.sh
+                             # (deployed to /mnt/us/documents/, auto-registered
+                             #  by SH_Integration — scriptlet-only launch)
 ```
 
 ---
@@ -435,3 +434,7 @@ kindle-chess is a **mature, well-architected Rust application** for a niche plat
 - **Quality**: Production-ready for its target use case. Would benefit from test infrastructure for long-term maintainability.
 
 The architecture is **sound and scalable** — adding new screens or features follows established patterns. The main risk is the lack of automated testing, which could lead to regressions as the codebase grows.
+
+### In-app update bundle (e05+)
+
+Release assets per tag include `update.tar.gz` = { `bin/kindle-hello`, `assets/*`, `chess_app.sh`, `MANIFEST.sha256` (per-file sha256, sha256sum format) } + `update.tar.gz.sha256` sidecar. Legacy `kindle-chess-armv7-musl{,.sha256}` kept for 0.4.0 clients. App: preflight (arch/dirs/space) → stream `.bundle.new` → sidecar verify → tar extract → MANIFEST verify. Launcher trampoline installs at next launch. release-please extra-files on `kindlichess/` so asset/script changes trigger a tag.

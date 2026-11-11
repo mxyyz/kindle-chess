@@ -1,0 +1,29 @@
+---
+# Story e08s02 — 2-tab settings UI.
+story_id: e08s02
+title: "SettingsScreen 2-tab UI: screen-specific primary + general secondary"
+status: todo
+bcps: 5
+delta: MODIFIED
+tasks:
+  - id: e08s02t01
+    description: >-
+      settings.rs: add tab toggle (2 buttons at top); primary tab shows
+      caller-provided screen-specific buttons; secondary tab shows general
+      settings (language, board orientation, etc.).
+    verify: "cd crate && cargo build 2>&1 | tail -1 | grep -q 'Finished'"
+    status: todo
+  - id: e08s02t02
+    description: >-
+      SettingsScreen::new takes an optional context param (which screen called it)
+      to decide primary-tab content; default = general only.
+    verify: "cd crate && cargo test --lib settings 2>&1 | grep -q 'test result: ok'"
+    status: todo
+  - id: e08s02t03
+    description: "EN/DE i18n for tab labels (This screen / General)"
+    verify: 'grep -rn ''tab-screen\|tab-general\|settings-tab'' crate/assets/locales/ 2>/dev/null | wc -l | grep -q ''[1-9]'''
+    status: todo
+  - id: e08s02t04
+    description: "Layout fits 1072x1448; no overlap; unit tests for tab switching"
+    verify: "cd crate && cargo test --lib settings 2>&1 | grep -q 'test result: ok'"
+    status: todo

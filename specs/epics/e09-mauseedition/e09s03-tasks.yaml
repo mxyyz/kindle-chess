@@ -1,0 +1,23 @@
+---
+# Story e09s03 — Mauseedition puzzle play with custom sidebar.
+story_id: e09s03
+title: "Mauseedition puzzle play: reuse puzzle engine, custom sidebar with letter unlock"
+status: todo
+bcps: 5
+delta: MODIFIED
+tasks:
+  - id: e09s03t01
+    description: >-
+      puzzle.rs / puzzle_sidebar.rs: when in Mauseedition context, sidebar shows
+      the letter that will be unlocked on correct solve; on correct move, unlock
+      letter + update progress + show animation/toast.
+    verify: "cd crate && cargo build 2>&1 | tail -1 | grep -q 'Finished'"
+    status: todo
+  - id: e09s03t02
+    description: "Unit tests: correct move triggers letter unlock + progress save"
+    verify: "cd crate && cargo test --lib puzzle 2>&1 | grep -q 'test result: ok'"
+    status: todo
+  - id: e09s03t03
+    description: "EN/DE i18n for unlock messages"
+    verify: 'grep -rn ''letter-unlocked\|mauseedition-unlock'' crate/assets/locales/ 2>/dev/null | wc -l | grep -q ''[1-9]'''
+    status: todo

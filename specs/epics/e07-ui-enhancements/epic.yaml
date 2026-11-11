@@ -1,0 +1,64 @@
+---
+# Epic capsule manifest — e07-ui-enhancements
+# Sliced 2026-11-10 from specs/product/SCOPE_LATEST.yaml (release cycle 2) +
+# specs/planning-context.yaml. User-specified list of UI fixes + QOL items.
+epic_id: e07-ui-enhancements
+status: sliced (plan-work pending)
+scope: specs/product/SCOPE_LATEST.yaml
+planning_context: specs/planning-context.yaml
+# Order: shared infra (list-picker, uniform layout) first so later stories
+# reuse them; bug fixes next; QOL features; rendering fix; verification last.
+stories:
+  - story_id: e07s01
+    title: >-
+      Reusable list-picker modal component (widgets/list_picker.rs): scrollable
+      list with select + cancel; used by friend-opponent picker and future
+      variant picker
+    bcps: 5
+    delta: ADDED
+    tasks_file: e07s01-tasks.yaml
+  - story_id: e07s02
+    title: >-
+      Uniform screen title bar + layout: extract title rendering into a shared
+      helper (ui/layout.rs or widgets/title_bar.rs); apply to all 12 screens;
+      consistent font sizes (36px list titles, 56px full-page titles)
+    bcps: 5
+    delta: MODIFIED
+    tasks_file: e07s02-tasks.yaml
+  - story_id: e07s03
+    title: >-
+      Bug fix: invites pagination buttons overlap with accept/decline rows;
+      reposition so pagination icons sit clear of action buttons
+    bcps: 3
+    delta: MODIFIED
+    tasks_file: e07s03-tasks.yaml
+  - story_id: e07s04
+    title: >-
+      QOL: conditional pagination — only show next-page button when a next page
+      exists (OngoingGames + Invites + Friendlist); hide prev on first page
+    bcps: 3
+    delta: MODIFIED
+    tasks_file: e07s04-tasks.yaml
+  - story_id: e07s05
+    title: >-
+      QOL: recurring fetch on OngoingGames + InvitesScreen (poll every 5s for
+      30s, then show a refresh button that restarts the cycle); Home puzzle
+      button shows daily-unsolved indicator
+    bcps: 5
+    delta: MODIFIED
+    tasks_file: e07s05-tasks.yaml
+  - story_id: e07s06
+    title: >-
+      Per-item details: OngoingGames rows show opponent/rating/mode/time;
+      Invites rows show challenger rating/mode/time; tap row -> detail view
+    bcps: 5
+    delta: MODIFIED
+    tasks_file: e07s06-tasks.yaml
+  - story_id: e07s07
+    title: >-
+      Board polish: color-orientation-aware file/rank labels (a-h + 1-8 drawn on
+      board edges, flipped when playing black); fix piece-move shadow residue
+      (full square repaint on move)
+    bcps: 2
+    delta: MODIFIED
+    tasks_file: e07s07-tasks.yaml

@@ -1,0 +1,22 @@
+---
+# Story e06s04 — rematch button on game-over.
+story_id: e06s04
+title: "Rematch button on ChessGameScreen game-over: re-challenge same opponent with same settings"
+status: todo
+bcps: 3
+delta: ADDED
+tasks:
+  - id: e06s04t01
+    description: >-
+      chess_game.rs: detect game-over state; show Rematch button in sidebar;
+      on tap, send_challenge to same opponent with same ChallengeMode + rated.
+    verify: "cd crate && cargo build 2>&1 | tail -1 | grep -q 'Finished'"
+    status: todo
+  - id: e06s04t02
+    description: "EN/DE i18n for rematch button + status"
+    verify: "grep -rn 'rematch' crate/assets/locales/ 2>/dev/null | wc -l | grep -q '[1-9]'"
+    status: todo
+  - id: e06s04t03
+    description: "Unit test: game-over detection + rematch params match original"
+    verify: "cd crate && cargo test --lib chess_game 2>&1 | grep -q 'test result: ok'"
+    status: todo

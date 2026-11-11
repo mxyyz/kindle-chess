@@ -1,0 +1,29 @@
+---
+# Story e07s05 — recurring fetch + home puzzle indicator.
+story_id: e07s05
+title: "QOL: recurring fetch on Games/Invites (5s x 30s then refresh btn) + Home puzzle indicator"
+status: todo
+bcps: 5
+delta: MODIFIED
+tasks:
+  - id: e07s05t01
+    description: >-
+      ongoing_games.rs + invites.rs: replace single fetch with poll cycle —
+      fetch every 5s for 30s (6 attempts), then show a refresh IconButton that
+      restarts the cycle; reset cycle on screen entry.
+    verify: "cd crate && cargo build 2>&1 | tail -1 | grep -q 'Finished'"
+    status: todo
+  - id: e07s05t02
+    description: >-
+      home.rs: on render, if daily puzzle available and unsolved, draw a badge
+      dot on the puzzle button (fetch daily puzzle status in background).
+    verify: 'cd crate && cargo build 2>&1 | tail -1 | grep -q ''Finished'' && grep -q ''puzzle.*badge\|puzzle.*indicator\|daily.*unsolved'' crate/src/ui/screens/home.rs'
+    status: todo
+  - id: e07s05t03
+    description: "Unit tests: poll cycle state machine (fetching -> done -> refresh-visible)"
+    verify: "cd crate && cargo test --lib ongoing_games 2>&1 | grep -q 'test result: ok' && cd crate && cargo test --lib invites 2>&1 | grep -q 'test result: ok' && cd crate && cargo test --lib home 2>&1 | grep -q 'test result: ok'"
+    status: todo
+  - id: e07s05t04
+    description: "EN/DE i18n for refresh button + puzzle badge tooltip"
+    verify: 'grep -rn ''refresh\|puzzle-available\|daily-unsolved'' crate/assets/locales/ 2>/dev/null | wc -l | grep -q ''[1-9]'''
+    status: todo

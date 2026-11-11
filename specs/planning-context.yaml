@@ -1,57 +1,59 @@
-# specs/planning-context.yaml — written by elaborate-spec (e03 phase 2); consumed by scope-work / slice-tasks
-# Overwrites the e02 context per user approval (e02 context archived in its epic capsule).
-feature_name: e03-p2-live-game-friend-invite-flow
+# specs/planning-context.yaml — written by elaborate-spec (2026-11-10, release cycle 2); consumed by scope-work / slice-tasks
+# Overwrites the e05 context (archived in its epic capsule).
+feature_name: release-cycle-2 — e06 play-form enhancements + e07 UI polish + e08 settings tabs + e09 Mauseedition + e10 OSS licensing
 problem_statement: >-
-  The home screen's "Demo" button launches an idle offline game. Phase 2 replaces it
-  with a "Play" flow that leads the user into a live online Lichess game against a
-  friend: pick a friend from the Lichess following list, choose a game mode
-  (Unlimited / Real time 10:5 / Correspondence 1-14 days), send the challenge, and
-  manage incoming/outgoing invites on a dedicated screen. Scoped to friend
-  invites/inviting only. No keyboard on the Kindle — friend choice is a paged list,
-  never free-text input.
+  After e05 lands the safe in-app update, the app needs: (e06) the Play form
+  only supports casual standard challenges against friends — no rated games,
+  no computer opponent, no random/lobby opponent, no rematch after game over;
+  (e07) several UI rough edges (invites pagination overlap, no conditional
+  pagination, no auto-refresh on Games/Invites, no puzzle-available indicator
+  on Home, no per-game/invite details, inconsistent screen titles, no reusable
+  list-picker, no file/rank labels, piece-move leaves a shadow on the board);
+  (e08) screen-specific settings are scattered — no shared general settings
+  accessible everywhere; (e09) a fun custom puzzle mode ("Mauseedition") as a
+  special release; (e10) the project has no open-source license or attribution
+  for its icons/fonts/libraries.
 
 constraints:
-  - Rust + x11rb only; static musl armv7-unknown-linux-musleabi build unchanged
-  - 1072x1448 absolute-pixel canvas unchanged; full repaint only on state change (e-ink)
-  - run-dev.sh / Xephyr harness keeps working; all device-only behavior degrades to no-ops
-  - litchee =0.2.2 crate: RelationsApi::following / ChallengesApi::{list, challenge, accept, decline, cancel};
-    ChallengeRequest builder: rated(false), color(random), clock(limit_secs, inc_secs), days(n), variant standard
-  - OAuth scopes challenge:read + challenge:write already requested (models/oauth.rs)
-  - Existing ChessGameScreen + stream_game / BoardAPI::attach_game reused for the live game
-  - Home screen keeps 4 buttons; "Demo" is renamed "Play" and requires auth (existing QR flow first)
-  - assets/invitation.png used for the invites icon button (IconButton, 134x134 footprint)
-
-flow:
-  - 'HomeScreen "Play" -> PlayScreen (the "form")'
-  - 'PlayScreen: title top-left; invitation IconButton top-right (x=914, y=24) -> InvitesScreen; game-mode button group (Unlimited / Real time 10:5 / Correspondence) at y~140-260 with days-per-move spinner (- / + around value, clamped 1-14) for correspondence; opponent selector button ("Opponent: -" / chosen username) at y~400 -> pushes FriendlistScreen; "Send challenge" button at y~530 (enabled only with opponent selected); status line y~1240; Back bottom-left'
-  - 'FriendlistScreen (mirrors OngoingChessGamesScreen: 4 friend buttons 600x96 from y~400, next/prev page icons, Back, loading/error states): pages RelationsApi::following; tap friend -> AppEvent::FriendSelected(username) + Pop; PlayScreen (top of stack) fills opponent field'
-  - 'Send challenge -> ChallengesApi::challenge(user).rated(false).color(random) + clock(600,5) for realtime / days(n) for correspondence / neither for unlimited -> push InvitesScreen'
-  - 'InvitesScreen: "Incoming" rows with Accept/Decline, "Outgoing" rows with Cancel; poll list ~5s; accept in either direction -> Push ChessGameScreen attached to game id with live stream'
+  - Rust + x11rb; static musl armv7-unknown-linux-musleabi cross build stays green; CI runs fmt + clippy -D warnings + test + cross build + coverage
+  - Device: k2, armv7l, /mnt/us fuse.fsp rw, busybox tools available, ~3.1 GB free
+  - 1072x1448 canvas and existing screens; new UI fits within current layout constants (ui/layout.rs)
+  - litchee 0.2.2 already integrated; use its challenge_ai / create_open / seek / rated APIs — no new HTTP client
+  - No new runtime dependencies unless justified
+  - EN/DE i18n for all new UI strings (fluent-rs already in place)
+  - Shell scripts stay POSIX sh
+  - e05 (safe in-app update) stays wsjf_order 1 and lands first; e06-e10 build on top of it
 
 key_decisions:
-  - decision: three screens — PlayScreen (form), FriendlistScreen (opponent pick), InvitesScreen (challenges)
-    rationale: user request — friend choice extracted like OngoingGamesScreen, returns username to the Play form via pop+event; invites separated via invitation.png icon top-right of Play
-  - decision: friend selection from RelationsApi::following list, no on-screen keyboard
-    rationale: Kindle has no keyboard; building a text-input widget is out of scope
-  - decision: fixed challenge defaults — standard variant, casual (rated=false), random color
-    rationale: user decision; configurable variants/rated later
-  - decision: game mode via button group — Unlimited / Real time 10:5 (clock 600+5) / Correspondence days 1-14 via spinner
-    rationale: user decision; 10:5 is the realtime default; spinner clamps 1-14
-  - decision: incoming AND outgoing challenges on InvitesScreen with accept/decline/cancel, ~5s poll
-    rationale: user confirmed "friend-invites and inviting" both directions
-  - decision: game start (either direction accepted) pushes existing ChessGameScreen with stream
-    rationale: reuse existing live-game machinery (BoardAPI/stream_game)
+  - decision: e06 = rated/casual toggle + opponent options "computer" (Lichess AI via challenge_ai) and "random" (open challenge via create_open or seek) + rematch button; NO variants, NO separate bot mode
+    rationale: user direction 2026-11-10 — variants deferred, bots not wanted as a separate mode; "computer" is just an opponent choice in the existing Play form
+  - decision: e07 "lobby/browse open challenges" is already covered by InvitesScreen — do NOT re-implement; only extend opponent choice in the challenge form
+    rationale: user correction 2026-11-10 — InvitesScreen already lists incoming/outgoing challenges with accept/decline/cancel
+  - decision: e07 is a UI-enhancements epic — bug fixes (invites pagination overlap), QOL (conditional next-page, recurring fetch 5s×30s then refresh button on Games+Invites, Home puzzle-available indicator), per-item details on OngoingGames/Invites, uniform screen titles+layout, reusable list-picker modal component, color-orientation-aware file/rank labels, piece-move shadow fix
+    rationale: user specification 2026-11-10; some QOL items marked "maybe" depending on effort — decide during plan-work per story
+  - decision: e08 = 2-tab settings screen — primary tab = screen-relevant settings, secondary tab = shared general persistent settings accessible from any screen that has settings
+    rationale: user direction 2026-11-10 — unify scattered per-screen settings into a common pattern
+  - decision: e09 = "Mauseedition" — hardcoded puzzle set, each correct move unlocks a letter, letters form a sentence; reuses puzzle engine with custom sidebar + main screen showing progress; shipped as a second release asset + unlock method in UpdateScreen
+    rationale: user direction 2026-11-10 — fun special edition; depends on e05's update bundle to deliver the second asset
+  - decision: e10 = research OSS duties/licensing, add attribution (icons, fonts, libraries) where needed, choose and apply an open-source license for this project
+    rationale: user direction 2026-11-10 — project currently has no LICENSE file; icons (cburnett-style chess pieces), Adwaita Sans font (OFL), and all cargo deps need license mentions
 
 out_of_scope:
-  - Arbitrary-username challenges (on-screen keyboard / text input widget)
-  - Open/public challenges, bulk pairing, challenge AI
-  - Rated games, variants other than standard, configurable realtime clocks, custom FEN
-  - Rematch flow, lobby/matchmaking browser
-  - KPM packaging, WAF, C++/GTK rewrite (carried from e02)
-  - Phase 1 (on-device directory restructure) and phase 3 (i18n German) — scoped separately in specs/product/SCOPE_LATEST.yaml
+  - "Game variants (Chess960 etc.) in the challenge form — deferred (user said no variants for now)"
+  - Separate bot-play mode — not wanted; "computer" is an opponent option only
+  - Multi-device layout support (different screen resolutions) — separate initiative
+  - Physical on-device UAT beyond what CI + host tests cover — manual, needs k2 on LAN
+  - Rewriting historical artifacts
+
+prior_art:
+  - litchee 0.2.2 challenges API: ChallengeRequest.rated(bool), .clock(), .days(), .color(), .variant(), .stream(); challenge_ai(level 1-8) via POST /api/challenge/ai; create_open() for open challenges; board().seek() with .rated()/.clock()/.days()/.variant()/.color()/.rating_range() for lobby random opponent
+  - litchee 0.2.2 board API: make_move, resign, abort, claim_draw, handle_draw, handle_takeback, stream_game, stream_events; rematch on Lichess = send new challenge to same opponent with same params (rematch_of is informational only)
+  - OSS licensing: choosealicense.com (GitHub) — MIT (permissive, no patent grant), Apache 2.0 (permissive + patent grant, incompatible with GPLv2), GPL v3 (copyleft); for Rust projects Apache 2.0 or MIT are standard; cargo-about / cargo-license generate dependency license reports
+  - Attribution: chess piece icons (cburnett set, CC BY-SA 3.0 / GFDL via Wikimedia Commons), Adwaita Sans font (SIL OFL 1.1), all cargo dependencies need license mentions in NOTICE or THIRD-PARTY file
 
 success_criteria:
-  - cargo build (dev + cross musl) + cargo test green
-  - 'On-device k2 UAT: Play -> pick friend -> choose mode -> send -> appears on InvitesScreen as outgoing; accept incoming -> ChessGameScreen opens with live board; decline/cancel remove the row'
-  - 'Failure paths: send/decline/cancel/network errors show status line + Retry; empty friendlist shows hint'
-  - 'run-dev.sh: full flow exercisable against emulated display with a mocked/stubbed API where possible'
+  - e06: Play form has rated/casual toggle + opponent picker (friend/computer/random); challenges sent with correct rated flag; AI games start via challenge_ai; open challenges via create_open appear in InvitesScreen; rematch button re-challenges same opponent with same settings
+  - e07: invites pagination no longer overlaps; next-page button only shows when needed; Games/Invites auto-poll 5s×30s then show refresh; Home puzzle button shows daily-unsolved indicator; OngoingGames/Invites rows show details; uniform title bar on all screens; list-picker modal reusable; file/rank labels on board; piece move leaves no shadow
+  - e08: settings screen has 2 tabs (screen-specific + general); general settings persist across screens
+  - e09: Mauseedition puzzle mode playable; letters unlock per correct move; sentence revealed when all solved; second release asset produced; unlock via UpdateScreen
+  - e10: LICENSE file added; NOTICE/THIRD-PARTY with icon/font/library attributions; README references license; license decision documented in ADR
