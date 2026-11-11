@@ -9,7 +9,7 @@ vcs:
   head: 55d8e94
   worktree: /home/mxy/repos/e06-play-form-enhancements
 handoff:
-  last_step_completed: e06s09 final verification passing — host gates (build/test 10 suites/clippy -D warnings/fmt) green, armv7 musl cross build green (14MB static ARM ELF, needs env -u LD_LIBRARY_PATH in agent sandboxes), docs updated to final Play layout + raw AI POST + open-challenge label; e06 9/9 complete, next verify-work/release-branch
+  last_step_completed: e06 9/9 complete + BUG-2026-11-11T145208 fixed (ae7134c) — rematch re-scopes in-game backend to the new game id via detach(); affects AI and player rematches; gates green. next verify-work/release-branch
   open_decisions:
   - On-device UAT of the v0.5.0 bundle update needs the k2 on the LAN (device currently holds v0.4.0 + new infra)
   required_reading:
