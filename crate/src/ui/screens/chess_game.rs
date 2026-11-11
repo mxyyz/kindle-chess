@@ -9,12 +9,13 @@ use super::*;
 use crate::ui::layout;
 use crate::{
     models::{
+        board_api::{RematchContext, Turn},
         chess::ChessApp,
         ui::{Display, Screen, Transition},
     },
     ui::{
         events::{AppEvent, Rectangle, RectangleExt},
-        widgets::{BoardWidget, SidebarWidget},
+        widgets::{BoardWidget, Button, SidebarWidget},
     },
     utils::config::AppConfig,
 };
@@ -31,6 +32,12 @@ pub struct ChessGameScreen {
     // Cancel flag of the currently running stream task. Set on DeviceWake so
     // a stalled stream (device was locked) is superseded by a fresh one.
     pub stream_cancel: Option<std::sync::Arc<std::sync::atomic::AtomicBool>>,
+    // e06s04: set when the stream reports a terminal position; the rematch
+    // button is only shown when a RematchContext is attached (games opened
+    // from Play with a known challenge) and the game is over.
+    pub game_over: bool,
+    pub rematch: Option<RematchContext>,
+    pub rematch_button: Button,
 }
 
 impl ChessGameScreen {
@@ -55,7 +62,77 @@ impl ChessGameScreen {
             sidebar,
             stream_started: false,
             stream_cancel: None,
+            game_over: false,
+            rematch: None,
+            // Centered in the lower sidebar, clear of the corner icon buttons.
+            rematch_button: Button::new(
+                (layout::SCREEN_W - 600) / 2,
+                layout::SIDEBAR_Y + layout::SIDEBAR_H as i16 - 128,
+                600,
+                96,
+                "Rematch".into(),
+                40.0,
+                true,
+            ),
         }
+    }
+
+    // ── e06s04: rematch ─────────────────────────────────────────────────────
+
+    pub fn is_game_over(turn: &Turn) -> bool {
+        matches!(turn, Turn::Over { .. })
+    }
+
+    pub fn set_rematch(&mut self, ctx: RematchContext) {
+        self.rematch = Some(ctx);
+    }
+
+    pub fn mark_game_over(&mut self) {
+        self.game_over = true;
+    }
+
+    pub fn rematch_button_visible(&self) -> bool {
+        self.game_over && self.rematch.is_some()
+    }
+
+    /// Re-issue the original challenge. Result arrives as `ChallengeSent` /
+    /// `AiGameStarted` / `ChallengeSendFailed`.
+    fn kick_rematch(&mut self, display: &Display) {
+        let Some(ctx) = self.rematch.clone() else {
+            return;
+        };
+        let Some(api) = self.app.online_in_game_api() else {
+            warn!("rematch with no online backend — ignored");
+            return;
+        };
+        let tx = display.event_tx.clone();
+        tokio::spawn(async move {
+            let result: Result<AppEvent, String> = match &ctx.kind {
+                crate::models::board_api::OpponentKind::Friend(name) => api
+                    .send_challenge(name, &ctx.mode, ctx.rated)
+                    .await
+                    .map(|_| PlayScreen::send_event(&ctx.kind, None))
+                    .map_err(|e| e.to_string()),
+                crate::models::board_api::OpponentKind::Computer(level) => api
+                    .send_challenge_ai(*level, &ctx.mode)
+                    .await
+                    .map(|g| PlayScreen::send_event(&ctx.kind, Some(g.id)))
+                    .map_err(|e| e.to_string()),
+                crate::models::board_api::OpponentKind::Random => api
+                    .create_open_challenge(&ctx.mode, ctx.rated)
+                    .await
+                    .map(|_| PlayScreen::send_event(&ctx.kind, None))
+                    .map_err(|e| e.to_string()),
+            };
+            match result {
+                Ok(ev) => {
+                    let _ = tx.send(ev);
+                }
+                Err(e) => {
+                    let _ = tx.send(AppEvent::ChallengeSendFailed(e));
+                }
+            }
+        });
     }
 }
 
@@ -76,6 +153,11 @@ impl Screen for ChessGameScreen {
         self.sidebar.set_locale(&i18n::locale_of(&self.config));
         self.board.render(&mut display.renderer)?;
         self.sidebar.render(&mut display.renderer)?;
+        // e06s04: rematch button once the game is over and a context exists.
+        if self.rematch_button_visible() {
+            self.rematch_button.label = i18n::tr(&i18n::locale_of(&self.config), "game-rematch");
+            self.rematch_button.draw(&mut display.renderer)?;
+        }
         display.renderer.present()?;
         Ok(())
     }
@@ -110,8 +192,12 @@ impl Screen for ChessGameScreen {
                 self.board.set_flipped(!player0_white);
                 self.board.set_position(board);
                 self.board.set_last_move(last_move);
+                let over = Self::is_game_over(&turn);
                 self.sidebar
                     .set_turn(turn, &crate::i18n::locale_of(&self.config));
+                if over {
+                    self.mark_game_over();
+                }
                 Ok(Transition::Redraw)
             }
 
@@ -124,8 +210,31 @@ impl Screen for ChessGameScreen {
                 self.board.set_position(board);
                 self.board.set_last_move(last_move);
                 self.sidebar
-                    .set_turn(turn, &crate::i18n::locale_of(&self.config));
+                    .set_turn(turn.clone(), &crate::i18n::locale_of(&self.config));
+                if Self::is_game_over(&turn) {
+                    self.mark_game_over();
+                }
                 Ok(Transition::Redraw)
+            }
+
+            // e06s04: rematch results arrive here while the game screen is top.
+            AppEvent::ChallengeSent(opponent) => {
+                info!("Rematch challenge sent to {opponent}");
+                Ok(Transition::Push(Box::new(InvitesScreen::new(
+                    self.app.clone(),
+                    self.config.clone(),
+                ))))
+            }
+
+            AppEvent::AiGameStarted { game_id, my_turn } => {
+                info!("Rematch AI game started: {game_id}");
+                let game_app = self.app.clone().attach_game(game_id, my_turn);
+                let mut next = ChessGameScreen::new(game_app, self.config.clone());
+                // keep the same context for a potential next rematch
+                if let Some(ctx) = self.rematch.clone() {
+                    next.set_rematch(ctx);
+                }
+                Ok(Transition::Push(Box::new(next)))
             }
 
             AppEvent::Touch(touch) => {
@@ -135,6 +244,15 @@ impl Screen for ChessGameScreen {
 
                 if let Some(ev) = self.sidebar.handle_touch(&touch) {
                     return self.handle_event(ev, display);
+                }
+
+                // e06s04: rematch button (only drawn when game over + context).
+                if self.rematch_button_visible()
+                    && touch.kind == crate::ui::events::TouchKind::Up
+                    && self.rematch_button.rect.contains(touch.x, touch.y)
+                {
+                    self.kick_rematch(display);
+                    return Ok(Transition::Redraw);
                 }
 
                 Ok(Transition::Redraw)

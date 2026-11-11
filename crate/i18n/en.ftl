@@ -53,6 +53,7 @@ game-actions-title = Game Actions
 game-resign = Resign
 game-abort = Abort
 game-over = Game over
+game-rematch = Rematch
 game-won = {$winner} won!
 game-turn-playing = Your turn
 game-turn-waiting = Waiting for opponent

@@ -9,7 +9,7 @@ use super::*;
 use crate::ui::layout;
 use crate::{
     models::{
-        board_api::{ALLOWED_CORRESPONDENCE_DAYS, ChallengeMode, OpponentKind},
+        board_api::{ALLOWED_CORRESPONDENCE_DAYS, ChallengeMode, OpponentKind, RematchContext},
         chess::ChessApp,
         ui::{Display, Screen, Transition},
     },
@@ -241,7 +241,7 @@ impl PlayScreen {
 
     /// The event signalling a successful send, per opponent kind. `game_id`
     /// is `Some` for Computer (AI games start immediately).
-    fn send_event(kind: &OpponentKind, game_id: Option<String>) -> AppEvent {
+    pub(crate) fn send_event(kind: &OpponentKind, game_id: Option<String>) -> AppEvent {
         match kind {
             OpponentKind::Computer(_) => AppEvent::AiGameStarted {
                 game_id: game_id.unwrap_or_default(),
@@ -536,10 +536,15 @@ impl Screen for PlayScreen {
                 self.sending = false;
                 info!("AI game started immediately: {game_id}");
                 let game_app = self.app.clone().attach_game(game_id, my_turn);
-                Ok(Transition::Push(Box::new(ChessGameScreen::new(
-                    game_app,
-                    self.config.clone(),
-                ))))
+                let mut game_screen = ChessGameScreen::new(game_app, self.config.clone());
+                // e06s04: carry the challenge settings so a rematch can
+                // re-issue the same AI challenge after game over.
+                game_screen.set_rematch(RematchContext {
+                    kind: self.opponent_kind(),
+                    mode: self.mode(),
+                    rated: self.rated,
+                });
+                Ok(Transition::Push(Box::new(game_screen)))
             }
 
             AppEvent::ChallengeSendFailed(e) => {

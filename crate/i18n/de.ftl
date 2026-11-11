@@ -53,6 +53,7 @@ game-actions-title = Partie-Aktionen
 game-resign = Aufgeben
 game-abort = Abbrechen
 game-over = Partie beendet
+game-rematch = Revanche
 game-won = {$winner} hat gewonnen!
 game-turn-playing = Du bist dran
 game-turn-waiting = Warten auf Gegner
