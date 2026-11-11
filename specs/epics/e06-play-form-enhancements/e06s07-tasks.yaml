@@ -1,0 +1,74 @@
+---
+# Story e06s07 — PlayScreen reorganization per user-approved design (grill 2026-11-11).
+story_id: e06s07
+title: "PlayScreen reorg: kind row first, shared selector row, mode row, centered Send in lower half"
+status: failing
+bcps: 8
+delta: MODIFIED
+spec: e06s07-play-ui-reorg.md
+tasks:
+  - id: e06s07t01
+    description: >-
+      play.rs constructor re-layout: kind row y=200 (Computer|Friend|Random), selector row
+      y=310 h=96, mode row y=470 h=80, rated y=914 (hidden for Computer), send y=1038
+      centered x=236 600x96 (lower-half center); remove opponent_button field.
+    verify: "cd crate && cargo build 2>&1 | tail -1 | grep -q 'Finished'"
+    risk: P1
+    security: none
+    status: failing
+    allure:
+      severity: high
+      categories: ["e06", "ui", "reorg"]
+  - id: e06s07t02
+    description: >-
+      Selector row logic: selector_mode() = AiLevel (kind=Computer) | Days (mode=Correspondence,
+      kind!=Computer) | RandomInfo; render level 8-button row or days row or random info text.
+      AI-level label ABOVE row left-aligned at row x0 (fix 50% overlap + centering); days label
+      BELOW days row (new key play-days-label).
+    verify: "cd crate && cargo test --lib play 2>&1 | grep -q 'test result: ok'"
+    risk: P1
+    security: none
+    status: failing
+    allure:
+      severity: high
+      categories: ["e06", "ui", "selector-row"]
+  - id: e06s07t03
+    description: >-
+      Friend kind button: tap selects kind=Friend AND pushes FriendlistScreen; FriendSelected
+      sets kind_buttons[1].label to the friend name (default "Friend"); long names clamp font.
+    verify: "cd crate && cargo test --lib play 2>&1 | grep -q 'test result: ok'"
+    risk: P1
+    security: none
+    status: failing
+    allure:
+      severity: high
+      categories: ["e06", "ui", "friend-picker"]
+  - id: e06s07t04
+    description: >-
+      Layout invariant unit test: rows 1-3 end above SCREEN_H/2 (724); send button center ==
+      lower-half center; all button rects in-bounds and pairwise non-overlapping.
+    verify: "cd crate && cargo test --lib play 2>&1 | grep -q 'test result: ok'"
+    risk: P1
+    security: none
+    status: failing
+    allure:
+      severity: high
+      categories: ["e06", "ui", "layout"]
+  - id: e06s07t05
+    description: "EN/DE i18n: play-days-label, play-random-info (+ existing keys reused)"
+    verify: "cd crate && grep -q 'play-days-label' i18n/en.ftl && grep -q 'play-days-label' i18n/de.ftl && grep -q 'play-random-info' i18n/en.ftl && grep -q 'play-random-info' i18n/de.ftl"
+    risk: P2
+    security: none
+    status: failing
+    allure:
+      severity: normal
+      categories: ["e06", "i18n"]
+  - id: e06s07t06
+    description: "Full gates: test + clippy -D warnings + fmt"
+    verify: "cd crate && cargo test 2>&1 | grep -q 'test result: ok' && cargo clippy --all-targets -- -D warnings 2>&1 | tail -1 | grep -q 'Finished' && cargo fmt --check && echo GATES-OK"
+    risk: P1
+    security: none
+    status: failing
+    allure:
+      severity: high
+      categories: ["e06", "gates"]

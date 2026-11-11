@@ -57,3 +57,24 @@ registry:
       renderer.rs. Window created with height 0.
     file: specs/bugs/BUG-2026-11-09T200000-run-dev-blackscreen.md
     status: fixed
+  - bug_id: BUG-2026-11-11T122900
+    date: 2026-11-11
+    severity: high
+    priority: high
+    scope: e06-challenge-ai
+    summary: >-
+      Send challenge with Computer fails: "failed to decode LichessGame" —
+      litchee LichessGame.variant is a string enum but the live
+      /api/challenge/ai returns a variant object. Fix in e06s06 (raw POST).
+    file: specs/bugs/BUG-2026-11-11T122900-ai-challenge-decode.md
+    status: open
+  - bug_id: BUG-2026-11-11T123000
+    date: 2026-11-11
+    severity: medium
+    priority: high
+    scope: e06-open-challenges
+    summary: >-
+      Open challenges (Random) render as blank outgoing rows in InvitesScreen
+      (destUser null -> empty opponent, no open marker). Fix in e06s08.
+    file: specs/bugs/BUG-2026-11-11T123000-open-challenges-invisible.md
+    status: open

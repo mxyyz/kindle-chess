@@ -1,0 +1,29 @@
+---
+# Story e06s09 — final e06 verification + docs check.
+story_id: e06s09
+title: "Final e06 verification: gates + docs review + manual script"
+status: failing
+bcps: 2
+delta: ADDED
+spec: e06s09-final-verification.md
+tasks:
+  - id: e06s09t01
+    description: "Full host gates: build + test + clippy -D warnings + fmt --check (armv7 cross is CI-gated)"
+    verify: "cd crate && cargo build 2>&1 | tail -1 | grep -q 'Finished' && cargo test 2>&1 | grep -q 'test result: ok' && cargo clippy --all-targets -- -D warnings 2>&1 | tail -1 | grep -q 'Finished' && cargo fmt --check && echo GATES-OK"
+    risk: P2
+    security: none
+    status: failing
+    allure:
+      severity: normal
+      categories: ["e06", "gates"]
+  - id: e06s09t02
+    description: >-
+      Docs match final behavior: ARCHITECTURE.md challenge-flow section mentions final Play
+      layout + open challenges; api/README.md mentions challenge/open.
+    verify: "grep -q 'challenge/open' docs/ARCHITECTURE.md && grep -q 'challenge/open' crate/src/api/README.md"
+    risk: P3
+    security: none
+    status: failing
+    allure:
+      severity: minor
+      categories: ["e06", "docs"]

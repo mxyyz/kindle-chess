@@ -4,7 +4,7 @@
 # specs/planning-context.yaml. litchee 0.2.2 APIs verified: challenge_ai,
 # create_open, seek, rated flag on ChallengeRequest.
 epic_id: e06-play-form-enhancements
-status: done (all 5 stories passing on e06-play-form-enhancements; host gates green, cross build in CI)
+status: in progress (s01-s05 done; s06-s09 added 2026-11-11 after bug reports + UI redesign; host gates green, cross in CI)
 scope: specs/product/SCOPE_LATEST.yaml
 planning_context: specs/planning-context.yaml
 # Order: model/API layer first (opponent kind + rated param), then Play form UI,
@@ -56,3 +56,27 @@ stories:
     delta: ADDED
     tasks_file: e06s05-tasks.yaml
     spec_file: e06s05-verification.md
+  - story_id: e06s06
+    title: "Bugfix BUG-2026-11-11T122900: AI challenge decode — raw POST /api/challenge/ai, fix wiremock fixture"
+    bcps: 5
+    delta: MODIFIED
+    tasks_file: e06s06-tasks.yaml
+    spec_file: e06s06-ai-decode-fix.md
+  - story_id: e06s07
+    title: "PlayScreen reorg (user design 2026-11-11): kind row first, shared selector row, mode row, centered Send"
+    bcps: 8
+    delta: MODIFIED
+    tasks_file: e06s07-tasks.yaml
+    spec_file: e06s07-play-ui-reorg.md
+  - story_id: e06s08
+    title: "Bugfix BUG-2026-11-11T123000: open challenges listed + cancellable as outgoing in InvitesScreen"
+    bcps: 5
+    delta: MODIFIED
+    tasks_file: e06s08-tasks.yaml
+    spec_file: e06s08-open-challenges-invites.md
+  - story_id: e06s09
+    title: "Final verification: gates + docs + manual script"
+    bcps: 2
+    delta: ADDED
+    tasks_file: e06s09-tasks.yaml
+    spec_file: e06s09-final-verification.md

@@ -118,7 +118,7 @@ epics:
     bcps: 3
     delta: ADDED
 - id: e06-play-form-enhancements
-  status: done (branch e06-play-form-enhancements; host gates green, cross in CI)
+  status: in progress (s01-s05 done; s06-s09 planned 2026-11-11 — 2 bugfixes + UI reorg + final verify)
   wsjf_order: 2
   scope: specs/product/SCOPE_LATEST.yaml
   planning_context: specs/planning-context.yaml
