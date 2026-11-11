@@ -3,7 +3,7 @@
 # Plan-work 2026-11-11: failing ledger.
 story_id: e06s03
 title: "Challenge send flow: route to correct litchee call per OpponentKind + rated"
-status: failing
+status: passing
 bcps: 5
 delta: MODIFIED
 spec: e06s03-send-flow.md
@@ -17,7 +17,7 @@ tasks:
     verify: "cd crate && cargo build --all-targets 2>&1 | tail -1 | grep -q 'Finished'"
     risk: P0
     security: low
-    status: failing
+    status: passing
     allure:
       severity: critical
       categories: ["e06", "challenge-api", "routing"]
@@ -27,7 +27,7 @@ tasks:
     verify: "cd crate && cargo build 2>&1 | tail -1 | grep -q 'Finished'"
     risk: P1
     security: none
-    status: failing
+    status: passing
     allure:
       severity: high
       categories: ["e06", "navigation"]
@@ -38,7 +38,7 @@ tasks:
     verify: "cd crate && grep -q 'play-status-sending-ai' i18n/en.ftl && grep -q 'play-status-sending-ai' i18n/de.ftl && grep -q 'play-status-open-sent' i18n/en.ftl && grep -q 'play-status-open-sent' i18n/de.ftl"
     risk: P2
     security: none
-    status: failing
+    status: passing
     allure:
       severity: normal
       categories: ["e06", "i18n"]
@@ -49,7 +49,7 @@ tasks:
     verify: "cd crate && cargo test --lib play 2>&1 | grep -q 'test result: ok'"
     risk: P1
     security: none
-    status: failing
+    status: passing
     allure:
       severity: high
       categories: ["e06", "routing", "unit"]
