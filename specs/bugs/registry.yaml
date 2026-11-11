@@ -90,3 +90,14 @@ registry:
       immediately and player rematch after accept.
     file: specs/bugs/BUG-2026-11-11T145208-rematch-new-game-not-loaded.md
     status: fixed  # attach_game re-scopes in-game backend via detach(); RED->GREEN verified, gates green
+  - bug_id: BUG-2026-11-11T153246
+    date: 2026-11-11
+    severity: medium
+    priority: high
+    scope: e06s07-play-selector-row
+    summary: >-
+      AI-level taps swallowed: the hidden days group shares the selector row and
+      is hit-tested first, so most level-button taps never register. Fix: route
+      selector touches by the currently rendered selector only.
+    file: specs/bugs/BUG-2026-11-11T153246-ai-level-selector-shadowed.md
+    status: fixed  # selector_touch routes by selector_mode(); last-selected-wins + centered label in same run; gates green

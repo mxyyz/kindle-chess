@@ -58,6 +58,15 @@ enum SelectorMode {
     RandomInfo,
 }
 
+/// Which selector was selected last — when Computer AND Correspondence are
+/// both active, the shared row renders the last-selected one (user design
+/// 2026-11-11), not a fixed priority.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum SelectorFocus {
+    Level,
+    Days,
+}
+
 /// The Play flow's form (e06s07 layout): row 1 opponent kind
 /// (Computer / Friend / Random — Friend also opens the FriendlistScreen and
 /// then shows the picked name), row 2 shared selector (level | days | info),
@@ -91,6 +100,9 @@ pub struct PlayScreen {
     pub opponent: Option<String>,
     /// Index into `kind_buttons`; see `opponent_kind()`.
     pub selected_kind: usize,
+    /// Last-selected selector (level vs days) — decides the shared row when
+    /// Computer and Correspondence are both active.
+    pub selector_focus: SelectorFocus,
     pub rated: bool,
     pub ai_level: u8,
     pub status: Option<String>,
@@ -225,6 +237,7 @@ impl PlayScreen {
             selected_mode: ChallengeMode::RealTime,
             opponent: None,
             selected_kind: KIND_FRIEND,
+            selector_focus: SelectorFocus::Level,
             rated: false,
             ai_level: 3,
             status: None,
@@ -372,18 +385,57 @@ impl PlayScreen {
         });
     }
 
-    /// What the shared selector row (row 2) hosts for the current state:
-    /// AI level buttons for Computer, the days group for Correspondence with
-    /// any other kind, and the random/open info text otherwise. Exactly one
-    /// of the three is ever drawn (e06s07).
+    /// What the shared selector row (row 2) hosts for the current state.
+    /// Exactly one of the three is ever drawn (e06s07). When Computer AND
+    /// Correspondence are both active, the last-selected one wins
+    /// (`selector_focus`) instead of a fixed priority.
     fn selector_mode(&self) -> SelectorMode {
-        if self.selected_kind == KIND_COMPUTER {
-            SelectorMode::AiLevel
-        } else if matches!(self.mode(), ChallengeMode::Correspondence(_)) {
-            SelectorMode::Days
-        } else {
-            SelectorMode::RandomInfo
+        let level_applicable = self.selected_kind == KIND_COMPUTER;
+        let days_applicable = matches!(self.mode(), ChallengeMode::Correspondence(_));
+        match (level_applicable, days_applicable) {
+            (true, true) => match self.selector_focus {
+                SelectorFocus::Level => SelectorMode::AiLevel,
+                SelectorFocus::Days => SelectorMode::Days,
+            },
+            (true, false) => SelectorMode::AiLevel,
+            (false, true) => SelectorMode::Days,
+            (false, false) => SelectorMode::RandomInfo,
         }
+    }
+
+    /// Hit-test the shared selector row at (x, y); returns true when a
+    /// selector button consumed the touch.
+    ///
+    /// BUG-2026-11-11T153246: the level and days groups share the row, so only
+    /// the group `selector_mode()` currently renders may be hit-tested —
+    /// testing both unconditionally let the hidden one shadow the visible one
+    /// (days-first order swallowed most level taps).
+    fn selector_touch(&mut self, x: i16, y: i16) -> bool {
+        match self.selector_mode() {
+            SelectorMode::AiLevel => {
+                for (i, btn) in self.level_buttons.iter().enumerate() {
+                    if btn.rect.contains(x, y) {
+                        self.select_level((i + 1) as u8);
+                        return true;
+                    }
+                }
+            }
+            SelectorMode::Days => {
+                // Days toggle group: one button per Lichess-allowed value.
+                for (i, btn) in self.days_buttons.iter().enumerate() {
+                    if btn.rect.contains(x, y) {
+                        self.selected_days = ALLOWED_CORRESPONDENCE_DAYS[i];
+                        self.selector_focus = SelectorFocus::Days;
+                        if matches!(self.selected_mode, ChallengeMode::Correspondence(_)) {
+                            self.selected_mode = ChallengeMode::Correspondence(self.selected_days);
+                        }
+                        return true;
+                    }
+                }
+            }
+            SelectorMode::RandomInfo => {}
+        }
+        false
     }
 
     /// The currently selected mode button, for drawing the selection marker.
@@ -409,7 +461,20 @@ impl PlayScreen {
     pub fn select_kind(&mut self, idx: usize) {
         if idx < self.kind_buttons.len() {
             self.selected_kind = idx;
+            // Selecting Computer makes the level selector the last-selected one.
+            if idx == KIND_COMPUTER {
+                self.selector_focus = SelectorFocus::Level;
+            }
         }
+    }
+
+    /// Select a game mode; Correspondence makes the days selector the
+    /// last-selected one on the shared row.
+    pub fn select_mode(&mut self, mode: ChallengeMode) {
+        if matches!(mode, ChallengeMode::Correspondence(_)) {
+            self.selector_focus = SelectorFocus::Days;
+        }
+        self.selected_mode = mode;
     }
 
     pub fn select_rated(&mut self, rated: bool) {
@@ -544,11 +609,16 @@ impl Screen for PlayScreen {
         // Row 2: shared selector — exactly one of level row / days row / info.
         match self.selector_mode() {
             SelectorMode::AiLevel => {
-                // "AI level" label ABOVE the row, left-aligned at the row's x0.
+                // "AI level" label centered above the row (same horizontal
+                // centering as the days label below), vertically centered in
+                // the gap between the kind row and the selector row.
                 let level_label = tr(&loc, "play-ai-level");
+                let (lw, lh) = display.renderer.measure_text(&level_label, 24.0);
+                let gap_top = KIND_Y + KIND_H as i16;
+                let label_y = (gap_top + (SELECTOR_Y - gap_top - lh as i16) / 2).max(gap_top);
                 display.renderer.draw_text(
-                    LEVEL_X0,
-                    KIND_Y + KIND_H as i16 + 4,
+                    (layout::SCREEN_W - lw as i16) / 2,
+                    label_y,
                     &level_label,
                     24.0,
                     DrawColor::Black,
@@ -693,11 +763,11 @@ impl Screen for PlayScreen {
                 }
 
                 if self.mode_button_unlimited.rect.contains(touch.x, touch.y) {
-                    self.selected_mode = ChallengeMode::Unlimited;
+                    self.select_mode(ChallengeMode::Unlimited);
                     return Ok(Transition::Redraw);
                 }
                 if self.mode_button_realtime.rect.contains(touch.x, touch.y) {
-                    self.selected_mode = ChallengeMode::RealTime;
+                    self.select_mode(ChallengeMode::RealTime);
                     return Ok(Transition::Redraw);
                 }
                 if self
@@ -705,22 +775,17 @@ impl Screen for PlayScreen {
                     .rect
                     .contains(touch.x, touch.y)
                 {
-                    self.selected_mode = ChallengeMode::Correspondence(self.selected_days);
+                    let days = self.selected_days;
+                    self.select_mode(ChallengeMode::Correspondence(days));
                     return Ok(Transition::Redraw);
                 }
 
-                // Days toggle group: one button per Lichess-allowed value.
-                for (i, btn) in self.days_buttons.iter().enumerate() {
-                    if btn.rect.contains(touch.x, touch.y) {
-                        self.selected_days = ALLOWED_CORRESPONDENCE_DAYS[i];
-                        if matches!(self.selected_mode, ChallengeMode::Correspondence(_)) {
-                            self.selected_mode = ChallengeMode::Correspondence(self.selected_days);
-                        }
-                        return Ok(Transition::Redraw);
-                    }
+                // Shared selector row (level | days | info) — see selector_touch.
+                if self.selector_touch(touch.x, touch.y) {
+                    return Ok(Transition::Redraw);
                 }
 
-                // e06: rated toggle + kind selector + AI level rows.
+                // e06: rated toggle + kind selector.
                 for (i, btn) in self.rated_buttons.iter().enumerate() {
                     if btn.rect.contains(touch.x, touch.y) {
                         self.select_rated(i == 1);
@@ -740,12 +805,6 @@ impl Screen for PlayScreen {
                                 self.config.clone(),
                             ))));
                         }
-                        return Ok(Transition::Redraw);
-                    }
-                }
-                for (i, btn) in self.level_buttons.iter().enumerate() {
-                    if btn.rect.contains(touch.x, touch.y) {
-                        self.select_level((i + 1) as u8);
                         return Ok(Transition::Redraw);
                     }
                 }
@@ -810,26 +869,95 @@ mod play_screen_tests {
     #[test]
     fn selector_row_hosts_exactly_one_of_level_days_info() {
         let mut s = PlayScreen::new(ChessApp::new_offline(), test_config());
-        // Computer -> AI level row, even in correspondence mode (documented
-        // limitation: Computer + Correspondence shows the level row).
+        // Computer -> AI level row.
         s.select_kind(KIND_COMPUTER);
-        s.selected_mode = ChallengeMode::RealTime;
-        assert_eq!(s.selector_mode(), SelectorMode::AiLevel);
-        s.selected_mode = ChallengeMode::Correspondence(3);
+        s.select_mode(ChallengeMode::RealTime);
         assert_eq!(s.selector_mode(), SelectorMode::AiLevel);
         // Friend + Correspondence -> days row.
         s.select_kind(KIND_FRIEND);
+        s.select_mode(ChallengeMode::Correspondence(3));
         assert_eq!(s.selector_mode(), SelectorMode::Days);
         // Friend + non-correspondence -> info text.
-        s.selected_mode = ChallengeMode::RealTime;
+        s.select_mode(ChallengeMode::RealTime);
         assert_eq!(s.selector_mode(), SelectorMode::RandomInfo);
-        s.selected_mode = ChallengeMode::Unlimited;
+        s.select_mode(ChallengeMode::Unlimited);
         assert_eq!(s.selector_mode(), SelectorMode::RandomInfo);
-        // Random + non-correspondence -> info text.
+        // Random + non-correspondence -> info text; Random + Correspondence -> days.
         s.select_kind(KIND_RANDOM);
         assert_eq!(s.selector_mode(), SelectorMode::RandomInfo);
-        s.selected_mode = ChallengeMode::Correspondence(5);
+        s.select_mode(ChallengeMode::Correspondence(5));
         assert_eq!(s.selector_mode(), SelectorMode::Days);
+    }
+
+    // User design 2026-11-11: Computer + Correspondence both active -> the
+    // LAST selected one is rendered on the shared selector row.
+    #[test]
+    fn computer_and_correspondence_show_last_selected_selector() {
+        let mut s = PlayScreen::new(ChessApp::new_offline(), test_config());
+        s.select_kind(KIND_COMPUTER);
+        s.select_mode(ChallengeMode::Correspondence(3));
+        // Correspondence was selected last -> days row.
+        assert_eq!(s.selector_mode(), SelectorMode::Days);
+        // Tap Computer again -> level row.
+        s.select_kind(KIND_COMPUTER);
+        assert_eq!(s.selector_mode(), SelectorMode::AiLevel);
+        // Tap Correspondence again -> days row.
+        s.select_mode(ChallengeMode::Correspondence(7));
+        assert_eq!(s.selector_mode(), SelectorMode::Days);
+        // Mode leaving Correspondence -> level row (Computer still active).
+        s.select_mode(ChallengeMode::RealTime);
+        assert_eq!(s.selector_mode(), SelectorMode::AiLevel);
+        // Kind leaving Computer -> days gone with it -> info.
+        s.select_mode(ChallengeMode::Correspondence(2));
+        s.select_kind(KIND_FRIEND);
+        assert_eq!(s.selector_mode(), SelectorMode::Days);
+        s.select_mode(ChallengeMode::Unlimited);
+        assert_eq!(s.selector_mode(), SelectorMode::RandomInfo);
+    }
+
+    // BUG-2026-11-11T153246: in Computer mode, ONE tap on any level button
+    // must select that level — the hidden days group must not shadow them.
+    #[test]
+    fn every_level_button_selectable_with_one_tap_in_computer_mode() {
+        let mut s = PlayScreen::new(ChessApp::new_offline(), test_config());
+        s.select_kind(KIND_COMPUTER);
+        assert_eq!(s.selector_mode(), SelectorMode::AiLevel);
+        for i in 0..s.level_buttons.len() {
+            let r = s.level_buttons[i].rect;
+            let cx = r.x + r.width as i16 / 2;
+            let cy = r.y + r.height as i16 / 2;
+            assert!(
+                s.selector_touch(cx, cy),
+                "tap on level button {} was not consumed",
+                i + 1
+            );
+            assert_eq!(
+                s.ai_level,
+                (i + 1) as u8,
+                "tap on level {} must select level {}",
+                i + 1,
+                i + 1
+            );
+        }
+    }
+
+    #[test]
+    fn every_days_button_selectable_in_correspondence_mode() {
+        let mut s = PlayScreen::new(ChessApp::new_offline(), test_config());
+        s.select_kind(KIND_FRIEND);
+        s.selected_mode = ChallengeMode::Correspondence(3);
+        assert_eq!(s.selector_mode(), SelectorMode::Days);
+        for i in 0..s.days_buttons.len() {
+            let r = s.days_buttons[i].rect;
+            let cx = r.x + r.width as i16 / 2;
+            let cy = r.y + r.height as i16 / 2;
+            assert!(s.selector_touch(cx, cy));
+            assert_eq!(s.selected_days, ALLOWED_CORRESPONDENCE_DAYS[i]);
+            assert_eq!(
+                s.mode(),
+                ChallengeMode::Correspondence(ALLOWED_CORRESPONDENCE_DAYS[i])
+            );
+        }
     }
 
     #[test]
@@ -946,6 +1074,31 @@ mod play_screen_tests {
         assert!(send.y >= half, "send must live in the lower half");
     }
 
+    fn assert_visible_layout_ok(s: &PlayScreen, ctx: &str) {
+        let rects = s.visible_rects();
+        for r in &rects {
+            assert!(r.x >= 0 && r.y >= 0, "{ctx}: negative origin: {r:?}");
+            assert!(
+                r.x + r.width as i16 <= layout::SCREEN_W,
+                "{ctx}: overflows right: {r:?}"
+            );
+            assert!(
+                r.y + r.height as i16 <= layout::SCREEN_H,
+                "{ctx}: overflows bottom: {r:?}"
+            );
+        }
+        for i in 0..rects.len() {
+            for j in (i + 1)..rects.len() {
+                assert!(
+                    !rects_overlap(&rects[i], &rects[j]),
+                    "{ctx}: overlap: {:?} vs {:?}",
+                    rects[i],
+                    rects[j]
+                );
+            }
+        }
+    }
+
     #[test]
     fn e06s07_visible_buttons_in_bounds_and_non_overlapping_in_every_state() {
         let mut s = PlayScreen::new(ChessApp::new_offline(), test_config());
@@ -957,31 +1110,17 @@ mod play_screen_tests {
         for kind in [KIND_COMPUTER, KIND_FRIEND, KIND_RANDOM] {
             for mode in modes {
                 s.select_kind(kind);
-                s.selected_mode = mode;
-                let rects = s.visible_rects();
-                for r in &rects {
-                    assert!(r.x >= 0 && r.y >= 0, "negative origin: {r:?}");
-                    assert!(
-                        r.x + r.width as i16 <= layout::SCREEN_W,
-                        "overflows right: {r:?}"
-                    );
-                    assert!(
-                        r.y + r.height as i16 <= layout::SCREEN_H,
-                        "overflows bottom: {r:?}"
-                    );
-                }
-                for i in 0..rects.len() {
-                    for j in (i + 1)..rects.len() {
-                        assert!(
-                            !rects_overlap(&rects[i], &rects[j]),
-                            "kind={kind} mode={mode:?} overlap: {:?} vs {:?}",
-                            rects[i],
-                            rects[j]
-                        );
-                    }
-                }
+                s.select_mode(mode);
+                assert_visible_layout_ok(&s, &format!("kind={kind} mode={mode:?}"));
             }
         }
+        // Both selectors applicable: each focus variant must also be clean.
+        s.select_kind(KIND_COMPUTER);
+        s.select_mode(ChallengeMode::Correspondence(3));
+        s.selector_focus = SelectorFocus::Level;
+        assert_visible_layout_ok(&s, "computer+correspondence, focus=level");
+        s.selector_focus = SelectorFocus::Days;
+        assert_visible_layout_ok(&s, "computer+correspondence, focus=days");
     }
 
     #[test]

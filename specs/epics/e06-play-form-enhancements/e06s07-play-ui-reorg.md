@@ -24,9 +24,12 @@ User-approved design (grill 2026-11-11):
 2. **Row 2 (y=310, h=96):** shared selector placeholder — exactly one of:
    AI level selector (8 × 100px buttons, kind=Computer), days selector
    (7 × 100px, mode=Correspondence and kind≠Computer), or Random info text.
-   "AI level" label sits **above** the row, **left-aligned** at the row's x0
-   (currently overlaps the selector by 50% and is centered — fix both). The
-   correspondence label ("Days per move") goes **below** the days selector.
+   When Computer AND Correspondence are both active, the **last selected**
+   one is rendered (`selector_focus`, amended 2026-11-11). "AI level" label
+   sits **above** the row, **horizontally centered** (same centering as the
+   days label) and vertically centered in the gap above the row (amended
+   2026-11-11). The correspondence label ("Days per move") goes **below**
+   the days selector.
 3. **Row 3 (y=470, h=80):** mode group `Unlimited | Real time 10:5 | Correspondence`
    (moved from y=200).
 4. **Row 4 (y=580, h=96):** rated toggle (Casual | Rated) — the **last row of
@@ -68,8 +71,10 @@ below the days row (new i18n keys `play-ai-level` reused, add
 
 ## Out of scope
 
-- Computer + Correspondence simultaneously (selector row shows AI level;
-  days not selectable in that combination — documented limitation)
+- Computer + Correspondence simultaneously shows the last-selected selector
+  (amended 2026-11-11); the non-rendered one stays unselectable in that
+  combination — hit-testing is routed by `selector_mode()` so the hidden
+  group can never shadow the visible one (BUG-2026-11-11T153246)
 - e07's reusable list-picker modal
 
 ## Risks
