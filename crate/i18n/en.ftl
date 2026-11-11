@@ -38,6 +38,7 @@ invites-outgoing = Outgoing
 invites-accept = Accept
 invites-decline = Decline
 invites-cancel = Cancel
+invites-open-challenge = Open — random player
 invites-loading = Loading…
 
 settings-language = Language: {$lang}

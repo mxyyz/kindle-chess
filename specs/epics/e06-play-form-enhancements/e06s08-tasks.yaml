@@ -2,7 +2,7 @@
 # Story e06s08 — fix BUG-2026-11-11T123000 (open challenges invisible in Invites).
 story_id: e06s08
 title: "Open challenges (Random) listed + cancellable as outgoing in InvitesScreen"
-status: failing
+status: passing
 bcps: 5
 delta: MODIFIED
 spec: e06s08-open-challenges-invites.md
@@ -15,7 +15,7 @@ tasks:
     verify: "cd crate && cargo build --all-targets 2>&1 | tail -1 | grep -q 'Finished'"
     risk: P1
     security: none
-    status: failing
+    status: passing
     allure:
       severity: high
       categories: ["e06", "bugfix", "model"]
@@ -27,7 +27,7 @@ tasks:
     verify: "cd crate && cargo test --test challenge_list 2>&1 | grep -q 'test result: ok' && cargo test --lib litchee_adapter 2>&1 | grep -q 'test result: ok'"
     risk: P1
     security: low
-    status: failing
+    status: passing
     allure:
       severity: high
       categories: ["e06", "bugfix", "wiremock", "Security Review"]
@@ -38,7 +38,7 @@ tasks:
     verify: "cd crate && grep -q 'invites-open-challenge' i18n/en.ftl && grep -q 'invites-open-challenge' i18n/de.ftl && cargo test --lib invites 2>&1 | grep -q 'test result: ok'"
     risk: P1
     security: none
-    status: failing
+    status: passing
     allure:
       severity: high
       categories: ["e06", "ui", "invites", "i18n"]
@@ -47,7 +47,7 @@ tasks:
     verify: "cd crate && cargo test 2>&1 | grep -q 'test result: ok' && cargo clippy --all-targets -- -D warnings 2>&1 | tail -1 | grep -q 'Finished' && cargo fmt --check && echo GATES-OK"
     risk: P2
     security: none
-    status: failing
+    status: passing
     allure:
       severity: normal
       categories: ["e06", "gates"]

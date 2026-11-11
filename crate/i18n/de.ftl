@@ -38,6 +38,7 @@ invites-outgoing = Ausgehend
 invites-accept = Annehmen
 invites-decline = Ablehnen
 invites-cancel = Abbrechen
+invites-open-challenge = Offen — zufälliger Spieler
 invites-loading = Lädt…
 
 settings-language = Sprache: {$lang}

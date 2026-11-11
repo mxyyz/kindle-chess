@@ -460,6 +460,7 @@ impl LitcheeAdapter {
             incoming: false,
             url: open.url,
             rated: open.rated.unwrap_or(false),
+            open: true, // e06s08: mark open challenges so Invites can label them
         })
     }
 
@@ -507,7 +508,8 @@ impl LitcheeAdapter {
 }
 
 /// Map a litchee challenge to the app's summary. `incoming` is decided by the
-/// caller (send_challenge → false; list parsing → side of the list).
+/// caller (send_challenge → false; list parsing → side of the list). An
+/// outgoing entry with `dest_user: None` is an open challenge (e06s08).
 fn map_challenge(c: &LichessChallenge, incoming: bool) -> ChallengeSummary {
     let opponent = if incoming {
         c.challenger.as_ref().map(|u| u.name.clone())
@@ -515,6 +517,7 @@ fn map_challenge(c: &LichessChallenge, incoming: bool) -> ChallengeSummary {
         c.dest_user.as_ref().map(|u| u.name.clone())
     }
     .unwrap_or_default();
+    let open = !incoming && c.dest_user.is_none();
     ChallengeSummary {
         id: c.id.clone(),
         status: format!("{:?}", c.status).to_lowercase(),
@@ -522,6 +525,7 @@ fn map_challenge(c: &LichessChallenge, incoming: bool) -> ChallengeSummary {
         incoming,
         url: c.url.clone(),
         rated: c.rated.unwrap_or(false),
+        open,
     }
 }
 

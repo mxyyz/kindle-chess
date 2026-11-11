@@ -4,7 +4,7 @@ date: 2026-11-11
 severity: medium
 priority: high
 scope: e06-open-challenges
-status: open
+status: fixed  # e06s08 (ChallengeSummary.open, invites-open-challenge label, wiremock destUser:null + cancel green)
 summary: >-
   Open challenges (opponent kind Random, POST /api/challenge/open) do not show
   up as usable rows in the InvitesScreen outgoing section — they render with an

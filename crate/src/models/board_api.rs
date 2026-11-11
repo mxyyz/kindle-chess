@@ -304,6 +304,9 @@ pub struct ChallengeSummary {
     pub url: String,
     /// Whether the challenge is rated (e06).
     pub rated: bool,
+    /// Open challenge (Random opponent, `destUser: null`) — listed as
+    /// outgoing with a localized label instead of a blank opponent (e06s08).
+    pub open: bool,
 }
 
 /// An AI game created via `POST /api/challenge/ai` (e06s06). The game starts
@@ -585,6 +588,7 @@ mod tests {
             incoming: false,
             url: "https://lichess.org/abc".into(),
             rated: false,
+            open: false,
         };
         assert_eq!(c.game_id(), None);
     }
@@ -598,6 +602,7 @@ mod tests {
             incoming: false,
             url: "https://lichess.org/XyZ123ab".into(),
             rated: false,
+            open: false,
         };
         assert_eq!(c.game_id(), Some("XyZ123ab"));
     }
@@ -653,6 +658,7 @@ mod tests {
             incoming: false,
             url: "https://lichess.org/abc".into(),
             rated: true,
+            open: false,
         };
         assert!(c.rated);
     }

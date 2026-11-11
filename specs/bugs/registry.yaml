@@ -77,4 +77,4 @@ registry:
       Open challenges (Random) render as blank outgoing rows in InvitesScreen
       (destUser null -> empty opponent, no open marker). Fix in e06s08.
     file: specs/bugs/BUG-2026-11-11T123000-open-challenges-invisible.md
-    status: open
+    status: fixed  # e06s08 on e06-play-form-enhancements (open flag + localized label + cancel wiremock)

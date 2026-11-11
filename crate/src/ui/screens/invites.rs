@@ -210,22 +210,28 @@ impl InvitesScreen {
     }
 
     /// Bake the current pages' challenges into the 4+4 rows. Slots past the
-    /// list end keep a "-" label and are simply not drawn.
+    /// list end keep a "-" label and are simply not drawn. Open challenges
+    /// (e06s08) show a localized label instead of a blank opponent name.
     fn set_rows(&mut self) {
         let Some(list) = self.challenges.as_ref() else {
             return;
         };
+        let loc = i18n::locale_of(&self.config);
         let incoming: Vec<&ChallengeSummary> = list.iter().filter(|c| c.incoming).collect();
         let outgoing: Vec<&ChallengeSummary> = list.iter().filter(|c| !c.incoming).collect();
-        let label = |src: &[&ChallengeSummary], page: usize, k: usize| match src
-            .get(page * INVITES_PER_PAGE + k)
-        {
-            Some(c) => format!("{} ({})", c.opponent, c.status),
-            None => "-".to_string(),
-        };
+        let label =
+            |src: &[&ChallengeSummary], page: usize, k: usize, outgoing_section: bool| match src
+                .get(page * INVITES_PER_PAGE + k)
+            {
+                Some(c) if outgoing_section && c.open => {
+                    format!("{} ({})", tr(&loc, "invites-open-challenge"), c.status)
+                }
+                Some(c) => format!("{} ({})", c.opponent, c.status),
+                None => "-".to_string(),
+            };
         for k in 0..INVITES_PER_PAGE {
-            self.incoming_name[k].label = label(&incoming, self.incoming_page, k);
-            self.outgoing_name[k].label = label(&outgoing, self.outgoing_page, k);
+            self.incoming_name[k].label = label(&incoming, self.incoming_page, k, false);
+            self.outgoing_name[k].label = label(&outgoing, self.outgoing_page, k, true);
         }
     }
 
@@ -504,7 +510,35 @@ mod invites_tests {
             incoming,
             url: url.into(),
             rated: false,
+            open: false,
         }
+    }
+
+    fn open_ch(id: &str) -> ChallengeSummary {
+        ChallengeSummary {
+            id: id.into(),
+            status: "created".into(),
+            opponent: String::new(),
+            incoming: false,
+            url: "https://lichess.org/".into(),
+            rated: false,
+            open: true,
+        }
+    }
+
+    #[test]
+    fn open_challenges_get_localized_outgoing_label() {
+        let mut s = InvitesScreen::new(ChessApp::new_offline(), test_config());
+        s.challenges = Some(Arc::new(vec![
+            ch("out1", "created", "u", false),
+            open_ch("chOpen9"),
+        ]));
+        s.set_rows();
+        // Regular outgoing row keeps "opponent (status)"; the open row shows
+        // the localized open label (EN default in tests) + status.
+        assert_eq!(s.outgoing_name[0].label, "X (created)");
+        assert_eq!(s.outgoing_name[1].label, "Open — random player (created)");
+        assert!(s.outgoing_visible(1));
     }
 
     #[test]

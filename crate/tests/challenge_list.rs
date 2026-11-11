@@ -68,6 +68,39 @@ async fn accepted_challenge_yields_game_id_from_url() {
 }
 
 #[tokio::test]
+async fn open_challenge_decodes_as_outgoing_open_and_is_cancellable() {
+    // BUG-2026-11-11T123000: an outgoing entry with "destUser": null is an
+    // open challenge — it must decode, map to open=true with an empty
+    // opponent, and be cancellable like any other outgoing challenge.
+    let server = MockServer::start().await;
+    let body = r#"{"incoming":[],"out": [
+        {"id":"chOpen9","url":"https://lichess.org/","status":"created",
+         "challenger":{"id":"me","name":"Me"},"destUser":null,
+         "rated":true,"speed":"rapid"}]}"#;
+    Mock::given(method("GET"))
+        .and(path("/api/challenge"))
+        .respond_with(ResponseTemplate::new(200).set_body_string(body))
+        .mount(&server)
+        .await;
+    Mock::given(method("POST"))
+        .and(path("/api/challenge/chOpen9/cancel"))
+        .respond_with(ResponseTemplate::new(200).set_body_string("{}"))
+        .mount(&server)
+        .await;
+
+    let api = adapter(&server);
+    let list = api.list_challenges().await.unwrap();
+    assert_eq!(list.len(), 1);
+    let c = &list[0];
+    assert!(!c.incoming, "open challenge we created is outgoing");
+    assert!(c.open, "destUser: null must map to open=true");
+    assert_eq!(c.opponent, "");
+    assert!(c.rated);
+
+    api.cancel_challenge("chOpen9").await.unwrap();
+}
+
+#[tokio::test]
 async fn accept_decline_cancel_hit_their_endpoints() {
     let server = MockServer::start().await;
     for action in ["accept", "decline", "cancel"] {
