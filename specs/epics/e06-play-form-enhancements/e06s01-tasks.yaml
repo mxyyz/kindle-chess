@@ -4,7 +4,7 @@
 # flip to passing only after verify exits 0 during develop-tdd.
 story_id: e06s01
 title: "Challenge model + litchee adapter: OpponentKind enum, rated flag, challenge_ai, create_open"
-status: failing
+status: passing
 bcps: 8
 delta: MODIFIED
 spec: e06s01-challenge-model.md
@@ -17,7 +17,7 @@ tasks:
     verify: "cd crate && cargo test --lib board_api 2>&1 | grep -q 'test result: ok'"
     risk: P0
     security: low
-    status: failing
+    status: passing
     allure:
       severity: critical
       categories: ["e06", "challenge-api", "unit"]
@@ -29,7 +29,7 @@ tasks:
     verify: "cd crate && cargo build 2>&1 | tail -1 | grep -q 'Finished'"
     risk: P0
     security: low
-    status: failing
+    status: passing
     allure:
       severity: critical
       categories: ["e06", "challenge-api", "Security Review"]
@@ -42,7 +42,7 @@ tasks:
     verify: "cd crate && cargo build 2>&1 | tail -1 | grep -q 'Finished'"
     risk: P0
     security: low
-    status: failing
+    status: passing
     allure:
       severity: critical
       categories: ["e06", "challenge-api", "external-integration"]
@@ -53,7 +53,7 @@ tasks:
     verify: "cd crate && cargo build --all-targets 2>&1 | tail -1 | grep -q 'Finished'"
     risk: P1
     security: none
-    status: failing
+    status: passing
     allure:
       severity: high
       categories: ["e06", "challenge-api", "facade"]
@@ -65,7 +65,7 @@ tasks:
     verify: "cd crate && cargo test --lib litchee_adapter 2>&1 | grep -q 'test result: ok'"
     risk: P0
     security: low
-    status: failing
+    status: passing
     allure:
       severity: critical
       categories: ["e06", "challenge-api", "wiremock", "no new security findings in affected paths"]

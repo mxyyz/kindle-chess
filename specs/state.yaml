@@ -1,7 +1,7 @@
 session:
   active_flow: build_epic
   active_epic: e06-play-form-enhancements
-  active_story: e06s01
+  active_story: e06s02
   phase: "kickoff done 2026-11-11 — worktree /home/mxy/repos/e06-play-form-enhancements on branch e06-play-form-enhancements @ 55d8e94; preflight green on main (build/test 9x ok/clippy -D warnings/fmt)"
 vcs:
   kind: git
@@ -9,7 +9,7 @@ vcs:
   head: 55d8e94
   worktree: /home/mxy/repos/e06-play-form-enhancements
 handoff:
-  last_step_completed: kickoff-branch e06 — preflight green, worktree created, e06s01 lock acquired
+  last_step_completed: e06s01 done (develop-tdd GREEN — OpponentKind/RematchContext/rated in models, rated+challenge_ai+create_open in adapter+facade, 10/10 suites ok, clippy/fmt clean; 2 RED/GREEN commit pairs)
   open_decisions:
   - On-device UAT of the v0.5.0 bundle update needs the k2 on the LAN (device currently holds v0.4.0 + new infra)
   required_reading:
@@ -18,7 +18,7 @@ handoff:
   - specs/planning-context.yaml
   - specs/release-plan.yaml
   - specs/epics/e06-play-form-enhancements/epic.yaml
-  next_skill: develop-tdd on e06s01 (tasks e06s01t01-t05 in specs/epics/e06-play-form-enhancements/e06s01-tasks.yaml)
+  next_skill: develop-tdd on e06s02 (PlayScreen UI; tasks e06s02t01-t04)
 notes:
   e02-e05: merged to main; tags v0.1.2-v0.5.0 present
   e06-e10: sliced 2026-11-10 (release cycle 2); per-story -tasks.yaml populated, plan-ready
