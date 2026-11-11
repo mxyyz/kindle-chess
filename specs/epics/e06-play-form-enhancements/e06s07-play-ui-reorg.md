@@ -29,11 +29,14 @@ User-approved design (grill 2026-11-11):
    correspondence label ("Days per move") goes **below** the days selector.
 3. **Row 3 (y=470, h=80):** mode group `Unlimited | Real time 10:5 | Correspondence`
    (moved from y=200).
-4. Rows 1–3 must fit in the **upper half** (y < 724).
-5. **Lower half:** rated toggle (2 buttons, y≈914, hidden for Computer), then
-   **Send vertically+horizontally centered in the lower half**
+4. **Row 4 (y=580, h=96):** rated toggle (Casual | Rated) — the **last row of
+   the upper half** (ends at 676 < 724). Only visible when usable, i.e.
+   kind ≠ Computer (AI games are always casual). When hidden, the row stays
+   blank so nothing below shifts.
+5. Rows 1–4 must fit in the **upper half** (y < 724).
+6. **Lower half:** **Send vertically+horizontally centered in the lower half**
    (center y≈1086 → button y=1038, x=(1072−600)/2=236, 600×96).
-6. Status line stays at y=1240; invites/back icons unchanged.
+7. Status line stays at y=1240; invites/back icons unchanged.
 
 ## Requirements
 
@@ -41,8 +44,9 @@ User-approved design (grill 2026-11-11):
 **Before:** mode y=200, days y=310, opponent y=470, send y=600, rated y=740,
 kind y=860, level y=980.
 **After:** kind y=200, selector row y=310 (level | days | random info),
-mode y=470, rated y=914 (hidden for Computer), send y=1038 centered in lower
-half. Opponent button removed; friend name lives on the Friend kind button.
+mode y=470, rated y=580 (last upper-half row, hidden for Computer),
+send y=1038 centered in lower half. Opponent button removed; friend name
+lives on the Friend kind button.
 
 #### ADDED: Friend button opens friendlist and shows selection
 Tap on kind=Friend button → push FriendlistScreen (in addition to selecting
@@ -58,7 +62,7 @@ below the days row (new i18n keys `play-ai-level` reused, add
 1. Re-lay out constructor: new y positions, remove `opponent_button`, relabel → verify: `cd crate && cargo build 2>&1 | tail -1 | grep -q 'Finished'`
 2. Selector row logic: `selector_mode()` → AiLevel | Days | RandomInfo; render + labels (AI-level label above-left, days label below) → verify: `cd crate && cargo test --lib play 2>&1 | grep -q 'test result: ok'`
 3. Kind button touch: Friend selects kind AND pushes FriendlistScreen; FriendSelected updates button label → verify: `cd crate && cargo test --lib play 2>&1 | grep -q 'test result: ok'`
-4. Layout invariant test: rows 1–3 all end above SCREEN_H/2; send button center == lower-half center; no overlaps among all buttons → verify: `cd crate && cargo test --lib play 2>&1 | grep -q 'test result: ok'`
+4. Layout invariant test: rows 1–4 all end above SCREEN_H/2 (724); send button center == lower-half center; no overlaps among all buttons → verify: `cd crate && cargo test --lib play 2>&1 | grep -q 'test result: ok'`
 5. i18n EN/DE for `play-days-label`, `play-random-info` → verify: `cd crate && grep -q 'play-random-info' i18n/en.ftl && grep -q 'play-random-info' i18n/de.ftl`
 6. Gates → verify: `cd crate && cargo test 2>&1 | grep -q 'test result: ok' && cargo clippy --all-targets -- -D warnings 2>&1 | tail -1 | grep -q 'Finished' && cargo fmt --check && echo GATES-OK`
 
@@ -79,6 +83,6 @@ below the days row (new i18n keys `play-ai-level` reused, add
 
 - [ ] Kind row is the first row; friend name shown on the Friend button
 - [ ] Selector row hosts exactly one of level/days/info
-- [ ] Mode row below selector row; all in upper half
-- [ ] Send centered in lower half; rated toggle above it
+- [ ] Mode row below selector row; rated toggle is the last upper-half row (visible only when kind ≠ Computer)
+- [ ] Send centered in lower half
 - [ ] Layout + state unit tests green; full gates green

@@ -63,7 +63,7 @@ stories:
     tasks_file: e06s06-tasks.yaml
     spec_file: e06s06-ai-decode-fix.md
   - story_id: e06s07
-    title: "PlayScreen reorg (user design 2026-11-11): kind row first, shared selector row, mode row, centered Send"
+    title: "PlayScreen reorg (user design 2026-11-11): kind row first, shared selector row, mode row, rated as last upper-half row, centered Send"
     bcps: 8
     delta: MODIFIED
     tasks_file: e06s07-tasks.yaml
