@@ -738,4 +738,51 @@ mod play_screen_tests {
         s.select_level(8);
         assert_eq!(s.ai_level, 8);
     }
+
+    // ── e06s03: send-flow routing seams ──────────────────────────────────────
+
+    #[test]
+    fn e06s03_send_status_key_per_kind() {
+        let mut s = PlayScreen::new(ChessApp::new_offline(), test_config());
+        s.select_kind(0);
+        assert_eq!(s.send_status_key(), "play-status-sending");
+        s.select_kind(1);
+        assert_eq!(s.send_status_key(), "play-status-sending-ai");
+        s.select_kind(2);
+        assert_eq!(s.send_status_key(), "play-status-sending-open");
+    }
+
+    #[test]
+    fn e06s03_friend_without_opponent_needs_selection_first() {
+        let mut s = PlayScreen::new(ChessApp::new_offline(), test_config());
+        s.select_kind(0);
+        s.opponent = None;
+        assert!(s.send_requires_opponent());
+        s.opponent = Some("Alice".into());
+        assert!(!s.send_requires_opponent());
+        s.select_kind(1); // Computer: no opponent name needed
+        assert!(!s.send_requires_opponent());
+        s.select_kind(2); // Random: open challenge, no opponent name needed
+        assert!(!s.send_requires_opponent());
+    }
+
+    #[test]
+    fn e06s03_sent_status_key_for_random_open_challenge() {
+        // Friend send carries the opponent name; Random carries an empty name
+        // and must show the "open challenge" status instead.
+        assert_eq!(PlayScreen::sent_status_key("Alice"), "play-status-sent");
+        assert_eq!(PlayScreen::sent_status_key(""), "play-status-open-sent");
+    }
+
+    #[test]
+    fn e06s03_send_event_per_kind() {
+        let friend = PlayScreen::send_event(&OpponentKind::Friend("Alice".into()), None);
+        assert!(matches!(friend, AppEvent::ChallengeSent(ref n) if n == "Alice"));
+        let open = PlayScreen::send_event(&OpponentKind::Random, None);
+        assert!(matches!(open, AppEvent::ChallengeSent(ref n) if n.is_empty()));
+        let ai = PlayScreen::send_event(&OpponentKind::Computer(5), Some("g42".into()));
+        assert!(
+            matches!(ai, AppEvent::AiGameStarted { ref game_id, my_turn: true } if game_id == "g42")
+        );
+    }
 }
