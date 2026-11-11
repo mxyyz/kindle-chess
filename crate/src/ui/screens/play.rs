@@ -213,14 +213,54 @@ impl PlayScreen {
             .unwrap_or(0)
     }
 
-    /// Spawn the challenge send. Result arrives as `ChallengeSent` /
+    // ── e06s03: send-flow routing seams ─────────────────────────────────────
+
+    /// i18n key for the "sending" status, per opponent kind.
+    fn send_status_key(&self) -> &'static str {
+        match self.selected_kind {
+            1 => "play-status-sending-ai",
+            2 => "play-status-sending-open",
+            _ => "play-status-sending",
+        }
+    }
+
+    /// Whether the current kind needs a picked opponent name before sending.
+    fn send_requires_opponent(&self) -> bool {
+        self.selected_kind == 0 && self.opponent.is_none()
+    }
+
+    /// i18n key for the "sent" status; an empty opponent name means an open
+    /// (Random) challenge.
+    fn sent_status_key(opponent: &str) -> &'static str {
+        if opponent.is_empty() {
+            "play-status-open-sent"
+        } else {
+            "play-status-sent"
+        }
+    }
+
+    /// The event signalling a successful send, per opponent kind. `game_id`
+    /// is `Some` for Computer (AI games start immediately).
+    fn send_event(kind: &OpponentKind, game_id: Option<String>) -> AppEvent {
+        match kind {
+            OpponentKind::Computer(_) => AppEvent::AiGameStarted {
+                game_id: game_id.unwrap_or_default(),
+                my_turn: true, // stream corrects the sidebar turn hint
+            },
+            OpponentKind::Friend(name) => AppEvent::ChallengeSent(name.clone()),
+            OpponentKind::Random => AppEvent::ChallengeSent(String::new()),
+        }
+    }
+
+    /// Spawn the challenge send, routed per `OpponentKind` + rated toggle.
+    /// Result arrives as `ChallengeSent` / `AiGameStarted` /
     /// `ChallengeSendFailed` over the event channel.
     fn kick_send(&mut self, display: &Display) {
         let loc = i18n::locale_of(&self.config);
-        let Some(opponent) = self.opponent.clone() else {
+        if self.send_requires_opponent() {
             self.status = Some(tr(&loc, "play-status-select-first"));
             return;
-        };
+        }
         let Some(api) = self.app.online_idle_api() else {
             self.status = Some("offline backend".into());
             return;
@@ -229,17 +269,47 @@ impl PlayScreen {
             return;
         }
         self.sending = true;
-        self.status = Some(i18n::t(&loc, "play-status-sending", &[("name", &opponent)]));
+        let kind = self.opponent_kind();
+        self.status = Some(match self.send_status_key() {
+            "play-status-sending" => i18n::t(
+                &loc,
+                "play-status-sending",
+                &[("name", kind.name().unwrap_or(""))],
+            ),
+            "play-status-sending-ai" => i18n::t(
+                &loc,
+                "play-status-sending-ai",
+                &[("level", &kind.level().unwrap_or(0).to_string())],
+            ),
+            _ => tr(&loc, "play-status-sending-open"),
+        });
+        let rated = self.rated;
         let mode = self.mode();
         let tx = display.event_tx.clone();
         tokio::spawn(async move {
-            // e06s03 wires the rated toggle / opponent kind here; casual for now.
-            match api.send_challenge(&opponent, &mode, false).await {
-                Ok(_) => {
-                    let _ = tx.send(AppEvent::ChallengeSent(opponent));
+            let result: Result<AppEvent, String> = match &kind {
+                OpponentKind::Friend(name) => api
+                    .send_challenge(name, &mode, rated)
+                    .await
+                    .map(|_| Self::send_event(&kind, None))
+                    .map_err(|e| e.to_string()),
+                OpponentKind::Computer(level) => api
+                    .send_challenge_ai(*level, &mode)
+                    .await
+                    .map(|g| Self::send_event(&kind, Some(g.id)))
+                    .map_err(|e| e.to_string()),
+                OpponentKind::Random => api
+                    .create_open_challenge(&mode, rated)
+                    .await
+                    .map(|_| Self::send_event(&kind, None))
+                    .map_err(|e| e.to_string()),
+            };
+            match result {
+                Ok(ev) => {
+                    let _ = tx.send(ev);
                 }
                 Err(e) => {
-                    let _ = tx.send(AppEvent::ChallengeSendFailed(e.to_string()));
+                    let _ = tx.send(AppEvent::ChallengeSendFailed(e));
                 }
             }
         });
@@ -451,10 +521,23 @@ impl Screen for PlayScreen {
             AppEvent::ChallengeSent(opponent) => {
                 self.sending = false;
                 let loc = i18n::locale_of(&self.config);
-                self.status = Some(i18n::t(&loc, "play-status-sent", &[("name", &opponent)]));
+                self.status = Some(match Self::sent_status_key(&opponent) {
+                    "play-status-open-sent" => tr(&loc, "play-status-open-sent"),
+                    _ => i18n::t(&loc, "play-status-sent", &[("name", &opponent)]),
+                });
                 // Show the pending outgoing invite on the Invites screen.
                 Ok(Transition::Push(Box::new(InvitesScreen::new(
                     self.app.clone(),
+                    self.config.clone(),
+                ))))
+            }
+
+            AppEvent::AiGameStarted { game_id, my_turn } => {
+                self.sending = false;
+                info!("AI game started immediately: {game_id}");
+                let game_app = self.app.clone().attach_game(game_id, my_turn);
+                Ok(Transition::Push(Box::new(ChessGameScreen::new(
+                    game_app,
                     self.config.clone(),
                 ))))
             }
