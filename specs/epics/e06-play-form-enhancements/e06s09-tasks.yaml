@@ -8,8 +8,8 @@ delta: ADDED
 spec: e06s09-final-verification.md
 tasks:
   - id: e06s09t01
-    description: "Full host gates: build + test + clippy -D warnings + fmt --check (armv7 cross is CI-gated)"
-    verify: "cd crate && cargo build 2>&1 | tail -1 | grep -q 'Finished' && cargo test 2>&1 | grep -q 'test result: ok' && cargo clippy --all-targets -- -D warnings 2>&1 | tail -1 | grep -q 'Finished' && cargo fmt --check && echo GATES-OK"
+    description: "Full gates incl. armv7 cross build (env -u LD_LIBRARY_PATH in agent sandboxes — sandbox libstdc++ breaks crun)"
+    verify: "cd crate && cargo build 2>&1 | tail -1 | grep -q 'Finished' && cargo test 2>&1 | grep -q 'test result: ok' && cargo clippy --all-targets -- -D warnings 2>&1 | tail -1 | grep -q 'Finished' && cargo fmt --check && env -u LD_LIBRARY_PATH RUSTFLAGS=\"-C target-feature=+crt-static\" cross build --target armv7-unknown-linux-musleabi --release 2>&1 | tail -1 | grep -q 'Finished' && echo GATES-OK"
     risk: P2
     security: none
     status: failing

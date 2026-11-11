@@ -4,7 +4,7 @@
 # specs/planning-context.yaml. litchee 0.2.2 APIs verified: challenge_ai,
 # create_open, seek, rated flag on ChallengeRequest.
 epic_id: e06-play-form-enhancements
-status: in progress (s01-s05 done; s06-s09 added 2026-11-11 after bug reports + UI redesign; host gates green, cross in CI)
+status: in progress (s01-s05 done; s06-s09 added 2026-11-11 after bug reports + UI redesign; host gates + armv7 cross build green locally)
 scope: specs/product/SCOPE_LATEST.yaml
 planning_context: specs/planning-context.yaml
 # Order: model/API layer first (opponent kind + rated param), then Play form UI,
