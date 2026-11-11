@@ -3,7 +3,7 @@
 # Plan-work 2026-11-11: failing ledger.
 story_id: e06s05
 title: "Verification: local gates green, docs updated"
-status: failing
+status: passing
 bcps: 2
 delta: ADDED
 spec: e06s05-verification.md
@@ -13,7 +13,7 @@ tasks:
     verify: "cd crate && cargo build 2>&1 | tail -1 | grep -q 'Finished' && cargo test 2>&1 | grep -q 'test result: ok' && cargo clippy --all-targets -- -D warnings 2>&1 | tail -1 | grep -q 'Finished' && cargo fmt --check && echo GATES-OK"
     risk: P2
     security: none
-    status: failing
+    status: passing
     allure:
       severity: normal
       categories: ["e06", "gates"]
@@ -22,7 +22,7 @@ tasks:
     verify: "cd crate && RUSTFLAGS=\"-C target-feature=+crt-static\" cross build --target armv7-unknown-linux-musleabi --release 2>&1 | tail -1 | grep -q 'Finished'"
     risk: P2
     security: none
-    status: failing
+    status: passing
     allure:
       severity: normal
       categories: ["e06", "cross-build"]
@@ -33,7 +33,7 @@ tasks:
     verify: "grep -q 'challenge_ai' docs/ARCHITECTURE.md && grep -q 'OpponentKind' crate/src/api/README.md"
     risk: P3
     security: none
-    status: failing
+    status: passing
     allure:
       severity: minor
       categories: ["e06", "docs"]

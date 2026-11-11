@@ -1,7 +1,7 @@
 session:
   active_flow: build_epic
-  active_epic: e06-play-form-enhancements
-  active_story: e06s05
+  active_epic: e06-play-form-enhancements (DONE — all 5 stories passing)
+  active_story: null
   phase: "kickoff done 2026-11-11 — worktree /home/mxy/repos/e06-play-form-enhancements on branch e06-play-form-enhancements @ 55d8e94; preflight green on main (build/test 9x ok/clippy -D warnings/fmt)"
 vcs:
   kind: git
@@ -9,7 +9,7 @@ vcs:
   head: 55d8e94
   worktree: /home/mxy/repos/e06-play-form-enhancements
 handoff:
-  last_step_completed: e06s04 done (rematch button; 3/3 chess_game tests, 10/10 suites, clippy/fmt clean)
+  last_step_completed: e06 complete — 5/5 stories passing (s01 adapter, s02 UI, s03 routing, s04 rematch, s05 gates+docs); 10/10 suites, clippy/fmt clean; cross build in CI
   open_decisions:
   - On-device UAT of the v0.5.0 bundle update needs the k2 on the LAN (device currently holds v0.4.0 + new infra)
   required_reading:
@@ -18,7 +18,7 @@ handoff:
   - specs/planning-context.yaml
   - specs/release-plan.yaml
   - specs/epics/e06-play-form-enhancements/epic.yaml
-  next_skill: develop-tdd on e06s05 (verification + docs)
+  next_skill: verify-work then audit-code, then release-branch (PR e06-play-form-enhancements)
 notes:
   e02-e05: merged to main; tags v0.1.2-v0.5.0 present
   e06-e10: sliced 2026-11-10 (release cycle 2); per-story -tasks.yaml populated, plan-ready
