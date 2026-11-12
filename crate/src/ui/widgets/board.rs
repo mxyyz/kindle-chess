@@ -364,11 +364,35 @@ impl BoardWidget {
     fn draw_labels(&self, renderer: &mut Renderer) -> Result<(), Box<dyn std::error::Error>> {
         let files = ['a', 'b', 'c', 'd', 'e', 'f', 'g', 'h'];
         let font = 20.0f32;
-        let label_color = DrawColor::Black;
-        // Review fix: draw labels INSIDE the board area (in the bottom rank's
-        // squares) so the sidebar's full repaint never erases them. File
-        // letters go in the bottom-right corner of each bottom-row square.
+        // Review fix: labels drawn INSIDE the board area (bottom rank squares)
+        // so the sidebar's full repaint never erases them. Per-square contrast.
         let bottom_row_y = self.area.y + 7 * SQUARE_SIZE as i16; // display row 0 = bottom
+        // Rank labels: top-left corner of each left-column square.
+        // Review fix M1: rank mapping must match the board's display mapping.
+        // handle_touch: rank = 7 - board_y/SQ, so screen row i (top=0) is
+        // true rank 7-i when not flipped. Label = true_rank + 1.
+        for i in 0..8u8 {
+            let display_rank = i; // screen row from top
+            let true_rank = if self.flipped {
+                display_rank
+            } else {
+                7 - display_rank
+            };
+            let label = (true_rank + 1).to_string();
+            let (tw, th) = renderer.measure_text(&label, font);
+            let cx = self.area.x + 8;
+            let cy = self.area.y + (7 - i as i16) * SQUARE_SIZE as i16 + 6;
+            // Review fix M2: contrast — white on dark squares, black on light.
+            let is_dark_square = true_rank.is_multiple_of(2); // file=0 (leftmost column)
+            let color = if is_dark_square {
+                DrawColor::White
+            } else {
+                DrawColor::Black
+            };
+            let _ = (tw, th);
+            renderer.draw_text(cx, cy, &label, font, color)?;
+        }
+        // File labels also need contrast fix.
         for i in 0..8u8 {
             let file_idx = if self.flipped { 7 - i } else { i };
             let ch = files[file_idx as usize];
@@ -376,20 +400,14 @@ impl BoardWidget {
             let cx =
                 self.area.x + (i as i16) * SQUARE_SIZE as i16 + SQUARE_SIZE as i16 - tw as i16 - 8;
             let cy = bottom_row_y + SQUARE_SIZE as i16 - 24;
-            renderer.draw_text(cx, cy, &ch.to_string(), font, label_color)?;
-        }
-        // Rank labels: top-left corner of each left-column square.
-        for i in 0..8u8 {
-            let rank_idx = if self.flipped { i } else { 7 - i };
-            let label = (rank_idx + 1).to_string();
-            let (tw, th) = renderer.measure_text(&label, font);
-            let cx = self.area.x + 8;
-            // display_rank i -> y = area.y + (7 - i) * SQ
-            let cy = self.area.y + (7 - i as i16) * SQUARE_SIZE as i16 + 6;
-            let _ = th;
-            let _ = tw;
-            renderer.draw_text(cx, cy, &label, font, label_color)?;
-            let _ = tw;
+            // Bottom row is true rank 0; file label sits on square (file_idx, 0).
+            let is_dark_square = file_idx.is_multiple_of(2);
+            let color = if is_dark_square {
+                DrawColor::White
+            } else {
+                DrawColor::Black
+            };
+            renderer.draw_text(cx, cy, &ch.to_string(), font, color)?;
         }
         Ok(())
     }
@@ -600,19 +618,42 @@ mod tests {
         assert!(board.force_full_repaint);
     }
 
-    /// e07s07: label orientation — white perspective: file 'a' at leftmost
-    /// column, rank '1' at bottom row. Black perspective: flipped.
+    /// Review fix: real label-mapping test — verifies rank labels match the
+    /// board's display mapping (handle_touch: rank = 7 - board_y/SQ, so
+    /// screen row i from top = true rank 7-i when not flipped).
     #[test]
     fn label_orientation_white_vs_black() {
-        let files = ['a', 'b', 'c', 'd', 'e', 'f', 'g', 'h'];
-        // White (not flipped): display column i shows files[i].
+        // Not flipped: screen row i (top=0) → true rank 7-i → label = 8-i.
+        // Top row (i=0) shows "8", bottom row (i=7) shows "1".
         for i in 0..8u8 {
-            let file_idx = i; // not flipped
+            let true_rank = 7 - i;
+            assert_eq!(
+                true_rank + 1,
+                8 - i,
+                "white: screen row {i} should show rank {}",
+                8 - i
+            );
+        }
+        // Flipped: screen row i → true rank i → label = i+1.
+        // Top row shows "1", bottom row shows "8".
+        for i in 0..8u8 {
+            let true_rank = i;
+            assert_eq!(
+                true_rank + 1,
+                i + 1,
+                "black: screen row {i} should show rank {}",
+                i + 1
+            );
+        }
+        // File labels: not flipped → column i shows files[i] ('a' at left).
+        let files = ['a', 'b', 'c', 'd', 'e', 'f', 'g', 'h'];
+        for i in 0..8u8 {
+            let file_idx = i;
             assert_eq!(files[file_idx as usize], files[i as usize]);
         }
-        // Black (flipped): display column i shows files[7-i].
+        // Flipped → column i shows files[7-i] ('h' at left).
         for i in 0..8u8 {
-            let file_idx = 7 - i; // flipped
+            let file_idx = 7 - i;
             assert_eq!(files[file_idx as usize], files[(7 - i) as usize]);
         }
     }

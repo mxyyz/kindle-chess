@@ -393,7 +393,8 @@ impl Screen for InvitesScreen {
             let (w, h) = display.renderer.measure_text(status, 24.0);
             display.renderer.draw_text(
                 (layout::SCREEN_W - w as i16) / 2,
-                1240 - h as i16 / 2,
+                // Review fix: moved below outgoing row 3 (ends y=1268) to avoid overlap.
+                1290 - h as i16 / 2,
                 status,
                 24.0,
                 DrawColor::Black,
