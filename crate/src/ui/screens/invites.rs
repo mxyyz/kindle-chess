@@ -426,6 +426,14 @@ impl Screen for InvitesScreen {
 
             AppEvent::ChallengesLoaded(list) => {
                 info!("Challenges loaded: {} entries", list.len());
+                // Flicker fix: only redraw when the challenge list actually
+                // changed — a poll returning identical data must not trigger
+                // clear(White)+full repaint (e-ink flash).
+                let changed = self
+                    .challenges
+                    .as_ref()
+                    .map(|old| old.as_ref() != list.as_ref())
+                    .unwrap_or(true);
                 self.last_fetch = Some(Instant::now());
                 self.loading = false;
                 self.error = None;
@@ -445,7 +453,11 @@ impl Screen for InvitesScreen {
                 }
                 self.challenges = Some(list);
                 self.set_rows();
-                Ok(Transition::Redraw)
+                if changed {
+                    Ok(Transition::Redraw)
+                } else {
+                    Ok(Transition::Stay)
+                }
             }
 
             AppEvent::ChallengesFailed(e) => {

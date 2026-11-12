@@ -123,6 +123,11 @@ pub struct PlayScreen {
     /// Cached friend list for the picker (fetched async on Friend tap).
     pub friends: Option<Arc<Vec<String>>>,
     pub friends_loading: bool,
+    /// When true, the next render skips the full-screen `clear(White)`.
+    /// Set on selection-only changes (mode/kind/rated/level/days taps) so
+    /// the e-ink panel doesn't flash — buttons draw their own white bg,
+    /// so overdraw covers the previous content without a global clear.
+    pub skip_full_clear: bool,
 }
 
 impl PlayScreen {
@@ -261,6 +266,7 @@ impl PlayScreen {
             list_picker: None,
             friends: None,
             friends_loading: false,
+            skip_full_clear: false,
         }
     }
 
@@ -656,7 +662,14 @@ impl Screen for PlayScreen {
     fn render(&mut self, display: &mut Display) -> Result<(), Box<dyn std::error::Error>> {
         use crate::ui::renderer::DrawColor;
 
-        display.renderer.clear(DrawColor::White)?;
+        // Selection-only redraws skip the full-screen clear — buttons paint
+        // their own white background, so overdraw is sufficient and the e-ink
+        // panel doesn't flash. Full clear happens on first paint / push / expose.
+        if self.skip_full_clear {
+            self.skip_full_clear = false;
+        } else {
+            display.renderer.clear(DrawColor::White)?;
+        }
 
         let loc = i18n::locale_of(&self.config);
         let title = tr(&loc, "play-title");
@@ -801,6 +814,7 @@ impl Screen for PlayScreen {
                 info!("Opponent selected: {}", name);
                 self.apply_friend_selected(name);
                 self.status = None;
+                self.skip_full_clear = true;
                 Ok(Transition::Redraw)
             }
 
@@ -877,6 +891,7 @@ impl Screen for PlayScreen {
                                 self.apply_friend_selected(name);
                             }
                             self.list_picker = None;
+                            self.skip_full_clear = true;
                             return Ok(Transition::Redraw);
                         }
                         PickResult::Cancelled => {
@@ -896,10 +911,12 @@ impl Screen for PlayScreen {
 
                 if self.mode_button_unlimited.rect.contains(touch.x, touch.y) {
                     self.select_mode(ChallengeMode::Unlimited);
+                    self.skip_full_clear = true;
                     return Ok(Transition::Redraw);
                 }
                 if self.mode_button_realtime.rect.contains(touch.x, touch.y) {
                     self.select_mode(ChallengeMode::RealTime);
+                    self.skip_full_clear = true;
                     return Ok(Transition::Redraw);
                 }
                 if self
@@ -909,11 +926,13 @@ impl Screen for PlayScreen {
                 {
                     let days = self.selected_days;
                     self.select_mode(ChallengeMode::Correspondence(days));
+                    self.skip_full_clear = true;
                     return Ok(Transition::Redraw);
                 }
 
                 // Shared selector row (level | days | info) — see selector_touch.
                 if self.selector_touch(touch.x, touch.y) {
+                    self.skip_full_clear = true;
                     return Ok(Transition::Redraw);
                 }
 
@@ -921,6 +940,7 @@ impl Screen for PlayScreen {
                 for (i, btn) in self.rated_buttons.iter().enumerate() {
                     if btn.rect.contains(touch.x, touch.y) {
                         self.select_rated(i == 1);
+                        self.skip_full_clear = true;
                         return Ok(Transition::Redraw);
                     }
                 }
@@ -940,6 +960,7 @@ impl Screen for PlayScreen {
                             self.open_friend_picker(display);
                             return Ok(Transition::Redraw);
                         }
+                        self.skip_full_clear = true;
                         return Ok(Transition::Redraw);
                     }
                 }

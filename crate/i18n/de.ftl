@@ -3,6 +3,7 @@ home-play = Spielen
 home-puzzle = Aufgabe
 home-ongoing = Laufende Partien
 home-settings = Einstellungen
+home-new-daily = Neues Daily
 
 play-title = Neue Partie
 play-mode-unlimited = Unbegrenzt

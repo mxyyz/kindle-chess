@@ -329,6 +329,21 @@ impl Renderer {
         size_px: f32,
         color: DrawColor,
     ) -> Result<(), Box<dyn std::error::Error>> {
+        self.draw_text_on_bg(x, y, text, size_px, color, DrawColor::White)
+    }
+
+    /// Like `draw_text` but the transient buffer is initialised to `bg`
+    /// instead of white, so the text blits without a white rectangle behind
+    /// it. Used for board labels where the text sits directly on the square.
+    pub fn draw_text_on_bg(
+        &mut self,
+        x: i16,
+        y: i16,
+        text: &str,
+        size_px: f32,
+        color: DrawColor,
+        bg: DrawColor,
+    ) -> Result<(), Box<dyn std::error::Error>> {
         let Some((buf_width, ascent, descent)) = self.line_geometry(text, size_px) else {
             return Ok(());
         };
@@ -338,8 +353,9 @@ impl Renderer {
         }
 
         let fg = color_to_luma(color) as i32;
+        let bg_luma = color_to_luma(bg) as i32;
         let mut buffer: ImageBuffer<Luma<u8>, Vec<u8>> =
-            ImageBuffer::from_pixel(buf_width, buf_height, Luma([255]));
+            ImageBuffer::from_pixel(buf_width, buf_height, Luma([bg_luma as u8]));
 
         let mut pen_x: f32 = 0.0;
         for c in text.chars() {
@@ -358,8 +374,8 @@ impl Renderer {
                         if dx < 0 || dy < 0 || dx >= buf_width as i32 || dy >= buf_height as i32 {
                             continue;
                         }
-                        let bg = buffer.get_pixel(dx as u32, dy as u32)[0] as i32;
-                        let blended = bg + cov * (fg - bg) / 255;
+                        let cur = buffer.get_pixel(dx as u32, dy as u32)[0] as i32;
+                        let blended = cur + cov * (fg - cur) / 255;
                         buffer.put_pixel(dx as u32, dy as u32, Luma([blended.clamp(0, 255) as u8]));
                     }
                 }
@@ -368,6 +384,89 @@ impl Renderer {
         }
 
         self.draw_image(x, y, buf_width as u16, buf_height as u16, &buffer)
+    }
+
+    /// Draw `text` rotated 45° clockwise (top-left of the rotated bounding
+    /// box at (x, y)). The text is rasterized to a grayscale buffer, then the
+    /// whole buffer is rotated 45° in memory and blitted with a single
+    /// `put_image` — one X11 call, no per-pixel round-trips. `bg` fills the
+    /// transparent corners of the rotated bitmap so no white box appears.
+    pub fn draw_text_rotated45(
+        &mut self,
+        x: i16,
+        y: i16,
+        text: &str,
+        size_px: f32,
+        color: DrawColor,
+        bg: DrawColor,
+    ) -> Result<(), Box<dyn std::error::Error>> {
+        use std::f32::consts::FRAC_1_SQRT_2;
+
+        // 1. Rasterize text to a flat grayscale buffer (same as draw_text_on_bg).
+        let Some((buf_w, ascent, descent)) = self.line_geometry(text, size_px) else {
+            return Ok(());
+        };
+        let buf_h = (ascent + descent).max(1) as u32;
+        if buf_w == 0 {
+            return Ok(());
+        }
+        let fg = color_to_luma(color) as i32;
+        let bg_luma = color_to_luma(bg) as i32;
+        let mut src: ImageBuffer<Luma<u8>, Vec<u8>> =
+            ImageBuffer::from_pixel(buf_w, buf_h, Luma([bg_luma as u8]));
+        let mut pen_x: f32 = 0.0;
+        for c in text.chars() {
+            let (m, bitmap) = self.font.rasterize(c, size_px);
+            if m.width > 0 && m.height > 0 {
+                let glyph_left = (pen_x + m.xmin as f32).round() as i32;
+                let glyph_top = ascent - m.height as i32 - m.ymin;
+                for row in 0..m.height {
+                    for col in 0..m.width {
+                        let cov = bitmap[row * m.width + col] as i32;
+                        if cov == 0 {
+                            continue;
+                        }
+                        let dx = glyph_left + col as i32;
+                        let dy = glyph_top + row as i32;
+                        if dx < 0 || dy < 0 || dx >= buf_w as i32 || dy >= buf_h as i32 {
+                            continue;
+                        }
+                        let cur = src.get_pixel(dx as u32, dy as u32)[0] as i32;
+                        let blended = cur + cov * (fg - cur) / 255;
+                        src.put_pixel(dx as u32, dy as u32, Luma([blended.clamp(0, 255) as u8]));
+                    }
+                }
+            }
+            pen_x += m.advance_width;
+        }
+
+        // 2. Rotate the buffer 45° clockwise. Output dimensions cover the
+        //    rotated bounding box: out_w = (w+h)/√2, out_h = same.
+        let diag = ((buf_w + buf_h) as f32 * FRAC_1_SQRT_2).ceil() as u32;
+        let out_w = diag.max(1);
+        let out_h = diag.max(1);
+        let mut dst: ImageBuffer<Luma<u8>, Vec<u8>> =
+            ImageBuffer::from_pixel(out_w, out_h, Luma([bg_luma as u8]));
+        let cx_in = buf_w as f32 / 2.0;
+        let cy_in = buf_h as f32 / 2.0;
+        let cx_out = out_w as f32 / 2.0;
+        let cy_out = out_h as f32 / 2.0;
+        for oy in 0..out_h {
+            for ox in 0..out_w {
+                // Inverse-map output pixel to input (rotate -45° = counter-clockwise).
+                let rx = ox as f32 - cx_out;
+                let ry = oy as f32 - cy_out;
+                let ix = (rx * FRAC_1_SQRT_2 - ry * FRAC_1_SQRT_2 + cx_in).round() as i32;
+                let iy = (rx * FRAC_1_SQRT_2 + ry * FRAC_1_SQRT_2 + cy_in).round() as i32;
+                if ix >= 0 && iy >= 0 && ix < buf_w as i32 && iy < buf_h as i32 {
+                    let v = src.get_pixel(ix as u32, iy as u32)[0];
+                    dst.put_pixel(ox, oy, Luma([v]));
+                }
+            }
+        }
+
+        // 3. Blit the rotated bitmap in one call.
+        self.draw_image(x, y, out_w as u16, out_h as u16, &dst)
     }
 
     pub fn clear(&mut self, color: DrawColor) -> Result<(), Box<dyn std::error::Error>> {

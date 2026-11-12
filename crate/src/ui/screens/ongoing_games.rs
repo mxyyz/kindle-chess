@@ -57,6 +57,26 @@ pub struct OngoingChessGamesScreen {
 const GAMES_POLL_INTERVAL: std::time::Duration = std::time::Duration::from_secs(5);
 const MAX_POLLS_GAMES: usize = 6;
 
+/// Flicker fix: compare two game lists by the fields that affect what the
+/// screen renders (game id, turn, clock, opponent name, rated, speed). If
+/// all equal, the poll result is visually identical and must not redraw.
+fn games_display_eq(
+    a: &[crate::models::board_api::GameData],
+    b: &[crate::models::board_api::GameData],
+) -> bool {
+    if a.len() != b.len() {
+        return false;
+    }
+    a.iter().zip(b.iter()).all(|(ga, gb)| {
+        ga.game_id == gb.game_id
+            && ga.is_my_turn == gb.is_my_turn
+            && ga.seconds_left == gb.seconds_left
+            && ga.rated == gb.rated
+            && ga.opponent.display_name() == gb.opponent.display_name()
+            && std::mem::discriminant(&ga.speed) == std::mem::discriminant(&gb.speed)
+    })
+}
+
 impl OngoingChessGamesScreen {
     pub fn new(app: ChessApp, config: Arc<RwLock<AppConfig>>) -> Self {
         // e07s11: 2×2 grid of square cards. Card size 460×460, gap 40.
@@ -328,6 +348,14 @@ impl Screen for OngoingChessGamesScreen {
 
             AppEvent::OngoingGamesLoaded(list) => {
                 info!("Ongoing games loaded: {} entries", list.now_playing.len());
+                // Flicker fix: only redraw when the displayed data actually
+                // changed — a poll that returns identical games must not
+                // trigger clear(White)+full repaint (e-ink flash).
+                let changed = self
+                    .games
+                    .as_ref()
+                    .map(|old| !games_display_eq(&old.now_playing, &list.now_playing))
+                    .unwrap_or(true);
                 // e07s10: if current page is empty but data exists, jump to page 0.
                 let current_page_empty = self.page_index > 0
                     && list
@@ -344,7 +372,11 @@ impl Screen for OngoingChessGamesScreen {
                 self.poll_count += 1;
                 // Bake labels for the current page now that we have data.
                 self.set_page(self.page_index);
-                Ok(Transition::Redraw)
+                if changed {
+                    Ok(Transition::Redraw)
+                } else {
+                    Ok(Transition::Stay)
+                }
             }
 
             AppEvent::OngoingGamesFailed(e) => {

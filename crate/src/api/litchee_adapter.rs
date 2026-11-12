@@ -189,6 +189,39 @@ impl LitcheeAdapter {
         Ok(daily)
     }
 
+    /// Returns true when the authenticated user has NOT solved today's daily
+    /// puzzle (i.e. the daily puzzle id does not appear in their puzzle
+    /// activity from the last 24 h). Requires the `puzzle:read` scope.
+    /// On any error returns false (badge stays off — safe default).
+    pub async fn is_daily_unsolved(&self) -> bool {
+        let now_ms = match std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH) {
+            Ok(d) => d.as_millis() as i64,
+            Err(_) => return false,
+        };
+        let since_24h_ago = now_ms - 86_400_000;
+        let daily = match self.get_daily_puzzle().await {
+            Ok(d) => d,
+            Err(_) => return false,
+        };
+        let mut activity = match self
+            .client
+            .puzzles()
+            .activity(None, None, Some(since_24h_ago))
+            .await
+        {
+            Ok(s) => s,
+            Err(_) => return false,
+        };
+        while let Some(entry) = activity.next().await {
+            match entry {
+                Ok(e) if e.puzzle.id == daily.id => return false, // solved today
+                Ok(_) => continue,
+                Err(_) => return false,
+            }
+        }
+        true // daily not found in recent activity → unsolved
+    }
+
     // Account
     pub async fn get_user_info(&self) -> Result<LichessUser, LichessError> {
         let litchee_user = self.client.account().profile().await?.user;

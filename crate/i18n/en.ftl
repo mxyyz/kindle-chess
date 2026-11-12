@@ -3,6 +3,7 @@ home-play = Play
 home-puzzle = Puzzle
 home-ongoing = Ongoing Games
 home-settings = Settings
+home-new-daily = New Daily
 
 play-title = New Game
 play-mode-unlimited = Unlimited

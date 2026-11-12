@@ -130,14 +130,6 @@ impl Screen for HomeScreen {
         if !self.auth_started {
             self.auth_started = true;
             kick_auth_bootstrap(display.event_tx.clone());
-            // e07s10: also check daily puzzle availability for the badge.
-            // Anonymous endpoint — no auth needed.
-            let tx = display.event_tx.clone();
-            tokio::spawn(async move {
-                if crate::api::client::get_daily_puzzle().await.is_ok() {
-                    let _ = tx.send(AppEvent::DailyPuzzleAvailable);
-                }
-            });
         }
 
         display.renderer.clear(DrawColor::White)?;
@@ -166,12 +158,27 @@ impl Screen for HomeScreen {
 
         self.chess_button.draw(&mut display.renderer)?;
         self.puzzle_button.draw(&mut display.renderer)?;
-        // e07s05: badge dot on the puzzle button's top-right corner when the
-        // daily puzzle is available and unsolved.
+        // Badge: "New Daily" / "Neues Daily" at 45° on the puzzle button's
+        // top-right corner when the authenticated user hasn't solved today's
+        // daily puzzle.
         if self.puzzle_badge {
-            let bx = self.puzzle_button.rect.x + self.puzzle_button.rect.width as i16 - 20;
-            let by = self.puzzle_button.rect.y + 20;
-            display.renderer.draw_circle(bx, by, 12, DrawColor::Black)?;
+            let label = tr(&loc, "home-new-daily");
+            let (tw, th) = display.renderer.measure_text(&label, 18.0);
+            // Position the rotated text so it sits on the top-right corner of
+            // the button, running diagonally down-right.
+            let bx = self.puzzle_button.rect.x + self.puzzle_button.rect.width as i16
+                - tw as i16 / 2
+                - 10;
+            let by = self.puzzle_button.rect.y - 4;
+            let _ = th;
+            display.renderer.draw_text_rotated45(
+                bx,
+                by,
+                &label,
+                18.0,
+                DrawColor::Black,
+                DrawColor::White,
+            )?;
         }
         self.ongoing_games_button.draw(&mut display.renderer)?;
         self.settings_button.draw(&mut display.renderer)?;
@@ -184,18 +191,29 @@ impl Screen for HomeScreen {
     fn handle_event(
         &mut self,
         event: AppEvent,
-        _display: &mut Display,
+        display: &mut Display,
     ) -> Result<Transition, Box<dyn std::error::Error>> {
         match event {
             // Auth completed — either from our own bootstrap, or bubbled up
             // from a popped ChessAuthScreen after the QR flow finished.
             AppEvent::ChessReady(app) => {
                 info!("ChessApp ready — buttons live");
+                // Check if today's daily puzzle is unsolved for this user
+                // (requires puzzle:read scope on the token).
+                let tx = display.event_tx.clone();
+                let adapter = app.online_idle_api().map(|api| api.adapter.clone());
+                if let Some(adapter) = adapter {
+                    tokio::spawn(async move {
+                        if adapter.is_daily_unsolved().await {
+                            let _ = tx.send(AppEvent::DailyPuzzleAvailable);
+                        }
+                    });
+                }
                 self.app = Some(*app);
                 Ok(Transition::Redraw)
             }
 
-            // e07s10: daily puzzle exists → show badge on puzzle button.
+            // Daily puzzle is unsolved for the authenticated user → show badge.
             AppEvent::DailyPuzzleAvailable => {
                 self.puzzle_badge = true;
                 Ok(Transition::Redraw)

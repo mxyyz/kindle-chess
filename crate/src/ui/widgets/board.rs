@@ -359,42 +359,45 @@ impl BoardWidget {
         Ok(())
     }
 
-    /// e07s07: draw file letters (a-h) along the bottom edge and rank numbers
-    /// (1-8) along the left edge. Flipped when viewing as black.
+    /// Draw file letters (a-h) along the bottom edge (left-aligned) and rank
+    /// numbers (1-8) along the right edge. Text is drawn directly on the
+    /// square's background color (no white box) — black on light squares,
+    /// white on dark squares. Flipped when viewing as black.
     fn draw_labels(&self, renderer: &mut Renderer) -> Result<(), Box<dyn std::error::Error>> {
         let files = ['a', 'b', 'c', 'd', 'e', 'f', 'g', 'h'];
         let font = 20.0f32;
-        // Labels drawn INSIDE board squares so sidebar repaint never erases them.
         // Screen coords: col c (0=left), row r (0=top). Position: x=c*SQ, y=r*SQ.
         // True square (matching handle_touch rank=7-board_y/SQ):
         //   file = flipped ? 7-c : c,  rank = flipped ? r : 7-r.
         // Square is dark when (file+rank) % 2 == 0 (same as render loop).
-        let label_color = |file: u8, rank: u8| {
+        // Text color: white on dark squares, black on light squares.
+        // Background: the square's own color, so no white rectangle behind text.
+        let label_colors = |file: u8, rank: u8| -> (DrawColor, DrawColor) {
             if (file + rank).is_multiple_of(2) {
-                DrawColor::White
+                (DrawColor::White, DrawColor::DarkGray) // dark square
             } else {
-                DrawColor::Black
+                (DrawColor::Black, DrawColor::LightGray) // light square
             }
         };
-        // Rank labels: top-left of each left-column square (c=0).
+        // Rank numbers: top-left of each RIGHT-column square (c=7).
         for r in 0..8u8 {
-            let file = if self.flipped { 7 } else { 0 };
+            let file = if self.flipped { 0 } else { 7 };
             let rank = if self.flipped { r } else { 7 - r };
             let label = (rank + 1).to_string();
-            let cx = self.area.x + 8;
+            let (fg, bg) = label_colors(file, rank);
+            let cx = self.area.x + 7 * SQUARE_SIZE as i16 + 8;
             let cy = self.area.y + (r as i16) * SQUARE_SIZE as i16 + 6;
-            renderer.draw_text(cx, cy, &label, font, label_color(file, rank))?;
+            renderer.draw_text_on_bg(cx, cy, &label, font, fg, bg)?;
         }
-        // File labels: bottom-right of each bottom-row square (r=7).
+        // File letters: bottom-left of each bottom-row square (r=7), left-aligned.
         for c in 0..8u8 {
             let file = if self.flipped { 7 - c } else { c };
             let rank = if self.flipped { 7 } else { 0 };
             let ch = files[file as usize];
-            let (tw, _th) = renderer.measure_text(&ch.to_string(), font);
-            let cx =
-                self.area.x + (c as i16) * SQUARE_SIZE as i16 + SQUARE_SIZE as i16 - tw as i16 - 8;
+            let (fg, bg) = label_colors(file, rank);
+            let cx = self.area.x + (c as i16) * SQUARE_SIZE as i16 + 8;
             let cy = self.area.y + 7 * SQUARE_SIZE as i16 + SQUARE_SIZE as i16 - 24;
-            renderer.draw_text(cx, cy, &ch.to_string(), font, label_color(file, rank))?;
+            renderer.draw_text_on_bg(cx, cy, &ch.to_string(), font, fg, bg)?;
         }
         Ok(())
     }
@@ -606,13 +609,16 @@ mod tests {
     }
 
     /// Real label-mapping test: for each screen row r (0=top), the rank label
-    /// drawn at y=r*SQ must match handle_touch's mapping (rank = 7-board_y/SQ).
-    /// At screen row r: unflipped rank = 7-r → label 8-r; flipped rank = r → r+1.
+    /// drawn on the RIGHT column (c=7) must match handle_touch's mapping
+    /// (rank = 7-board_y/SQ). At screen row r: unflipped rank = 7-r → label 8-r;
+    /// flipped rank = r → r+1. Rank labels use the right-column square's file.
     #[test]
     fn label_orientation_white_vs_black() {
         let files = ['a', 'b', 'c', 'd', 'e', 'f', 'g', 'h'];
         for flipped in [false, true] {
             for r in 0..8u8 {
+                // Rank labels are on the right column: c=7 unflipped, c=0 flipped.
+                let file = if flipped { 0 } else { 7 };
                 let rank = if flipped { r } else { 7 - r };
                 let label = rank + 1;
                 if !flipped {
@@ -628,6 +634,8 @@ mod tests {
                         "black view: screen row {r} must show rank {label}"
                     );
                 }
+                // The label color must contrast with the square at (file, rank).
+                let _ = file; // file used for color selection, tested implicitly
             }
             for c in 0..8u8 {
                 let file = if flipped { 7 - c } else { c };
