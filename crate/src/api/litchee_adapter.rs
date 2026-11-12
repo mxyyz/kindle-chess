@@ -461,6 +461,9 @@ impl LitcheeAdapter {
             url: open.url,
             rated: open.rated.unwrap_or(false),
             open: true, // e06s08: mark open challenges so Invites can label them
+            rating: None,
+            speed: None,
+            time_control: None,
         })
     }
 
@@ -511,13 +514,38 @@ impl LitcheeAdapter {
 /// caller (send_challenge → false; list parsing → side of the list). An
 /// outgoing entry with `dest_user: None` is an open challenge (e06s08).
 fn map_challenge(c: &LichessChallenge, incoming: bool) -> ChallengeSummary {
-    let opponent = if incoming {
-        c.challenger.as_ref().map(|u| u.name.clone())
+    let (user, opponent) = if incoming {
+        (
+            c.challenger.as_ref(),
+            c.challenger.as_ref().map(|u| u.name.clone()),
+        )
     } else {
-        c.dest_user.as_ref().map(|u| u.name.clone())
-    }
-    .unwrap_or_default();
+        (
+            c.dest_user.as_ref(),
+            c.dest_user.as_ref().map(|u| u.name.clone()),
+        )
+    };
+    let opponent = opponent.unwrap_or_default();
     let open = !incoming && c.dest_user.is_none();
+    // e07s06: extract rating, speed, time control for detail display.
+    let rating = user.and_then(|u| u.rating);
+    let speed = c.speed.map(|s| format!("{s:?}").to_lowercase());
+    let time_control = c.time_control.as_ref().map(|tc| {
+        use litchee::api::gameplay::challenges::LichessTimeControl;
+        match tc {
+            LichessTimeControl::Clock {
+                show,
+                limit,
+                increment,
+            } => show.clone().unwrap_or_else(|| {
+                format!("{}+{}", limit.unwrap_or(0) / 60, increment.unwrap_or(0))
+            }),
+            LichessTimeControl::Correspondence { days_per_turn, .. } => {
+                format!("{}d", days_per_turn.unwrap_or(0))
+            }
+            _ => "∞".to_string(),
+        }
+    });
     ChallengeSummary {
         id: c.id.clone(),
         status: format!("{:?}", c.status).to_lowercase(),
@@ -526,6 +554,9 @@ fn map_challenge(c: &LichessChallenge, incoming: bool) -> ChallengeSummary {
         url: c.url.clone(),
         rated: c.rated.unwrap_or(false),
         open,
+        rating,
+        speed,
+        time_control,
     }
 }
 

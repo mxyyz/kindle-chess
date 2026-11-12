@@ -189,16 +189,27 @@ impl OngoingChessGamesScreen {
         for (k, btn) in buttons.into_iter().enumerate() {
             match games.now_playing.get(start + k) {
                 Some(game) => {
-                    let opp = match &game.opponent {
-                        PlayedBy::User(player) => player.name.clone(),
+                    let (opp, opp_rating) = match &game.opponent {
+                        PlayedBy::User(player) => (player.name.clone(), Some(player.rating)),
                         PlayedBy::Ai(computer) => match computer.ai_level {
-                            Some(level) => {
-                                i18n::t(&loc, "ongoing-ai-level", &[("level", &level.to_string())])
-                            }
-                            None => tr(&loc, "ongoing-ai"),
+                            Some(level) => (
+                                i18n::t(&loc, "ongoing-ai-level", &[("level", &level.to_string())]),
+                                None,
+                            ),
+                            None => (tr(&loc, "ongoing-ai"), None),
                         },
                     };
-                    let mut l = i18n::t(&loc, "ongoing-vs", &[("opponent", &opp)]);
+                    // e07s06: detail line — opponent, rating, speed, rated badge.
+                    let mut details = String::new();
+                    if let Some(r) = opp_rating {
+                        details.push_str(&format!(" ({r})"));
+                    }
+                    let speed_str = format!("{:?}", game.speed).to_lowercase();
+                    details.push_str(&format!(" · {speed_str}"));
+                    if game.rated {
+                        details.push_str(&format!(" · {}", tr(&loc, "play-rated")));
+                    }
+                    let mut l = format!("{opp}{details}");
                     if game.is_my_turn {
                         l = format!("> {l} <");
                     }

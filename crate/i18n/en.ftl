@@ -121,3 +121,4 @@ auth-title = Sign in to Lichess
 puzzle-title = Daily Puzzle
 refresh = Refresh
 puzzle-badge-tooltip = Daily puzzle available
+rated-badge = rated

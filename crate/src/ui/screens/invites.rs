@@ -246,7 +246,20 @@ impl InvitesScreen {
                 Some(c) if outgoing_section && c.open => {
                     format!("{} ({})", tr(&loc, "invites-open-challenge"), c.status)
                 }
-                Some(c) => format!("{} ({})", c.opponent, c.status),
+                Some(c) => {
+                    // e07s06: detail suffix — rating, time control, rated badge.
+                    let mut details = String::new();
+                    if let Some(r) = c.rating {
+                        details.push_str(&format!(" ({r})"));
+                    }
+                    if let Some(tc) = &c.time_control {
+                        details.push_str(&format!(" · {tc}"));
+                    }
+                    if c.rated {
+                        details.push_str(&format!(" · {}", tr(&loc, "play-rated")));
+                    }
+                    format!("{}{details} ({})", c.opponent, c.status)
+                }
                 None => "-".to_string(),
             };
         for k in 0..INVITES_PER_PAGE {
@@ -552,6 +565,9 @@ mod invites_tests {
             url: url.into(),
             rated: false,
             open: false,
+            rating: None,
+            speed: None,
+            time_control: None,
         }
     }
 
@@ -564,6 +580,9 @@ mod invites_tests {
             url: "https://lichess.org/".into(),
             rated: false,
             open: true,
+            rating: None,
+            speed: None,
+            time_control: None,
         }
     }
 
@@ -696,5 +715,35 @@ mod invites_tests {
         // Refresh resets the cycle.
         s.poll_count = 0;
         assert!(s.poll_count < MAX_POLLS);
+    }
+
+    /// e07s06: label includes rating + time control + rated badge when present.
+    #[test]
+    fn label_includes_details() {
+        let mut s = InvitesScreen::new(ChessApp::new_offline(), test_config());
+        let mut c = ch("in1", "created", "u", true);
+        c.rating = Some(1500);
+        c.time_control = Some("10+5".into());
+        c.rated = true;
+        s.challenges = Some(Arc::new(vec![c]));
+        s.set_rows();
+        let label = &s.incoming_name[0].label;
+        assert!(label.contains("1500"), "label missing rating: {label}");
+        assert!(
+            label.contains("10+5"),
+            "label missing time control: {label}"
+        );
+        assert!(label.contains("created"), "label missing status: {label}");
+    }
+
+    /// e07s06: label without rating/time control falls back to name + status.
+    #[test]
+    fn label_without_details() {
+        let mut s = InvitesScreen::new(ChessApp::new_offline(), test_config());
+        s.challenges = Some(Arc::new(vec![ch("in1", "created", "u", true)]));
+        s.set_rows();
+        let label = &s.incoming_name[0].label;
+        assert!(label.contains('X'), "label missing opponent: {label}");
+        assert!(label.contains("created"), "label missing status: {label}");
     }
 }

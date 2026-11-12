@@ -121,3 +121,4 @@ auth-title = Bei Lichess anmelden
 puzzle-title = Tagesaufgabe
 refresh = Aktualisieren
 puzzle-badge-tooltip = Tagesaufgabe verfügbar
+rated-badge = gewertet
