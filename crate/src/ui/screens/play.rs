@@ -117,6 +117,12 @@ pub struct PlayScreen {
     pub ai_level: u8,
     pub status: Option<String>,
     pub sending: bool,
+    /// e07s01: modal list-picker overlay for choosing a friend opponent.
+    /// When `Some`, it captures all touch input and renders on top.
+    pub list_picker: Option<crate::ui::widgets::ListPicker>,
+    /// Cached friend list for the picker (fetched async on Friend tap).
+    pub friends: Option<Arc<Vec<String>>>,
+    pub friends_loading: bool,
 }
 
 impl PlayScreen {
@@ -252,6 +258,9 @@ impl PlayScreen {
             ai_level: 3,
             status: None,
             sending: false,
+            list_picker: None,
+            friends: None,
+            friends_loading: false,
         }
     }
 
@@ -544,6 +553,36 @@ impl PlayScreen {
         btn.font_size = friend_label_font(btn.label.len());
     }
 
+    /// e07s01: open the list-picker modal for friend selection. If friends
+    /// are already cached, show the picker immediately; otherwise fetch
+    /// them first (the picker appears when FriendsLoaded arrives).
+    pub fn open_friend_picker(&mut self, display: &Display) {
+        let loc = i18n::locale_of(&self.config);
+        let title = tr(&loc, "friends-title");
+        if let Some(friends) = &self.friends {
+            let mut picker = crate::ui::widgets::ListPicker::new((**friends).clone(), title);
+            picker.select_button.label = tr(&loc, "picker-select");
+            picker.cancel_button.label = tr(&loc, "picker-cancel");
+            self.list_picker = Some(picker);
+        } else if !self.friends_loading {
+            // Fetch friends; picker opens in the FriendsLoaded handler.
+            self.friends_loading = true;
+            if let Some(api) = self.app.online_idle_api() {
+                let tx = display.event_tx.clone();
+                tokio::spawn(async move {
+                    match api.get_following().await {
+                        Ok(names) => {
+                            let _ = tx.send(AppEvent::FriendsLoaded(Arc::new(names)));
+                        }
+                        Err(e) => {
+                            let _ = tx.send(AppEvent::FriendsFailed(e.to_string()));
+                        }
+                    }
+                });
+            }
+        }
+    }
+
     /// Rated toggle is hidden for Computer — Lichess AI games are always casual.
     /// When hidden the row stays blank so nothing below shifts.
     fn rated_visible(&self) -> bool {
@@ -742,6 +781,12 @@ impl Screen for PlayScreen {
         }
 
         self.back_button.draw(&mut display.renderer)?;
+
+        // e07s01: draw the list-picker modal on top of everything.
+        if let Some(picker) = &self.list_picker {
+            picker.draw(&mut display.renderer)?;
+        }
+
         display.renderer.present()?;
         Ok(())
     }
@@ -758,6 +803,27 @@ impl Screen for PlayScreen {
                 info!("Opponent selected: {}", name);
                 self.apply_friend_selected(name);
                 self.status = None;
+                Ok(Transition::Redraw)
+            }
+
+            // e07s01: friends list loaded — open the picker modal.
+            AppEvent::FriendsLoaded(names) => {
+                self.friends_loading = false;
+                let loc = i18n::locale_of(&self.config);
+                let title = tr(&loc, "friends-title");
+                let mut picker = crate::ui::widgets::ListPicker::new((*names).clone(), title);
+                picker.select_button.label = tr(&loc, "picker-select");
+                picker.cancel_button.label = tr(&loc, "picker-cancel");
+                self.friends = Some(names.clone());
+                self.list_picker = Some(picker);
+                Ok(Transition::Redraw)
+            }
+
+            AppEvent::FriendsFailed(err) => {
+                self.friends_loading = false;
+                warn!("Friends fetch failed: {err}");
+                let loc = i18n::locale_of(&self.config);
+                self.status = Some(i18n::t(&loc, "common-error", &[("error", &err)]));
                 Ok(Transition::Redraw)
             }
 
@@ -803,6 +869,28 @@ impl Screen for PlayScreen {
                     return Ok(Transition::Stay);
                 }
 
+                // e07s01: if the list-picker modal is open, it captures all input.
+                if let Some(picker) = &mut self.list_picker {
+                    use crate::ui::widgets::PickResult;
+                    match picker.handle_touch(touch.x, touch.y) {
+                        PickResult::Selected(idx) => {
+                            if let Some(name) = picker.items.get(idx).cloned() {
+                                self.apply_friend_selected(name);
+                            }
+                            self.list_picker = None;
+                            return Ok(Transition::Redraw);
+                        }
+                        PickResult::Cancelled => {
+                            self.list_picker = None;
+                            return Ok(Transition::Redraw);
+                        }
+                        PickResult::NotHandled => {
+                            // Item tapped (selection updated) — redraw to show highlight.
+                            return Ok(Transition::Redraw);
+                        }
+                    }
+                }
+
                 if self.back_button.rect.contains(touch.x, touch.y) {
                     return Ok(Transition::Pop);
                 }
@@ -844,15 +932,14 @@ impl Screen for PlayScreen {
                             return Ok(Transition::Stay);
                         }
                         self.select_kind(i);
-                        // e06s07: tapping the Friend kind button selects
-                        // kind=Friend AND opens the FriendlistScreen; the
-                        // picked name lands back via FriendSelected.
+                        // e07s01: tapping the Friend kind button selects
+                        // kind=Friend AND opens the ListPicker modal (replaces
+                        // the old FriendlistScreen push); the picked name
+                        // lands via apply_friend_selected.
                         if i == KIND_FRIEND {
-                            info!("Opening friend list");
-                            return Ok(Transition::Push(Box::new(FriendlistScreen::new(
-                                self.app.clone(),
-                                self.config.clone(),
-                            ))));
+                            info!("Opening friend picker modal");
+                            self.open_friend_picker(display);
+                            return Ok(Transition::Redraw);
                         }
                         return Ok(Transition::Redraw);
                     }

@@ -112,3 +112,7 @@ update-size-mb = ({$mb} MB)
 update-bundle-contents = Bundle: binary + assets + launcher
 update-bundle-hint = Verified and staged — relaunch to install.
 update-staged-relaunch = Quit and relaunch to finish installing.
+
+picker-select = Select
+picker-cancel = Cancel
+picker-empty = No items
