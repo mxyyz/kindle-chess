@@ -123,11 +123,12 @@ pub struct PlayScreen {
     /// Cached friend list for the picker (fetched async on Friend tap).
     pub friends: Option<Arc<Vec<String>>>,
     pub friends_loading: bool,
-    /// When true, the next render skips the full-screen `clear(White)`.
-    /// Set on selection-only changes (mode/kind/rated/level/days taps) so
-    /// the e-ink panel doesn't flash — buttons draw their own white bg,
-    /// so overdraw covers the previous content without a global clear.
-    pub skip_full_clear: bool,
+    /// Dirty rectangles for partial redraw. When non-empty, the next render
+    /// only clears + redraws elements intersecting these rects — everything
+    /// else is left untouched on the e-ink panel (no flash). Empty means
+    /// full render (first paint, push, expose, modal open/close, selector
+    /// mode change).
+    pub dirty_rects: Vec<Rectangle>,
 }
 
 impl PlayScreen {
@@ -266,7 +267,7 @@ impl PlayScreen {
             list_picker: None,
             friends: None,
             friends_loading: false,
-            skip_full_clear: false,
+            dirty_rects: Vec::new(),
         }
     }
 
@@ -658,15 +659,51 @@ fn draw_selection_marker(
     Ok(())
 }
 
+/// AABB intersection test (edges exclusive).
+fn rects_intersect(a: &Rectangle, b: &Rectangle) -> bool {
+    a.x < b.x + b.width as i16
+        && a.x + a.width as i16 > b.x
+        && a.y < b.y + b.height as i16
+        && a.y + a.height as i16 > b.y
+}
+
+impl PlayScreen {
+    /// True when `rect` should be (re)drawn: always in full-render mode
+    /// (dirty_rects empty), otherwise only when it intersects a dirty rect.
+    fn needs_redraw(&self, rect: &Rectangle) -> bool {
+        self.dirty_rects.is_empty() || self.dirty_rects.iter().any(|d| rects_intersect(rect, d))
+    }
+
+    /// Mark a selection change: if the selector mode also changed, force a
+    /// full render (clear dirty_rects); otherwise only the old and new
+    /// button rects are marked dirty for partial repaint.
+    fn mark_selection_change(
+        &mut self,
+        old_rect: Rectangle,
+        new_rect: Rectangle,
+        selector_changed: bool,
+    ) {
+        if selector_changed {
+            self.dirty_rects.clear();
+        } else {
+            self.dirty_rects.push(old_rect);
+            self.dirty_rects.push(new_rect);
+        }
+    }
+}
+
 impl Screen for PlayScreen {
     fn render(&mut self, display: &mut Display) -> Result<(), Box<dyn std::error::Error>> {
         use crate::ui::renderer::DrawColor;
 
-        // Selection-only redraws skip the full-screen clear — buttons paint
-        // their own white background, so overdraw is sufficient and the e-ink
-        // panel doesn't flash. Full clear happens on first paint / push / expose.
-        if self.skip_full_clear {
-            self.skip_full_clear = false;
+        // Partial redraw: only clear dirty rects; full render clears everything.
+        let partial = !self.dirty_rects.is_empty();
+        if partial {
+            for rect in &self.dirty_rects {
+                display
+                    .renderer
+                    .draw_rectangle(*rect, DrawColor::White, true)?;
+            }
         } else {
             display.renderer.clear(DrawColor::White)?;
         }
@@ -693,62 +730,89 @@ impl Screen for PlayScreen {
         self.kind_buttons[KIND_FRIEND].label = friend_label;
         self.kind_buttons[KIND_FRIEND].font_size = friend_font;
 
-        self.invites_button.draw(&mut display.renderer)?;
+        // Title bar — only in full render (partial never touches it).
+        if !partial {
+            layout::draw_title_bar(&mut display.renderer, &title)?;
+        }
+
+        if self.needs_redraw(&self.invites_button.rect) {
+            self.invites_button.draw(&mut display.renderer)?;
+        }
 
         // Row 1: kind group (Computer | Friend | Random).
         for btn in &self.kind_buttons {
-            btn.draw(&mut display.renderer)?;
+            if self.needs_redraw(&btn.rect) {
+                btn.draw(&mut display.renderer)?;
+            }
         }
-        draw_selection_marker(&mut display.renderer, &self.selected_kind_button().rect)?;
+        let kind_sel = self.selected_kind_button().rect;
+        if self.needs_redraw(&kind_sel) {
+            draw_selection_marker(&mut display.renderer, &kind_sel)?;
+        }
 
         // Row 2: shared selector — exactly one of level row / days row / info.
+        // The selector row spans the full width; check if any part is dirty.
+        let selector_row = Rectangle::new(0, SELECTOR_Y, layout::SCREEN_W_U16, SELECTOR_H);
+        let selector_dirty = self.needs_redraw(&selector_row);
+        // Also the label areas above/below the selector row.
+        let selector_label_above = Rectangle::new(
+            0,
+            SELECTOR_Y - SELECTOR_LABEL_MARGIN - 30,
+            layout::SCREEN_W_U16,
+            30,
+        );
+        let selector_label_below = Rectangle::new(
+            0,
+            SELECTOR_Y + SELECTOR_H as i16,
+            layout::SCREEN_W_U16,
+            (SELECTOR_LABEL_MARGIN + 30) as u16,
+        );
         match self.selector_mode() {
             SelectorMode::AiLevel => {
-                // "AI level" label centered above the row (same horizontal
-                // centering as the days label below), with the SAME margin to
-                // the selector row as the days label has (SELECTOR_LABEL_MARGIN
-                // below it) — clears the kind row above (2026-11-11 fix).
-                let level_label = tr(&loc, "play-ai-level");
-                let (lw, lh) = display.renderer.measure_text(&level_label, 24.0);
-                display.renderer.draw_text(
-                    (layout::SCREEN_W - lw as i16) / 2,
-                    SELECTOR_Y - SELECTOR_LABEL_MARGIN - lh as i16,
-                    &level_label,
-                    24.0,
-                    DrawColor::Black,
-                )?;
+                if selector_dirty || self.needs_redraw(&selector_label_above) {
+                    let level_label = tr(&loc, "play-ai-level");
+                    let (lw, lh) = display.renderer.measure_text(&level_label, 24.0);
+                    display.renderer.draw_text(
+                        (layout::SCREEN_W - lw as i16) / 2,
+                        SELECTOR_Y - SELECTOR_LABEL_MARGIN - lh as i16,
+                        &level_label,
+                        24.0,
+                        DrawColor::Black,
+                    )?;
+                }
                 for (i, btn) in self.level_buttons.iter().enumerate() {
-                    btn.draw(&mut display.renderer)?;
-                    if i + 1 == self.ai_level as usize {
-                        draw_selection_marker(&mut display.renderer, &btn.rect)?;
+                    if self.needs_redraw(&btn.rect) {
+                        btn.draw(&mut display.renderer)?;
+                        if i + 1 == self.ai_level as usize {
+                            draw_selection_marker(&mut display.renderer, &btn.rect)?;
+                        }
                     }
                 }
             }
             SelectorMode::Days => {
                 for btn in &self.days_buttons {
-                    btn.draw(&mut display.renderer)?;
+                    if self.needs_redraw(&btn.rect) {
+                        btn.draw(&mut display.renderer)?;
+                    }
                 }
-                draw_selection_marker(
-                    &mut display.renderer,
-                    &self.days_buttons[self.selected_days_index()].rect,
-                )?;
-                // "Days per move" label BELOW the days selector row, same
-                // margin from the row as the AI-level label above.
-                let days_label = tr(&loc, "play-days-label");
-                let (dw, _) = display.renderer.measure_text(&days_label, 24.0);
-                display.renderer.draw_text(
-                    (layout::SCREEN_W - dw as i16) / 2,
-                    SELECTOR_Y + SELECTOR_H as i16 + SELECTOR_LABEL_MARGIN,
-                    &days_label,
-                    24.0,
-                    DrawColor::Black,
-                )?;
+                let days_sel = self.days_buttons[self.selected_days_index()].rect;
+                if self.needs_redraw(&days_sel) {
+                    draw_selection_marker(&mut display.renderer, &days_sel)?;
+                }
+                if selector_dirty || self.needs_redraw(&selector_label_below) {
+                    let days_label = tr(&loc, "play-days-label");
+                    let (dw, _) = display.renderer.measure_text(&days_label, 24.0);
+                    display.renderer.draw_text(
+                        (layout::SCREEN_W - dw as i16) / 2,
+                        SELECTOR_Y + SELECTOR_H as i16 + SELECTOR_LABEL_MARGIN,
+                        &days_label,
+                        24.0,
+                        DrawColor::Black,
+                    )?;
+                }
             }
             SelectorMode::RandomInfo => {
-                // Fallback slot: the open-challenge hint for Random; the row
-                // stays BLANK for Friend (2026-11-11 adjustment) — the picked
-                // friend's name already lives on the Friend kind button.
-                if let Some(info) = self.selector_info_text(&loc) {
+                if selector_dirty && let Some(info) = self.selector_info_text(&loc) {
                     let (iw, ih) = display.renderer.measure_text(&info, 24.0);
                     display.renderer.draw_text(
                         (layout::SCREEN_W - iw as i16) / 2,
@@ -762,41 +826,68 @@ impl Screen for PlayScreen {
         }
 
         // Row 3: mode group.
-        self.mode_button_unlimited.draw(&mut display.renderer)?;
-        self.mode_button_realtime.draw(&mut display.renderer)?;
-        self.mode_button_correspondence
-            .draw(&mut display.renderer)?;
-        // Selection marker on the active mode button (selected-file style).
-        draw_selection_marker(&mut display.renderer, &self.selected_mode_button().rect)?;
+        for btn in [
+            &self.mode_button_unlimited,
+            &self.mode_button_realtime,
+            &self.mode_button_correspondence,
+        ] {
+            if self.needs_redraw(&btn.rect) {
+                btn.draw(&mut display.renderer)?;
+            }
+        }
+        let mode_sel = self.selected_mode_button().rect;
+        if self.needs_redraw(&mode_sel) {
+            draw_selection_marker(&mut display.renderer, &mode_sel)?;
+        }
 
         // Row 4: rated toggle (hidden for Computer; the row stays blank).
         if self.rated_visible() {
             for btn in &self.rated_buttons {
-                btn.draw(&mut display.renderer)?;
+                if self.needs_redraw(&btn.rect) {
+                    btn.draw(&mut display.renderer)?;
+                }
             }
-            draw_selection_marker(&mut display.renderer, &self.selected_rated_button().rect)?;
+            let rated_sel = self.selected_rated_button().rect;
+            if self.needs_redraw(&rated_sel) {
+                draw_selection_marker(&mut display.renderer, &rated_sel)?;
+            }
         }
 
         // Lower half: Send centered.
-        self.send_button.draw(&mut display.renderer)?;
+        if self.needs_redraw(&self.send_button.rect) {
+            self.send_button.draw(&mut display.renderer)?;
+        }
 
         if let Some(status) = &self.status {
             let (sw, sh) = display.renderer.measure_text(status, 24.0);
-            display.renderer.draw_text(
+            let status_rect = Rectangle::new(
                 (layout::SCREEN_W - sw as i16) / 2,
                 1240 - sh as i16 / 2,
-                status,
-                24.0,
-                DrawColor::Black,
-            )?;
+                sw as u16,
+                sh as u16,
+            );
+            if self.needs_redraw(&status_rect) {
+                display.renderer.draw_text(
+                    (layout::SCREEN_W - sw as i16) / 2,
+                    1240 - sh as i16 / 2,
+                    status,
+                    24.0,
+                    DrawColor::Black,
+                )?;
+            }
         }
 
-        self.back_button.draw(&mut display.renderer)?;
+        if self.needs_redraw(&self.back_button.rect) {
+            self.back_button.draw(&mut display.renderer)?;
+        }
 
-        // e07s01: draw the list-picker modal on top of everything.
+        // e07s01: draw the list-picker modal on top of everything (always full).
         if let Some(picker) = &self.list_picker {
             picker.draw(&mut display.renderer)?;
         }
+
+        // Clear dirty rects after render — next render is full unless new dirt.
+        self.dirty_rects.clear();
 
         display.renderer.present()?;
         Ok(())
@@ -812,9 +903,12 @@ impl Screen for PlayScreen {
             // replaces the Friend kind button's label (e06s07).
             AppEvent::FriendSelected(name) => {
                 info!("Opponent selected: {}", name);
+                let old_rect = self.kind_buttons[KIND_FRIEND].rect;
                 self.apply_friend_selected(name);
                 self.status = None;
-                self.skip_full_clear = true;
+                // Partial: only the Friend button changed.
+                self.dirty_rects.push(old_rect);
+                self.dirty_rects.push(self.kind_buttons[KIND_FRIEND].rect);
                 Ok(Transition::Redraw)
             }
 
@@ -829,6 +923,8 @@ impl Screen for PlayScreen {
                 picker.tap_to_select = true; // e07s08: tap a friend = immediate select
                 self.friends = Some(names.clone());
                 self.list_picker = Some(picker);
+                // Modal covers a large area — full render.
+                self.dirty_rects.clear();
                 Ok(Transition::Redraw)
             }
 
@@ -891,15 +987,19 @@ impl Screen for PlayScreen {
                                 self.apply_friend_selected(name);
                             }
                             self.list_picker = None;
-                            self.skip_full_clear = true;
+                            // Modal close covers a large area — full render to erase it.
+                            self.dirty_rects.clear();
                             return Ok(Transition::Redraw);
                         }
                         PickResult::Cancelled => {
                             self.list_picker = None;
+                            // Modal close — full render to erase the overlay.
+                            self.dirty_rects.clear();
                             return Ok(Transition::Redraw);
                         }
                         PickResult::NotHandled => {
-                            // Item tapped (selection updated) — redraw to show highlight.
+                            // Item tapped (selection updated) — modal interaction, full render.
+                            self.dirty_rects.clear();
                             return Ok(Transition::Redraw);
                         }
                     }
@@ -910,13 +1010,25 @@ impl Screen for PlayScreen {
                 }
 
                 if self.mode_button_unlimited.rect.contains(touch.x, touch.y) {
+                    let old_rect = self.selected_mode_button().rect;
+                    let old_selector = self.selector_mode();
                     self.select_mode(ChallengeMode::Unlimited);
-                    self.skip_full_clear = true;
+                    self.mark_selection_change(
+                        old_rect,
+                        self.selected_mode_button().rect,
+                        self.selector_mode() != old_selector,
+                    );
                     return Ok(Transition::Redraw);
                 }
                 if self.mode_button_realtime.rect.contains(touch.x, touch.y) {
+                    let old_rect = self.selected_mode_button().rect;
+                    let old_selector = self.selector_mode();
                     self.select_mode(ChallengeMode::RealTime);
-                    self.skip_full_clear = true;
+                    self.mark_selection_change(
+                        old_rect,
+                        self.selected_mode_button().rect,
+                        self.selector_mode() != old_selector,
+                    );
                     return Ok(Transition::Redraw);
                 }
                 if self
@@ -924,23 +1036,54 @@ impl Screen for PlayScreen {
                     .rect
                     .contains(touch.x, touch.y)
                 {
+                    let old_rect = self.selected_mode_button().rect;
+                    let old_selector = self.selector_mode();
                     let days = self.selected_days;
                     self.select_mode(ChallengeMode::Correspondence(days));
-                    self.skip_full_clear = true;
+                    self.mark_selection_change(
+                        old_rect,
+                        self.selected_mode_button().rect,
+                        self.selector_mode() != old_selector,
+                    );
                     return Ok(Transition::Redraw);
                 }
 
                 // Shared selector row (level | days | info) — see selector_touch.
+                // Capture the old selected button in the current selector mode
+                // so we can mark only the two affected rects dirty.
+                let old_sel_rect = match self.selector_mode() {
+                    SelectorMode::AiLevel => {
+                        self.level_buttons[(self.ai_level - 1).min(7) as usize].rect
+                    }
+                    SelectorMode::Days => self.days_buttons[self.selected_days_index()].rect,
+                    SelectorMode::RandomInfo => Rectangle::new(0, 0, 0, 0),
+                };
                 if self.selector_touch(touch.x, touch.y) {
-                    self.skip_full_clear = true;
+                    let new_sel_rect = match self.selector_mode() {
+                        SelectorMode::AiLevel => {
+                            self.level_buttons[(self.ai_level - 1).min(7) as usize].rect
+                        }
+                        SelectorMode::Days => self.days_buttons[self.selected_days_index()].rect,
+                        SelectorMode::RandomInfo => Rectangle::new(0, 0, 0, 0),
+                    };
+                    let same = new_sel_rect.x == old_sel_rect.x
+                        && new_sel_rect.y == old_sel_rect.y
+                        && new_sel_rect.width == old_sel_rect.width
+                        && new_sel_rect.height == old_sel_rect.height;
+                    if !same {
+                        self.dirty_rects.push(old_sel_rect);
+                        self.dirty_rects.push(new_sel_rect);
+                    }
                     return Ok(Transition::Redraw);
                 }
 
                 // e06: rated toggle + kind selector.
                 for (i, btn) in self.rated_buttons.iter().enumerate() {
                     if btn.rect.contains(touch.x, touch.y) {
+                        let old_rect = self.selected_rated_button().rect;
                         self.select_rated(i == 1);
-                        self.skip_full_clear = true;
+                        self.dirty_rects.push(old_rect);
+                        self.dirty_rects.push(self.selected_rated_button().rect);
                         return Ok(Transition::Redraw);
                     }
                 }
@@ -950,6 +1093,8 @@ impl Screen for PlayScreen {
                         if !Self::kind_selectable(i) {
                             return Ok(Transition::Stay);
                         }
+                        // Kind change always affects the selector row → full render.
+                        self.dirty_rects.clear();
                         self.select_kind(i);
                         // e07s01: tapping the Friend kind button selects
                         // kind=Friend AND opens the ListPicker modal (replaces
@@ -960,7 +1105,6 @@ impl Screen for PlayScreen {
                             self.open_friend_picker(display);
                             return Ok(Transition::Redraw);
                         }
-                        self.skip_full_clear = true;
                         return Ok(Transition::Redraw);
                     }
                 }
