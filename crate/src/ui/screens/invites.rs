@@ -559,6 +559,8 @@ impl Screen for InvitesScreen {
         self.last_fetch = None;
         self.challenges = None;
         self.error = None;
+        // Review fix: reset poll cycle so auto-polling resumes on re-entry.
+        self.poll_count = 0;
     }
 }
 

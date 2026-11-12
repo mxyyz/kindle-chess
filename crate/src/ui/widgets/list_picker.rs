@@ -117,9 +117,38 @@ impl ListPicker {
         if self.cancel_button.rect.contains(px, py) {
             return PickResult::Cancelled;
         }
-        // Select button.
-        if self.select_button.rect.contains(px, py) {
+        // Select button (only in non-tap-to-select mode — it's not drawn then).
+        // Review fix: guard against empty items list.
+        if !self.tap_to_select && self.select_button.rect.contains(px, py) {
+            if self.items.is_empty() {
+                return PickResult::Cancelled;
+            }
             return PickResult::Selected(self.selected);
+        }
+        // Scroll-up indicator (▲ near top of list).
+        if self.scroll_offset > 0 {
+            let up_zone = Rectangle::new(
+                self.modal_rect.x,
+                self.modal_rect.y + 80,
+                self.modal_rect.width,
+                40,
+            );
+            if up_zone.contains(px, py) {
+                self.scroll_up();
+                return PickResult::NotHandled;
+            }
+        }
+        // Scroll-down indicator (▼ below list).
+        let max_offset = self.items.len().saturating_sub(self.max_visible);
+        if self.scroll_offset < max_offset {
+            let list_bottom =
+                self.modal_rect.y + 120 + self.visible_count() as i16 * (self.row_h as i16 + 8);
+            let down_zone =
+                Rectangle::new(self.modal_rect.x, list_bottom, self.modal_rect.width, 40);
+            if down_zone.contains(px, py) {
+                self.scroll_down();
+                return PickResult::NotHandled;
+            }
         }
         // Item rows.
         for vis_idx in 0..self.visible_count() {
@@ -336,5 +365,38 @@ mod tests {
         let r = p.handle_touch(rect.x + 5, rect.y + 5);
         assert_eq!(r, PickResult::NotHandled);
         assert_eq!(p.selected, 3);
+    }
+
+    /// Review fix: scroll-down zone is tappable and advances scroll_offset.
+    #[test]
+    fn scroll_down_zone_tappable() {
+        let mut p = make_picker(20); // 20 items, max_visible=8
+        assert_eq!(p.scroll_offset, 0);
+        // Tap the ▼ zone (below the visible list).
+        let list_bottom = p.modal_rect.y + 120 + p.visible_count() as i16 * (p.row_h as i16 + 8);
+        let r = p.handle_touch(p.modal_rect.x + 10, list_bottom + 5);
+        assert_eq!(r, PickResult::NotHandled);
+        assert_eq!(p.scroll_offset, 1);
+    }
+
+    /// Review fix: scroll-up zone appears only when scrolled and goes back.
+    #[test]
+    fn scroll_up_zone_tappable() {
+        let mut p = make_picker(20);
+        p.scroll_offset = 3;
+        let r = p.handle_touch(p.modal_rect.x + 10, p.modal_rect.y + 85);
+        assert_eq!(r, PickResult::NotHandled);
+        assert_eq!(p.scroll_offset, 2);
+    }
+
+    /// Review fix: empty items + Select → Cancelled (not Selected(0)).
+    #[test]
+    fn empty_items_select_returns_cancelled() {
+        let mut p = make_picker(0);
+        p.tap_to_select = false;
+        let sx = p.select_button.rect.x + 1;
+        let sy = p.select_button.rect.y + 1;
+        let r = p.handle_touch(sx, sy);
+        assert_eq!(r, PickResult::Cancelled);
     }
 }

@@ -122,3 +122,5 @@ puzzle-title = Tagesaufgabe
 refresh = Aktualisieren
 puzzle-badge-tooltip = Tagesaufgabe verfügbar
 rated-badge = gewertet
+ongoing-rating = Wertung: {$rating}
+ongoing-mode = Modus: {$mode}

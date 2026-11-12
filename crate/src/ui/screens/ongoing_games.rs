@@ -96,9 +96,11 @@ impl OngoingChessGamesScreen {
                 empty_card(card_rect(1, 1)),
             ],
             back_button: IconButton::new(32 + ICON_BUTTON_SIZE as i16 / 2, bottom, "back-nav.png"),
-            // e07s05: refresh button shown after the auto-poll cycle ends.
+            // e07s05 + review fix: refresh button to the right of the back
+            // button (back x=99, width=134 → right edge=233) — clear of both
+            // back and the centered pagination buttons.
             refresh_button: IconButton::new(
-                layout::CENTER_X - ICON_BUTTON_SIZE as i16 / 2,
+                32 + ICON_BUTTON_SIZE as i16 / 2 + ICON_BUTTON_SIZE as i16 + 16,
                 bottom,
                 "refresh.png",
             ),
@@ -181,11 +183,16 @@ impl OngoingChessGamesScreen {
                     card.title = title;
                     card.detail_lines.clear();
                     if let Some(r) = opp_rating {
-                        card.detail_lines.push(format!("Rating: {r}"));
+                        card.detail_lines.push(i18n::t(
+                            &loc,
+                            "ongoing-rating",
+                            &[("rating", &r.to_string())],
+                        ));
                     }
-                    card.detail_lines.push(format!(
-                        "Mode: {}",
-                        format!("{:?}", game.speed).to_lowercase()
+                    card.detail_lines.push(i18n::t(
+                        &loc,
+                        "ongoing-mode",
+                        &[("mode", &format!("{:?}", game.speed).to_lowercase())],
                     ));
                     if game.rated {
                         card.detail_lines.push(tr(&loc, "play-rated"));
@@ -426,6 +433,9 @@ impl Screen for OngoingChessGamesScreen {
         // so the next render re-fetches and the ongoing-games view is current.
         self.games = None;
         self.error = None;
+        // Review fix: reset poll cycle so auto-polling resumes on re-entry.
+        self.poll_count = 0;
+        self.last_fetch = None;
     }
 }
 
@@ -494,5 +504,28 @@ mod tests {
         s.page_index = 2;
         assert!(!(s.page_index + 1 < s.page_count()));
         assert!(s.page_index > 0);
+    }
+
+    /// Review fix: bottom-bar buttons (back/refresh/prev/next) must not overlap.
+    #[test]
+    fn bottom_bar_buttons_do_not_overlap() {
+        let s = OngoingChessGamesScreen::new(ChessApp::new_offline(), test_config());
+        let rects = [
+            ("back", s.back_button.rect),
+            ("refresh", s.refresh_button.rect),
+            ("prev", s.prev_page_button.rect),
+            ("next", s.next_page_button.rect),
+        ];
+        for i in 0..rects.len() {
+            for j in (i + 1)..rects.len() {
+                let (na, ra) = rects[i];
+                let (nb, rb) = rects[j];
+                let overlap = ra.x < rb.x + rb.width as i16
+                    && ra.x + ra.width as i16 > rb.x
+                    && ra.y < rb.y + rb.height as i16
+                    && ra.y + ra.height as i16 > rb.y;
+                assert!(!overlap, "{na} overlaps {nb}");
+            }
+        }
     }
 }

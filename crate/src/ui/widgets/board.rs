@@ -365,33 +365,31 @@ impl BoardWidget {
         let files = ['a', 'b', 'c', 'd', 'e', 'f', 'g', 'h'];
         let font = 20.0f32;
         let label_color = DrawColor::Black;
-        // File labels: bottom edge of the board, centered in each column.
+        // Review fix: draw labels INSIDE the board area (in the bottom rank's
+        // squares) so the sidebar's full repaint never erases them. File
+        // letters go in the bottom-right corner of each bottom-row square.
+        let bottom_row_y = self.area.y + 7 * SQUARE_SIZE as i16; // display row 0 = bottom
         for i in 0..8u8 {
             let file_idx = if self.flipped { 7 - i } else { i };
             let ch = files[file_idx as usize];
-            let (tw, th) = renderer.measure_text(&ch.to_string(), font);
-            let cx = self.area.x
-                + (i as i16) * SQUARE_SIZE as i16
-                + (SQUARE_SIZE as i16 - tw as i16) / 2;
-            let cy = self.area.y + 8 * SQUARE_SIZE as i16 + 4;
-            // Only draw if there's room below the board (board ends at area.y + 8*SQ).
-            if cy + th as i16 <= crate::ui::layout::SCREEN_H {
-                renderer.draw_text(cx, cy, &ch.to_string(), font, label_color)?;
-            }
+            let (tw, _th) = renderer.measure_text(&ch.to_string(), font);
+            let cx =
+                self.area.x + (i as i16) * SQUARE_SIZE as i16 + SQUARE_SIZE as i16 - tw as i16 - 8;
+            let cy = bottom_row_y + SQUARE_SIZE as i16 - 24;
+            renderer.draw_text(cx, cy, &ch.to_string(), font, label_color)?;
         }
-        // Rank labels: left edge, centered in each row.
+        // Rank labels: top-left corner of each left-column square.
         for i in 0..8u8 {
             let rank_idx = if self.flipped { i } else { 7 - i };
             let label = (rank_idx + 1).to_string();
             let (tw, th) = renderer.measure_text(&label, font);
-            let cx = self.area.x + 4;
-            // display_rank i -> y = area.y + (7 - i) * SQ, center of that row.
-            let cy = self.area.y
-                + (7 - i as i16) * SQUARE_SIZE as i16
-                + (SQUARE_SIZE as i16 - th as i16) / 2;
-            if cx + tw as i16 <= self.area.x + SQUARE_SIZE as i16 {
-                renderer.draw_text(cx, cy, &label, font, label_color)?;
-            }
+            let cx = self.area.x + 8;
+            // display_rank i -> y = area.y + (7 - i) * SQ
+            let cy = self.area.y + (7 - i as i16) * SQUARE_SIZE as i16 + 6;
+            let _ = th;
+            let _ = tw;
+            renderer.draw_text(cx, cy, &label, font, label_color)?;
+            let _ = tw;
         }
         Ok(())
     }
