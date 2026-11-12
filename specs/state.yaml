@@ -1,15 +1,15 @@
 session:
   active_flow: build_epic
-  active_epic: e07-ui-enhancements (next, release cycle 2); e11-random-opponent-seek deferred to release cycle 3 (after e10)
-  active_story: none — e06 merged to main via PR #42; e07 capsule ready (specs/epics/e07-ui-enhancements/)
-  phase: "e06 done + merged 2026-11-11 (PR #42, main @ 0648ffe, v0.5.0); e07-e10 sliced and ready for release cycle 2; e11 planned for release cycle 3"
+  active_epic: e07-ui-enhancements (release cycle 2, wsjf_order 3)
+  active_story: e07s01
+  phase: "kickoff done 2026-11-12 — worktree /home/mxy/repos/e07-ui-enhancements on branch e07-ui-enhancements @ 4125d17; preflight green (build ok / 258 tests ok / clippy -D warnings ok / fmt ok)"
 vcs:
   kind: git
-  branch: main
-  head: 0648ffe
-  worktree: null
+  branch: e07-ui-enhancements
+  head: 4125d17
+  worktree: /home/mxy/repos/e07-ui-enhancements
 handoff:
-  last_step_completed: e06 merged to main via PR #42 (0648ffe); state.yaml reconciled 2026-11-12 — vcs block was stale (pointed at deleted e06 worktree); e11 correctly deferred to release cycle 3 per WSJF order (e07=3, e08=4, e09=5, e10=6, e11=7)
+  last_step_completed: kickoff-branch for e07 — worktree + branch e07-ui-enhancements created from main @ 4125d17; preflight green (258 tests, clippy, fmt); story lock e07s01 acquired; state.yaml vcs reconciled from stale e06 worktree to main then to e07 worktree
   open_decisions:
   - On-device UAT of the v0.5.0 bundle update needs the k2 on the LAN (device currently holds v0.4.0 + new infra)
   required_reading:
@@ -18,7 +18,7 @@ handoff:
   - specs/planning-context.yaml
   - specs/release-plan.yaml
   - specs/epics/e07-ui-enhancements/epic.yaml
-  next_skill: kickoff-branch for e07, then develop-tdd e07s01..s07
+  next_skill: develop-tdd e07s01
 notes:
   e02-e05: merged to main; tags v0.1.2-v0.5.0 present
   e06-e10: sliced 2026-11-10 (release cycle 2); per-story -tasks.yaml populated, plan-ready
