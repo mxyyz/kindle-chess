@@ -1014,8 +1014,8 @@ mod play_screen_tests {
         let mut s = PlayScreen::new(ChessApp::new_offline(), test_config());
         s.select_kind(KIND_COMPUTER);
         assert_eq!(s.selector_mode(), SelectorMode::AiLevel);
-        for i in 0..s.level_buttons.len() {
-            let r = s.level_buttons[i].rect;
+        let rects: Vec<Rectangle> = s.level_buttons.iter().map(|b| b.rect).collect();
+        for (i, r) in rects.iter().enumerate() {
             let cx = r.x + r.width as i16 / 2;
             let cy = r.y + r.height as i16 / 2;
             assert!(
@@ -1039,16 +1039,13 @@ mod play_screen_tests {
         s.select_kind(KIND_FRIEND);
         s.selected_mode = ChallengeMode::Correspondence(3);
         assert_eq!(s.selector_mode(), SelectorMode::Days);
-        for i in 0..s.days_buttons.len() {
-            let r = s.days_buttons[i].rect;
+        let rects: Vec<Rectangle> = s.days_buttons.iter().map(|b| b.rect).collect();
+        for (&day, r) in ALLOWED_CORRESPONDENCE_DAYS.iter().zip(&rects) {
             let cx = r.x + r.width as i16 / 2;
             let cy = r.y + r.height as i16 / 2;
             assert!(s.selector_touch(cx, cy));
-            assert_eq!(s.selected_days, ALLOWED_CORRESPONDENCE_DAYS[i]);
-            assert_eq!(
-                s.mode(),
-                ChallengeMode::Correspondence(ALLOWED_CORRESPONDENCE_DAYS[i])
-            );
+            assert_eq!(s.selected_days, day);
+            assert_eq!(s.mode(), ChallengeMode::Correspondence(day));
         }
     }
 
@@ -1206,14 +1203,9 @@ mod play_screen_tests {
                 "{ctx}: overflows bottom: {r:?}"
             );
         }
-        for i in 0..rects.len() {
-            for j in (i + 1)..rects.len() {
-                assert!(
-                    !rects_overlap(&rects[i], &rects[j]),
-                    "{ctx}: overlap: {:?} vs {:?}",
-                    rects[i],
-                    rects[j]
-                );
+        for (i, a) in rects.iter().enumerate() {
+            for b in rects.iter().skip(i + 1) {
+                assert!(!rects_overlap(a, b), "{ctx}: overlap: {a:?} vs {b:?}");
             }
         }
     }
