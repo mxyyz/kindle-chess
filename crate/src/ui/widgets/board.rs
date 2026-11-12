@@ -379,13 +379,14 @@ impl BoardWidget {
                 (DrawColor::Black, DrawColor::LightGray) // light square
             }
         };
-        // Rank numbers: top-left of each RIGHT-column square (c=7).
+        // Rank numbers: top-right of each RIGHT-column square (c=7), right-aligned.
         for r in 0..8u8 {
             let file = if self.flipped { 0 } else { 7 };
             let rank = if self.flipped { r } else { 7 - r };
             let label = (rank + 1).to_string();
             let (fg, bg) = label_colors(file, rank);
-            let cx = self.area.x + 7 * SQUARE_SIZE as i16 + 8;
+            let (tw, _) = renderer.measure_text(&label, font);
+            let cx = self.area.x + 8 * SQUARE_SIZE as i16 - tw as i16 - 8;
             let cy = self.area.y + (r as i16) * SQUARE_SIZE as i16 + 6;
             renderer.draw_text_on_bg(cx, cy, &label, font, fg, bg)?;
         }
