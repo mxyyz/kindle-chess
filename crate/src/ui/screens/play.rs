@@ -563,6 +563,7 @@ impl PlayScreen {
             let mut picker = crate::ui::widgets::ListPicker::new((**friends).clone(), title);
             picker.select_button.label = tr(&loc, "picker-select");
             picker.cancel_button.label = tr(&loc, "picker-cancel");
+            picker.tap_to_select = true; // e07s08: tap a friend = immediate select
             self.list_picker = Some(picker);
         } else if !self.friends_loading {
             // Fetch friends; picker opens in the FriendsLoaded handler.
@@ -807,6 +808,7 @@ impl Screen for PlayScreen {
                 let mut picker = crate::ui::widgets::ListPicker::new((*names).clone(), title);
                 picker.select_button.label = tr(&loc, "picker-select");
                 picker.cancel_button.label = tr(&loc, "picker-cancel");
+                picker.tap_to_select = true; // e07s08: tap a friend = immediate select
                 self.friends = Some(names.clone());
                 self.list_picker = Some(picker);
                 Ok(Transition::Redraw)

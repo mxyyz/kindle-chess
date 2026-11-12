@@ -40,6 +40,9 @@ pub struct ListPicker {
     pub cancel_button: Button,
     /// Optional title drawn at the top of the modal.
     pub title: String,
+    /// e07s08: when true, tapping an item immediately selects it (no Select
+    /// button needed). When false, item tap only highlights; Select confirms.
+    pub tap_to_select: bool,
 }
 
 impl ListPicker {
@@ -85,6 +88,7 @@ impl ListPicker {
                 true,
             ),
             title,
+            tap_to_select: false,
         }
     }
 
@@ -124,8 +128,10 @@ impl ListPicker {
                 let item_idx = self.scroll_offset + vis_idx;
                 if item_idx < self.items.len() {
                     self.selected = item_idx;
-                    // Auto-confirm on tap of an item? No — user must tap Select.
-                    // But we update the highlight.
+                    // e07s08: tap-to-select mode returns Selected immediately.
+                    if self.tap_to_select {
+                        return PickResult::Selected(item_idx);
+                    }
                 }
                 return PickResult::NotHandled;
             }
@@ -210,8 +216,10 @@ impl ListPicker {
             renderer.draw_text(lx, list_bottom, label, 24.0, DrawColor::Black)?;
         }
 
-        // Buttons.
-        self.select_button.draw(renderer)?;
+        // Buttons. e07s08: skip Select button in tap-to-select mode.
+        if !self.tap_to_select {
+            self.select_button.draw(renderer)?;
+        }
         self.cancel_button.draw(renderer)?;
 
         Ok(())
@@ -308,5 +316,25 @@ mod tests {
             assert!(r.x >= p.modal_rect.x);
             assert!(r.x + r.width as i16 <= p.modal_rect.x + p.modal_rect.width as i16);
         }
+    }
+
+    /// e07s08: tap_to_select=true → item tap returns Selected immediately.
+    #[test]
+    fn tap_to_select_returns_selected_on_item_tap() {
+        let mut p = make_picker(5);
+        p.tap_to_select = true;
+        let rect = p.item_rect(2); // third item
+        let r = p.handle_touch(rect.x + 5, rect.y + 5);
+        assert_eq!(r, PickResult::Selected(2));
+    }
+
+    /// e07s08: tap_to_select=false (default) → item tap only highlights.
+    #[test]
+    fn no_tap_to_select_highlights_only() {
+        let mut p = make_picker(5);
+        let rect = p.item_rect(3);
+        let r = p.handle_touch(rect.x + 5, rect.y + 5);
+        assert_eq!(r, PickResult::NotHandled);
+        assert_eq!(p.selected, 3);
     }
 }
