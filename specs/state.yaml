@@ -1,15 +1,15 @@
 session:
   active_flow: build_epic
-  active_epic: e06-play-form-enhancements (done); e11-random-opponent-seek planned next (release cycle 3)
-  active_story: none — e06 done; e11 capsule planned (specs/epics/e11-random-opponent-seek/)
-  phase: "kickoff done 2026-11-11 — worktree /home/mxy/repos/e06-play-form-enhancements on branch e06-play-form-enhancements @ 55d8e94; preflight green on main (build/test 9x ok/clippy -D warnings/fmt)"
+  active_epic: e07-ui-enhancements (next, release cycle 2); e11-random-opponent-seek deferred to release cycle 3 (after e10)
+  active_story: none — e06 merged to main via PR #42; e07 capsule ready (specs/epics/e07-ui-enhancements/)
+  phase: "e06 done + merged 2026-11-11 (PR #42, main @ 0648ffe, v0.5.0); e07-e10 sliced and ready for release cycle 2; e11 planned for release cycle 3"
 vcs:
   kind: git
-  branch: e06-play-form-enhancements
-  head: 55d8e94
-  worktree: /home/mxy/repos/e06-play-form-enhancements
+  branch: main
+  head: 0648ffe
+  worktree: null
 handoff:
-  last_step_completed: e06 finished — Random button disabled + relabeled "coming soon"; final gates incl. armv7 cross green on e06-play-form-enhancements; BUG-2026-11-11T145208 + T153246 + label-margin + blank-row fixes committed (ae7134c, de49136, 9077cda, 28a42e8); random-opponent-seek moved from e06.5 to release cycle 3 as e11 — capsule specs/epics/e11-random-opponent-seek/ (POST /api/board/seek held-open + GET /api/stream/event first), impact specs/IMPACT_LATEST.md; e07+ untouched
+  last_step_completed: e06 merged to main via PR #42 (0648ffe); state.yaml reconciled 2026-11-12 — vcs block was stale (pointed at deleted e06 worktree); e11 correctly deferred to release cycle 3 per WSJF order (e07=3, e08=4, e09=5, e10=6, e11=7)
   open_decisions:
   - On-device UAT of the v0.5.0 bundle update needs the k2 on the LAN (device currently holds v0.4.0 + new infra)
   required_reading:
@@ -17,8 +17,8 @@ handoff:
   - specs/product/SCOPE_LATEST.yaml
   - specs/planning-context.yaml
   - specs/release-plan.yaml
-  - specs/epics/e06-play-form-enhancements/epic.yaml
-  next_skill: kickoff-branch for e11, then develop-tdd e11s01..s04 (do not touch e07+)
+  - specs/epics/e07-ui-enhancements/epic.yaml
+  next_skill: kickoff-branch for e07, then develop-tdd e07s01..s07
 notes:
   e02-e05: merged to main; tags v0.1.2-v0.5.0 present
   e06-e10: sliced 2026-11-10 (release cycle 2); per-story -tasks.yaml populated, plan-ready
