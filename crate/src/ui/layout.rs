@@ -33,14 +33,14 @@ pub const SIDEBAR_H: u16 = SCREEN_H_U16 - SCREEN_W_U16;
 /// Icon button footprint = one chess cell.
 pub const ICON_BUTTON_SIZE: u16 = SQUARE_SIZE;
 
-/// Y position for list-screen title bars (36px font).
+/// Y position for title bars.
 pub const TITLE_Y: i16 = 120;
-/// Font size for list-screen titles.
-pub const TITLE_FONT: f32 = 36.0;
-/// Y position for full-page titles (56px font).
-pub const PAGE_TITLE_Y: i16 = 120;
-/// Font size for full-page titles.
-pub const PAGE_TITLE_FONT: f32 = 56.0;
+/// Font size for ALL screen titles — e07s09: unified to 56px (Settings-page size).
+pub const TITLE_FONT: f32 = 56.0;
+/// Alias for backward compat — same as TITLE_FONT now.
+pub const PAGE_TITLE_Y: i16 = TITLE_Y;
+/// Alias — same as TITLE_FONT now.
+pub const PAGE_TITLE_FONT: f32 = TITLE_FONT;
 
 /// Draw a centered list-screen title bar (36px, y=120).
 pub fn draw_title_bar(
@@ -118,10 +118,10 @@ mod tests {
 
     #[test]
     fn title_constants_are_sane() {
+        // e07s09: all titles unified to 56px.
         assert_eq!(TITLE_Y, 120);
-        assert_eq!(TITLE_FONT, 36.0);
-        assert_eq!(PAGE_TITLE_Y, 120);
-        assert_eq!(PAGE_TITLE_FONT, 56.0);
-        assert!(PAGE_TITLE_FONT > TITLE_FONT);
+        assert_eq!(TITLE_FONT, 56.0);
+        assert_eq!(PAGE_TITLE_Y, TITLE_Y);
+        assert_eq!(PAGE_TITLE_FONT, TITLE_FONT);
     }
 }

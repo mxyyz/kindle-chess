@@ -4,7 +4,7 @@ home-puzzle = Aufgabe
 home-ongoing = Laufende Partien
 home-settings = Einstellungen
 
-play-title = Gegen Freund spielen
+play-title = Neue Partie
 play-mode-unlimited = Unbegrenzt
 play-mode-realtime = Echtzeit 10:5
 play-mode-correspondence = Fernschach

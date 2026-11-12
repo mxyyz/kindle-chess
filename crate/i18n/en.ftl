@@ -4,7 +4,7 @@ home-puzzle = Puzzle
 home-ongoing = Ongoing Games
 home-settings = Settings
 
-play-title = Play vs friend
+play-title = New Game
 play-mode-unlimited = Unlimited
 play-mode-realtime = Real time 10:5
 play-mode-correspondence = Correspondence
