@@ -210,4 +210,4 @@ against `env!("ASSETS_DIR")` and returns `None` with a warning on failure, so a 
 PNG degrades to an invisible-but-still-tappable button rather than a crash.
 
 Icons in use: `back-nav.png`, `back-page.png`, `next-page.png`, `settings.png`,
-`hint.png`, `check.png`, `x.png`, `logo.png`.
+`hint.png`, `correct.png`, `x.png`, `logo.png`.

@@ -1,0 +1,30 @@
+---
+# Story e07s12 — board labels visibility via AppConfig setting.
+story_id: e07s12
+title: "Board file/rank labels gated by persistent AppConfig.board_labels (default true)"
+status: todo
+bcps: 3
+delta: MODIFIED
+tasks:
+  - id: e07s12t01
+    description: >-
+      config.rs: add `pub board_labels: bool` to AppConfig, default true in
+      Default impl.
+    verify: "cd crate && cargo test --lib config 2>&1 | grep -q 'test result: ok'"
+    status: todo
+  - id: e07s12t02
+    description: >-
+      board.rs: add `show_labels: bool` field (default true) + `set_show_labels`.
+      draw_labels returns early when false.
+    verify: "cd crate && cargo test --lib board 2>&1 | grep -q 'test result: ok'"
+    status: todo
+  - id: e07s12t03
+    description: >-
+      chess_game.rs + puzzle.rs: call board.set_show_labels(config.board_labels)
+      when creating/updating the board widget.
+    verify: "cd crate && cargo build 2>&1 | tail -1 | grep -q 'Finished' && grep -q 'set_show_labels' crate/src/ui/screens/chess_game.rs"
+    status: todo
+  - id: e07s12t04
+    description: "Full gates: test + clippy -D warnings + fmt"
+    verify: "cd crate && cargo test 2>&1 | grep -q 'test result: ok' && cargo clippy --all-targets -- -D warnings 2>&1 | tail -1 | grep -q 'Finished' && cargo fmt --check && echo GATES-OK"
+    status: todo

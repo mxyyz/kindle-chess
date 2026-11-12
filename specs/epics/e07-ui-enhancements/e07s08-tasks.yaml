@@ -1,0 +1,32 @@
+---
+# Story e07s08 — ListPicker tap-to-select mode for friend picker.
+story_id: e07s08
+title: "ListPicker tap-to-select (no Select button) — friend picker uses it"
+status: todo
+bcps: 3
+delta: MODIFIED
+tasks:
+  - id: e07s08t01
+    description: >-
+      list_picker.rs: add `tap_to_select: bool` field (default false). In
+      handle_touch, when true and an item row is tapped, return
+      PickResult::Selected(item_idx) immediately. In draw, skip the Select
+      button when tap_to_select is true.
+    verify: "cd crate && cargo test --lib list_picker 2>&1 | grep -q 'test result: ok'"
+    status: todo
+  - id: e07s08t02
+    description: >-
+      Unit tests: tap_to_select=true → item tap returns Selected immediately;
+      tap_to_select=false → item tap returns NotHandled (highlight only).
+    verify: "cd crate && cargo test --lib list_picker 2>&1 | grep -q 'test result: ok'"
+    status: todo
+  - id: e07s08t03
+    description: >-
+      play.rs: set `picker.tap_to_select = true` in both open_friend_picker
+      and FriendsLoaded handler.
+    verify: "cd crate && cargo build 2>&1 | tail -1 | grep -q 'Finished' && grep -q 'tap_to_select = true' crate/src/ui/screens/play.rs"
+    status: todo
+  - id: e07s08t04
+    description: "Full gates: test + clippy -D warnings + fmt"
+    verify: "cd crate && cargo test 2>&1 | grep -q 'test result: ok' && cargo clippy --all-targets -- -D warnings 2>&1 | tail -1 | grep -q 'Finished' && cargo fmt --check && echo GATES-OK"
+    status: todo

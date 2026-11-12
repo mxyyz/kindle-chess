@@ -1,0 +1,38 @@
+---
+# Story e07s11 — OngoingGames square cards + Invites icon buttons.
+story_id: e07s11
+title: "OngoingGames square cards with detail rows; Invites check/close icon buttons + wider labels"
+status: todo
+bcps: 8
+delta: MODIFIED
+tasks:
+  - id: e07s11t01
+    description: >-
+      ongoing_games.rs: replace 4 Button rows with GameCard struct (square
+      rect, title, detail lines). 2×2 grid layout. Render title at 28px,
+      each detail on own row at 20px.
+    verify: "cd crate && cargo build 2>&1 | tail -1 | grep -q 'Finished'"
+    status: todo
+  - id: e07s11t02
+    description: >-
+      ongoing_games.rs: unit test — 2×2 card rects don't overlap; touch
+      handling maps to correct game index.
+    verify: "cd crate && cargo test --lib ongoing_games 2>&1 | grep -q 'test result: ok'"
+    status: todo
+  - id: e07s11t03
+    description: >-
+      invites.rs: incoming_accept → [IconButton;4] with check.png,
+      incoming_decline → [IconButton;4] with close.png. Increase NAME_W
+      from 420 to 700+.
+    verify: "cd crate && cargo build 2>&1 | tail -1 | grep -q 'Finished' && grep -q 'check.png' crate/src/ui/screens/invites.rs && grep -q 'close.png' crate/src/ui/screens/invites.rs"
+    status: todo
+  - id: e07s11t04
+    description: >-
+      invites.rs: unit test — icon button rects don't overlap name rects
+      (AABB check). Update touch handling for new icon rects.
+    verify: "cd crate && cargo test --lib invites 2>&1 | grep -q 'test result: ok'"
+    status: todo
+  - id: e07s11t05
+    description: "Full gates: test + clippy -D warnings + fmt"
+    verify: "cd crate && cargo test 2>&1 | grep -q 'test result: ok' && cargo clippy --all-targets -- -D warnings 2>&1 | tail -1 | grep -q 'Finished' && cargo fmt --check && echo GATES-OK"
+    status: todo
