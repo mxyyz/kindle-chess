@@ -67,8 +67,12 @@ impl InvitesScreen {
         let name_x = 136;
         let acc_x = 576;
         let dec_x = 792;
-        let irow = |i: usize| 240 + i as i16 * (ROW_H as i16 + ROW_GAP);
-        let orow = |i: usize| 720 + i as i16 * (ROW_H as i16 + ROW_GAP);
+        // e07s03: rows pushed down so pagination icons (on the section-label
+        // row) don't overlap action buttons. Icons at y=176 end at 310;
+        // incoming rows start at 320. Icons at y=700 end at 834; outgoing
+        // rows start at 840.
+        let irow = |i: usize| 320 + i as i16 * (ROW_H as i16 + ROW_GAP);
+        let orow = |i: usize| 840 + i as i16 * (ROW_H as i16 + ROW_GAP);
         let btn = |x: i16, y: i16, w: u16, label: &str| {
             Button::new(x, y, w, ROW_H, label.to_string(), 32.0, true)
         };
@@ -85,10 +89,11 @@ impl InvitesScreen {
             incoming_decline: std::array::from_fn(|i| btn(dec_x, irow(i), ACT_W, "Decline")),
             outgoing_name: std::array::from_fn(|i| btn(name_x, orow(i), NAME_W, "-")),
             outgoing_cancel: std::array::from_fn(|i| btn(acc_x, orow(i), ACT_W, "Cancel")),
+            // e07s03: pagination icons on the section-label row, clear of rows.
             incoming_prev: IconButton::new(icon_prev_x, 176, "back-page.png"),
             incoming_next: IconButton::new(icon_next_x, 176, "next-page.png"),
-            outgoing_prev: IconButton::new(icon_prev_x, 656, "back-page.png"),
-            outgoing_next: IconButton::new(icon_next_x, 656, "next-page.png"),
+            outgoing_prev: IconButton::new(icon_prev_x, 700, "back-page.png"),
+            outgoing_next: IconButton::new(icon_next_x, 700, "next-page.png"),
             back_button: IconButton::new(32 + ICON_BUTTON_SIZE as i16 / 2, bottom, "back-nav.png"),
             challenges: None,
             error: None,
@@ -295,7 +300,7 @@ impl Screen for InvitesScreen {
             Ok(())
         };
         label(200, &tr(&loc, "invites-incoming"))?;
-        label(680, &tr(&loc, "invites-outgoing"))?;
+        label(724, &tr(&loc, "invites-outgoing"))?;
 
         if let Some(err) = &self.error {
             let label = i18n::t(
@@ -599,5 +604,42 @@ mod invites_tests {
         assert!(s.outgoing_visible(0));
         assert!(s.outgoing_visible(1));
         assert!(!s.outgoing_visible(2));
+    }
+
+    /// e07s03: pagination icon rects must not intersect any action-button rect.
+    #[test]
+    fn pagination_icons_do_not_overlap_action_buttons() {
+        use crate::ui::events::RectangleExt;
+        let s = InvitesScreen::new(ChessApp::new_offline(), test_config());
+        let pag_rects = [
+            s.incoming_prev.rect,
+            s.incoming_next.rect,
+            s.outgoing_prev.rect,
+            s.outgoing_next.rect,
+        ];
+        let action_rects: Vec<_> = s
+            .incoming_accept
+            .iter()
+            .chain(s.incoming_decline.iter())
+            .chain(s.outgoing_cancel.iter())
+            .map(|b| b.rect)
+            .collect();
+        for pr in &pag_rects {
+            for ar in &action_rects {
+                assert!(
+                    !rects_intersect(pr, ar),
+                    "pagination rect {pr:?} intersects action rect {ar:?}"
+                );
+            }
+        }
+    }
+
+    fn rects_intersect(a: &crate::ui::events::Rectangle, b: &crate::ui::events::Rectangle) -> bool {
+        use crate::ui::events::RectangleExt;
+        // Standard AABB overlap test (edges exclusive).
+        a.x < b.x + b.width as i16
+            && a.x + a.width as i16 > b.x
+            && a.y < b.y + b.height as i16
+            && a.y + a.height as i16 > b.y
     }
 }
