@@ -115,12 +115,8 @@ update-staged-relaunch = Beenden und neu starten zum Abschließen.
 
 picker-select = Auswählen
 picker-cancel = Abbrechen
-picker-empty = Keine Einträge
 ongoing-title = Laufende Partien
 auth-title = Bei Lichess anmelden
 puzzle-title = Tagesaufgabe
-refresh = Aktualisieren
-puzzle-badge-tooltip = Tagesaufgabe verfügbar
-rated-badge = gewertet
 ongoing-rating = Wertung: {$rating}
 ongoing-mode = Modus: {$mode}

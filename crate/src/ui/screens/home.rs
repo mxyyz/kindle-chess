@@ -49,7 +49,7 @@ pub struct HomeScreen {
     /// the puzzle screen when the Puzzle button is pressed.
     pub config: Arc<RwLock<AppConfig>>,
     /// e07s05: when true, draw a badge dot on the puzzle button corner
-    /// (daily puzzle available + unsolved).
+    /// (daily puzzle available).
     pub puzzle_badge: bool,
 }
 

@@ -115,12 +115,8 @@ update-staged-relaunch = Quit and relaunch to finish installing.
 
 picker-select = Select
 picker-cancel = Cancel
-picker-empty = No items
 ongoing-title = Ongoing Games
 auth-title = Sign in to Lichess
 puzzle-title = Daily Puzzle
-refresh = Refresh
-puzzle-badge-tooltip = Daily puzzle available
-rated-badge = rated
 ongoing-rating = Rating: {$rating}
 ongoing-mode = Mode: {$mode}

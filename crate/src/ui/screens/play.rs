@@ -567,8 +567,8 @@ impl PlayScreen {
             self.list_picker = Some(picker);
         } else if !self.friends_loading {
             // Fetch friends; picker opens in the FriendsLoaded handler.
-            self.friends_loading = true;
             if let Some(api) = self.app.online_idle_api() {
+                self.friends_loading = true;
                 let tx = display.event_tx.clone();
                 tokio::spawn(async move {
                     match api.get_following().await {
@@ -580,6 +580,10 @@ impl PlayScreen {
                         }
                     }
                 });
+            } else {
+                // Review fix: offline — show status instead of silent no-op.
+                let loc = i18n::locale_of(&self.config);
+                self.status = Some(tr(&loc, "play-status-failed").replace("{error}", "offline"));
             }
         }
     }
