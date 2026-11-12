@@ -40,6 +40,9 @@ pub struct AppConfig {
     /// UI language (Fluent locale id), e.g. "en" / "de". Runtime choice held
     /// in the in-memory store; defaults to English.
     pub language: String,
+    /// e07s12: show file/rank labels on the board edges. Default true.
+    /// UI toggle deferred to e08-settings-tabs.
+    pub board_labels: bool,
 }
 
 impl Default for AppConfig {
@@ -48,6 +51,7 @@ impl Default for AppConfig {
             puzzle: PuzzleParams::default(),
             chrome_on_start: false,
             language: crate::i18n::DEFAULT_LOCALE.to_string(),
+            board_labels: true,
         }
     }
 }

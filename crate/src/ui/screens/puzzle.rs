@@ -49,8 +49,15 @@ pub struct PuzzleScreen {
 impl PuzzleScreen {
     pub fn new(token: Option<TokenInfo>, config: Arc<RwLock<AppConfig>>) -> Self {
         let params = config.read().map(|c| c.puzzle).unwrap_or_default();
+        let board_labels = config.read().map(|c| c.board_labels).unwrap_or(true);
         Self {
-            board: BoardWidget::new(Rectangle::new(0, 0, layout::BOARD_SIZE, layout::BOARD_SIZE)),
+            board: {
+                let mut b =
+                    BoardWidget::new(Rectangle::new(0, 0, layout::BOARD_SIZE, layout::BOARD_SIZE));
+                // e07s12: read board_labels from persistent config.
+                b.set_show_labels(board_labels);
+                b
+            },
             sidebar: PuzzleSidebarWidget::new(Rectangle::new(
                 0,
                 layout::SIDEBAR_Y,

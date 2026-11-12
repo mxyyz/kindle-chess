@@ -52,6 +52,9 @@ pub struct BoardWidget {
     /// Pre-decoded piece sprites, indexed by [color_idx][piece_idx] matching
     /// the order in `Bitboards::boards`. Loaded once on `new()`.
     piece_sprites: PieceSprites,
+    /// e07s12: whether to draw file/rank labels on board edges.
+    /// Controlled by AppConfig.board_labels; UI toggle in e08.
+    show_labels: bool,
 }
 
 type Sprite = ImageBuffer<Rgba<u8>, Vec<u8>>;
@@ -116,6 +119,7 @@ impl BoardWidget {
             area,
             selected_square: None,
             flipped: false,
+            show_labels: true,
             position: None,
             last_drawn_position: None,
             last_drawn_selection: None,
@@ -149,6 +153,14 @@ impl BoardWidget {
     pub fn set_flipped(&mut self, flipped: bool) {
         if self.flipped != flipped {
             self.flipped = flipped;
+            self.force_full_repaint = true;
+        }
+    }
+
+    /// e07s12: set label visibility from AppConfig.board_labels.
+    pub fn set_show_labels(&mut self, show: bool) {
+        if self.show_labels != show {
+            self.show_labels = show;
             self.force_full_repaint = true;
         }
     }
@@ -334,8 +346,11 @@ impl BoardWidget {
             }
         }
 
-        // e07s07: file/rank labels on board edges, orientation-aware.
-        self.draw_labels(renderer)?;
+        // e07s07/e07s12: file/rank labels on board edges, orientation-aware,
+        // gated by the persistent show_labels setting.
+        if self.show_labels {
+            self.draw_labels(renderer)?;
+        }
 
         self.last_drawn_position = self.position.clone();
         self.last_drawn_selection = self.selected_square;
