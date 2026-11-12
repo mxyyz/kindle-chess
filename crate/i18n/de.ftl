@@ -116,3 +116,6 @@ update-staged-relaunch = Beenden und neu starten zum Abschließen.
 picker-select = Auswählen
 picker-cancel = Abbrechen
 picker-empty = Keine Einträge
+ongoing-title = Laufende Partien
+auth-title = Bei Lichess anmelden
+puzzle-title = Tagesaufgabe

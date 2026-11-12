@@ -157,14 +157,7 @@ impl Screen for FriendlistScreen {
         // Title strip
         let loc = i18n::locale_of(&self.config);
         let title = tr(&loc, "friends-title");
-        let (tw, _) = display.renderer.measure_text(&title, 36.0);
-        display.renderer.draw_text(
-            (layout::SCREEN_W - tw as i16) / 2,
-            120,
-            &title,
-            36.0,
-            DrawColor::Black,
-        )?;
+        layout::draw_title_bar(&mut display.renderer, &title)?;
 
         let size_px = 24.0;
         if let Some(err) = &self.error {

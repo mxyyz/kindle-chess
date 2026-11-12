@@ -95,15 +95,7 @@ impl Screen for UpdateScreen {
 
         // Title
         let title = tr(&i18n::locale_of(&self.config), "update-title");
-        let title_size = 56.0;
-        let (tw, _) = display.renderer.measure_text(&title, title_size);
-        display.renderer.draw_text(
-            (layout::SCREEN_W - tw as i16) / 2,
-            120,
-            &title,
-            title_size,
-            DrawColor::Black,
-        )?;
+        layout::draw_page_title(&mut display.renderer, &title)?;
 
         // State-driven body. The action button is only drawn (and only live in
         // the touch handler) when there is something meaningful to do.

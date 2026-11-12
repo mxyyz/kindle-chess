@@ -217,6 +217,10 @@ impl Screen for OngoingChessGamesScreen {
 
         display.renderer.clear(DrawColor::White)?;
 
+        // e07s02: uniform title bar.
+        let loc = i18n::locale_of(&self.config);
+        layout::draw_title_bar(&mut display.renderer, &tr(&loc, "ongoing-title"))?;
+
         let size_px = 24.0;
 
         if let Some(err) = &self.error {

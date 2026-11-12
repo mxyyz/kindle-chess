@@ -80,15 +80,7 @@ impl Screen for GameActionsScreen {
         self.abort_button.label = tr(&loc, "game-abort");
         self.back_button.label = tr(&loc, "settings-back");
         let title = tr(&loc, "game-actions-title");
-        let title_size = 56.0;
-        let (tw, _) = display.renderer.measure_text(&title, title_size);
-        display.renderer.draw_text(
-            (layout::SCREEN_W - tw as i16) / 2,
-            160,
-            &title,
-            title_size,
-            DrawColor::Black,
-        )?;
+        layout::draw_page_title(&mut display.renderer, &title)?;
 
         self.resign_button.draw(&mut display.renderer)?;
         self.abort_button.draw(&mut display.renderer)?;
