@@ -1,26 +1,55 @@
 ---
-# Story e06s03 — challenge send flow routing.
+# Story e06s03 — challenge send flow routing per OpponentKind + rated.
+# Plan-work 2026-11-11: failing ledger.
 story_id: e06s03
 title: "Challenge send flow: route to correct litchee call per OpponentKind + rated"
-status: todo
+status: passing
 bcps: 5
 delta: MODIFIED
+spec: e06s03-send-flow.md
 tasks:
   - id: e06s03t01
     description: >-
-      play.rs handle_event: on Send, match OpponentKind -> call adapter method;
-      Friend -> send_challenge(rated), Computer -> send_challenge_ai(level, ...),
-      Random -> create_open_challenge(...) and navigate to InvitesScreen.
-    verify: "cd crate && cargo build 2>&1 | tail -1 | grep -q 'Finished'"
-    status: todo
+      events.rs: add AppEvent::AiGameStarted { game_id, my_turn }; play.rs send_challenge:
+      match opponent_kind — Friend -> send_challenge(name, mode, rated) -> ChallengeSent ->
+      InvitesScreen; Computer -> send_challenge_ai(level, mode) -> AiGameStarted -> push
+      ChessGameScreen; Random -> create_open_challenge(mode, rated) -> ChallengeSent -> InvitesScreen.
+    verify: "cd crate && cargo build --all-targets 2>&1 | tail -1 | grep -q 'Finished'"
+    risk: P0
+    security: low
+    status: passing
+    allure:
+      severity: critical
+      categories: ["e06", "challenge-api", "routing"]
   - id: e06s03t02
     description: >-
-      Status messages: sending/sent/failed per opponent kind; AI game starts
-      immediately (push ChessGameScreen); open challenge shows "waiting" in
-      InvitesScreen.
-    verify: "cd crate && cargo test --lib play 2>&1 | grep -q 'test result: ok'"
-    status: todo
+      play.rs: handle AiGameStarted by pushing ChessGameScreen::new(app.attach_game(game_id, my_turn), config).
+    verify: "cd crate && cargo build 2>&1 | tail -1 | grep -q 'Finished'"
+    risk: P1
+    security: none
+    status: passing
+    allure:
+      severity: high
+      categories: ["e06", "navigation"]
   - id: e06s03t03
-    description: "EN/DE i18n for status messages"
-    verify: 'grep -rn ''sending\|sent\|waiting\|failed'' crate/assets/locales/en/ 2>/dev/null | wc -l | grep -q ''[1-9]'''
-    status: todo
+    description: >-
+      Per-kind status messages with i18n: play-status-sending-ai, play-status-open-sent
+      in crate/i18n/en.ftl + de.ftl (failure reuses play-status-failed).
+    verify: "cd crate && grep -q 'play-status-sending-ai' i18n/en.ftl && grep -q 'play-status-sending-ai' i18n/de.ftl && grep -q 'play-status-open-sent' i18n/en.ftl && grep -q 'play-status-open-sent' i18n/de.ftl"
+    risk: P2
+    security: none
+    status: passing
+    allure:
+      severity: normal
+      categories: ["e06", "i18n"]
+  - id: e06s03t04
+    description: >-
+      Unit tests: routing picks correct adapter call per kind; AI start emits AiGameStarted;
+      open challenge emits ChallengeSent.
+    verify: "cd crate && cargo test --lib play 2>&1 | grep -q 'test result: ok'"
+    risk: P1
+    security: none
+    status: passing
+    allure:
+      severity: high
+      categories: ["e06", "routing", "unit"]

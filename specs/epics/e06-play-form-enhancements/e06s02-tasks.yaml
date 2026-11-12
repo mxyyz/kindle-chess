@@ -1,30 +1,53 @@
 ---
 # Story e06s02 — PlayScreen UI for rated/casual + opponent picker.
+# Plan-work 2026-11-11: failing ledger; friend picking stays on FriendlistScreen (e07 list-picker lands later).
 story_id: e06s02
 title: "PlayScreen UI: rated/casual toggle + opponent picker (Friend/Computer/Random)"
-status: todo
+status: passing
 bcps: 8
 delta: MODIFIED
+spec: e06s02-playscreen-ui.md
 tasks:
   - id: e06s02t01
     description: >-
-      play.rs: add rated/casual toggle buttons (2-button group) above/below mode
-      row; add opponent-type selector (Friend/Computer/Random) — Friend opens
-      list-picker (from e07), Computer shows level spinner (1-8), Random sends
-      directly.
+      play.rs: add rated_toggle [Button;2] (Rated/Casual, default Casual) and kind_buttons
+      [Button;3] (Friend/Computer/Random) + AI level selector (1-8) shown for Computer;
+      wire touch handling in handle_event; add opponent_kind + rated state.
     verify: "cd crate && cargo build 2>&1 | tail -1 | grep -q 'Finished'"
-    status: todo
+    risk: P0
+    security: none
+    status: passing
+    allure:
+      severity: critical
+      categories: ["e06", "ui", "play-screen"]
   - id: e06s02t02
     description: >-
-      Layout fits 1072x1448: all new buttons within layout::SCREEN_W/H bounds;
-      no overlap with existing mode/days/opponent/send buttons; triple-tap-safe.
+      Layout: all new button rects inside layout::SCREEN_W/H (1072x1448) and non-overlapping
+      with existing mode/days/opponent/send rows; unit test asserts bounds + no overlap.
     verify: "cd crate && cargo test --lib play 2>&1 | grep -q 'test result: ok'"
-    status: todo
+    risk: P1
+    security: none
+    status: passing
+    allure:
+      severity: high
+      categories: ["e06", "ui", "layout"]
   - id: e06s02t03
-    description: "EN/DE i18n strings for all new labels (rated, casual, opponent types, AI level)"
-    verify: 'cd crate && grep -c ''e06\|rated\|opponent\|computer\|random'' crate/src/i18n.rs 2>/dev/null || grep -rn ''rated\|computer'' crate/assets/locales/ 2>/dev/null | wc -l | grep -q ''[1-9]'''
-    status: todo
+    description: >-
+      EN/DE i18n keys in crate/i18n/en.ftl + de.ftl: play-rated, play-casual,
+      play-kind-friend, play-kind-computer, play-kind-random, play-ai-level; use in labels.
+    verify: "cd crate && grep -q 'play-rated' i18n/en.ftl && grep -q 'play-rated' i18n/de.ftl && grep -q 'play-kind-computer' i18n/en.ftl && grep -q 'play-kind-computer' i18n/de.ftl && grep -q 'play-ai-level' i18n/en.ftl && grep -q 'play-ai-level' i18n/de.ftl"
+    risk: P2
+    security: none
+    status: passing
+    allure:
+      severity: normal
+      categories: ["e06", "i18n"]
   - id: e06s02t04
-    description: "Widget hit-test unit tests for new buttons"
+    description: "Widget hit-test unit tests for new buttons (tap inside rect toggles rated/kind/level)"
     verify: "cd crate && cargo test --lib play 2>&1 | grep -q 'test result: ok'"
-    status: todo
+    risk: P1
+    security: none
+    status: passing
+    allure:
+      severity: high
+      categories: ["e06", "ui", "hit-test"]

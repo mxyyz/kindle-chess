@@ -1,0 +1,30 @@
+---
+# Story e11s04 — final verification: gates + cross build + docs.
+story_id: e11s04
+title: "e11 verification: gates + armv7 cross build + docs describe the seek flow"
+status: failing
+bcps: 2
+delta: ADDED
+spec: e11s04-verification.md
+tasks:
+  - id: e11s04t01
+    description: "Full gates incl. armv7 cross build (env -u LD_LIBRARY_PATH in agent sandboxes)"
+    verify: "cd crate && cargo build 2>&1 | tail -1 | grep -q 'Finished' && cargo test 2>&1 | grep -q 'test result: ok' && cargo clippy --all-targets -- -D warnings 2>&1 | tail -1 | grep -q 'Finished' && cargo fmt --check && env -u LD_LIBRARY_PATH RUSTFLAGS=\"-C target-feature=+crt-static\" cross build --target armv7-unknown-linux-musleabi --release 2>&1 | tail -1 | grep -q 'Finished' && echo GATES-OK"
+    risk: P2
+    security: none
+    status: failing
+    allure:
+      severity: normal
+      categories: ["e11", "gates"]
+  - id: e11s04t02
+    description: >-
+      Docs: ARCHITECTURE.md challenge flow + api/README.md describe Random =
+      POST /api/board/seek (held-open; drop cancels) with GET /api/stream/event
+      opened first; /api/challenge/open no longer used by the app.
+    verify: "grep -q 'board/seek' docs/ARCHITECTURE.md && grep -q 'board/seek' crate/src/api/README.md && grep -q 'stream/event' docs/ARCHITECTURE.md"
+    risk: P3
+    security: none
+    status: failing
+    allure:
+      severity: minor
+      categories: ["e11", "docs"]

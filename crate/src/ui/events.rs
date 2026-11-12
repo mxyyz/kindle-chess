@@ -32,8 +32,13 @@ pub enum AppEvent {
     FriendSelected(String),
 
     // Challenge send from PlayScreen
-    ChallengeSent(String), // opponent username
+    ChallengeSent(String), // opponent username (empty for open/Random challenges)
     ChallengeSendFailed(String),
+    /// AI challenge (e06) starts immediately — game id to open ChessGameScreen.
+    AiGameStarted {
+        game_id: String,
+        my_turn: bool,
+    },
 
     // InvitesScreen challenge list
     ChallengesLoaded(Arc<Vec<ChallengeSummary>>),

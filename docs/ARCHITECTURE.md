@@ -218,3 +218,27 @@ longer exists. (`flash_display.sh`, which deployed that binary, was deleted in `
 ## In-app update flow (e05+)
 
 The release ships an `update.tar.gz` bundle (`bin/kindle-hello` + `assets/*` + `chess_app.sh` + `MANIFEST.sha256`) plus a `.sha256` sidecar, alongside the legacy binary-only pair for 0.4.0 clients. The app preflights (arch/dirs/free space), downloads the bundle to `<exe>.bundle.new`, verifies the sidecar then the per-file MANIFEST, and the launcher (`chess_app.sh`) installs it atomically at next launch. See `docs/ci-cd.md` for the full pipeline.
+
+## Challenge flow (e06+)
+
+The Play form's layout (e06s07, 1072×1448): row 1 opponent kind
+`Computer | Friend | Random` (y=200) — tapping Friend also opens the
+FriendlistScreen and the picked name becomes the Friend button's label; row 2
+is a shared selector (y=310) hosting exactly one of the AI-level row, the
+days-per-move row (Correspondence, kind ≠ Computer), or an info line; row 3
+the mode group (y=470); row 4 the rated/casual toggle (y=580, last row of the
+upper half, hidden for Computer since AI games are always casual); Send is
+centered in the lower half (y=1038).
+
+Sending routes per `OpponentKind` (models/board_api.rs): `Friend` →
+`send_challenge(name, mode, rated)` (`POST /api/challenge/{user}`), `Computer` →
+`send_challenge_ai(level, mode)` — a raw `POST /api/challenge/ai` (litchee's
+`LichessGame` DTO can't decode the live response's object-shaped `variant`),
+returning just the game id as `AiGame`; the game starts immediately and
+`AppEvent::AiGameStarted` pushes `ChessGameScreen` right away, `Random` →
+`create_open_challenge(mode, rated)` (`POST /api/challenge/open`), which shows
+as an outgoing row in InvitesScreen labeled "Open — random player (created)"
+and is cancellable there like any outgoing challenge. After game over,
+`ChessGameScreen` offers a Rematch button when a `RematchContext` was attached
+(Play-originated games), re-issuing the same challenge with the same mode +
+rated.

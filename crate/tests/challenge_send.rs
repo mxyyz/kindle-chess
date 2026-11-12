@@ -50,7 +50,7 @@ async fn realtime_mode_sends_clock_600_plus_5() {
         .await;
 
     let ch = adapter(&server)
-        .send_challenge("Alice", &ChallengeMode::RealTime)
+        .send_challenge("Alice", &ChallengeMode::RealTime, false)
         .await
         .unwrap();
 
@@ -66,7 +66,7 @@ async fn correspondence_mode_sends_days() {
     mount_challenge(&server, "Alice", "days=7").await;
 
     adapter(&server)
-        .send_challenge("Alice", &ChallengeMode::Correspondence(7))
+        .send_challenge("Alice", &ChallengeMode::Correspondence(7), false)
         .await
         .unwrap();
 }
@@ -82,7 +82,7 @@ async fn unlimited_mode_sends_no_clock_and_no_days() {
         .await;
 
     let ch = adapter(&server)
-        .send_challenge("Alice", &ChallengeMode::Unlimited)
+        .send_challenge("Alice", &ChallengeMode::Unlimited, false)
         .await
         .unwrap();
 
@@ -102,7 +102,7 @@ async fn send_challenge_requires_authentication() {
     let anon = LitcheeAdapter::with_base_url(None, &base).unwrap();
 
     let err = anon
-        .send_challenge("Alice", &ChallengeMode::RealTime)
+        .send_challenge("Alice", &ChallengeMode::RealTime, false)
         .await
         .unwrap_err();
 
@@ -120,7 +120,7 @@ async fn every_lichess_allowed_days_value_is_sent_verbatim() {
         .await;
     let api = adapter(&server);
     for d in ALLOWED_CORRESPONDENCE_DAYS {
-        api.send_challenge("Alice", &ChallengeMode::Correspondence(d))
+        api.send_challenge("Alice", &ChallengeMode::Correspondence(d), false)
             .await
             .unwrap();
     }

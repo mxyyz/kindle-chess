@@ -271,7 +271,7 @@ pub enum Speed {
 
 /// Game mode for a friend challenge. Fixed defaults per e03 scope: standard
 /// variant, casual (rated=false), random color — only the time control varies.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 pub enum ChallengeMode {
     /// No clock at all.
     Unlimited,
@@ -302,6 +302,65 @@ pub struct ChallengeSummary {
     pub incoming: bool,
     /// Challenge URL (`https://lichess.org/{gameId}` once accepted).
     pub url: String,
+    /// Whether the challenge is rated (e06).
+    pub rated: bool,
+    /// Open challenge (Random opponent, `destUser: null`) — listed as
+    /// outgoing with a localized label instead of a blank opponent (e06s08).
+    pub open: bool,
+}
+
+/// An AI game created via `POST /api/challenge/ai` (e06s06). The game starts
+/// immediately, so only the id is needed to open ChessGameScreen — the full
+/// game state arrives over the board stream. litchee's `LichessGame` DTO
+/// can't decode the live response (variant is an object, not a string), so
+/// the adapter parses the raw response and extracts just the id.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct AiGame {
+    pub id: String,
+}
+
+/// Who to challenge from the Play form (e06). `Computer` carries the Lichess
+/// AI level 1–8; `Random` is an open challenge anyone can accept.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub enum OpponentKind {
+    Friend(String),
+    Computer(u8),
+    Random,
+}
+
+impl OpponentKind {
+    /// Opponent username for friend challenges; `None` for Computer/Random.
+    pub fn name(&self) -> Option<&str> {
+        match self {
+            OpponentKind::Friend(name) => Some(name),
+            _ => None,
+        }
+    }
+
+    /// AI level for computer challenges; `None` otherwise.
+    pub fn level(&self) -> Option<u8> {
+        match self {
+            OpponentKind::Computer(level) => Some(*level),
+            _ => None,
+        }
+    }
+
+    /// Validated constructor for the AI level (Lichess accepts 1–8).
+    pub fn computer_level(level: u8) -> Option<OpponentKind> {
+        (1..=8)
+            .contains(&level)
+            .then_some(OpponentKind::Computer(level))
+    }
+}
+
+/// Everything needed to offer a rematch after game over (e06s04): the same
+/// opponent kind, time control, and rated flag as the original challenge.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct RematchContext {
+    pub kind: OpponentKind,
+    pub mode: ChallengeMode,
+    pub rated: bool,
 }
 
 /// Day values Lichess accepts for correspondence challenges
@@ -528,6 +587,8 @@ mod tests {
             opponent: "Bob".into(),
             incoming: false,
             url: "https://lichess.org/abc".into(),
+            rated: false,
+            open: false,
         };
         assert_eq!(c.game_id(), None);
     }
@@ -540,6 +601,8 @@ mod tests {
             opponent: "Bob".into(),
             incoming: false,
             url: "https://lichess.org/XyZ123ab".into(),
+            rated: false,
+            open: false,
         };
         assert_eq!(c.game_id(), Some("XyZ123ab"));
     }
@@ -547,5 +610,56 @@ mod tests {
     #[test]
     fn allowed_correspondence_days_matches_lichess_contract() {
         assert_eq!(ALLOWED_CORRESPONDENCE_DAYS, [1, 2, 3, 5, 7, 10, 14]);
+    }
+
+    // ── OpponentKind / RematchContext (e06) ─────────────────────────────────
+
+    #[test]
+    fn opponent_kind_variants_carry_their_payload() {
+        let friend = OpponentKind::Friend("Alice".into());
+        assert_eq!(friend.name(), Some("Alice"));
+        let ai = OpponentKind::Computer(5);
+        assert_eq!(ai.name(), None);
+        assert_eq!(ai.level(), Some(5));
+        assert_eq!(OpponentKind::Random.level(), None);
+        assert_eq!(OpponentKind::Random.name(), None);
+    }
+
+    #[test]
+    fn opponent_kind_rejects_out_of_range_ai_level() {
+        assert!(OpponentKind::computer_level(0).is_none());
+        assert!(OpponentKind::computer_level(9).is_none());
+        assert_eq!(
+            OpponentKind::computer_level(8),
+            Some(OpponentKind::Computer(8))
+        );
+    }
+
+    #[test]
+    fn rematch_context_round_trips_and_preserves_settings() {
+        let ctx = RematchContext {
+            kind: OpponentKind::Friend("Alice".into()),
+            mode: ChallengeMode::Correspondence(7),
+            rated: true,
+        };
+        let json = serde_json::to_string(&ctx).unwrap();
+        let back: RematchContext = serde_json::from_str(&json).unwrap();
+        assert_eq!(back, ctx);
+        assert!(back.rated);
+        assert_eq!(back.mode.days_value(), 7);
+    }
+
+    #[test]
+    fn challenge_summary_carries_rated_flag() {
+        let c = ChallengeSummary {
+            id: "abc".into(),
+            status: "created".into(),
+            opponent: "Bob".into(),
+            incoming: false,
+            url: "https://lichess.org/abc".into(),
+            rated: true,
+            open: false,
+        };
+        assert!(c.rated);
     }
 }

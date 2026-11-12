@@ -15,7 +15,7 @@ use log::warn;
 
 use crate::models::{
     board_api::{
-        ChallengeMode, ChallengeSummary, ChatLineEvent, Clock, GameDataList, GameFullEvent,
+        AiGame, ChallengeMode, ChallengeSummary, ChatLineEvent, Clock, GameDataList, GameFullEvent,
         GameOverEvent, GameStateEvent, GameStateStreamEvent, GameVariant, OpponentGoneEvent,
         PerfMode, PlayedBy, PlayedByAi, PlayedByPlayer, Speed,
     },
@@ -30,6 +30,10 @@ pub struct LitcheeAdapter {
     /// `variant` as a string but the API returns an object, and requires
     /// `nbMyTurn` which the API omits).
     token: Option<String>,
+    /// Base URL for the raw-reqwest endpoints (`{base}/account/playing`,
+    /// `{base}/challenge/ai`). Stored so tests can point the adapter at a
+    /// mock server via `with_base_url`.
+    base_url: String,
 }
 
 impl LitcheeAdapter {
@@ -38,6 +42,7 @@ impl LitcheeAdapter {
         Ok(Self {
             client,
             token: Some(token.to_string()),
+            base_url: env!("LICHESS_API_BASE").to_string(),
         })
     }
 
@@ -45,6 +50,7 @@ impl LitcheeAdapter {
         Self {
             client: litchee::LichessClient::new(),
             token: None,
+            base_url: env!("LICHESS_API_BASE").to_string(),
         }
     }
 
@@ -62,9 +68,18 @@ impl LitcheeAdapter {
             }
             None => None,
         };
+        // litchee treats `base_url` as the host root and prefixes `/api` on
+        // every request path itself. Normalize the stored base the same way
+        // so the raw-reqwest endpoints (`{base}/challenge/ai`, …) resolve to
+        // the same URLs litchee would hit.
+        let mut base = base_url.as_str().trim_end_matches('/').to_string();
+        if base_url.path().is_empty() || base_url.path() == "/" {
+            base.push_str("/api");
+        }
         Ok(Self {
             client: builder.build()?,
             token,
+            base_url: base,
         })
     }
 
@@ -236,7 +251,7 @@ impl LitcheeAdapter {
             LichessError::InvalidRequest("get_ongoing_games requires authentication".into())
         })?;
 
-        let url = format!("{}/account/playing?nb={}", env!("LICHESS_API_BASE"), n);
+        let url = format!("{}/account/playing?nb={}", self.base_url, n);
         let response = reqwest::Client::new()
             .get(&url)
             .bearer_auth(token)
@@ -319,13 +334,14 @@ impl LitcheeAdapter {
     }
 
     // Challenges
-    /// Send a friend challenge. Fixed defaults per e03 scope: standard variant,
-    /// casual (`rated=false`), random color; only the time control varies with
-    /// `mode`. Returns the created challenge mapped to our summary type.
+    /// Send a friend challenge. Standard variant, random color; the time
+    /// control varies with `mode` and the rated flag is forwarded (e06).
+    /// Returns the created challenge mapped to our summary type.
     pub async fn send_challenge(
         &self,
         username: &str,
         mode: &ChallengeMode,
+        rated: bool,
     ) -> Result<ChallengeSummary, LichessError> {
         if self.token.is_none() {
             return Err(LichessError::InvalidRequest(
@@ -336,7 +352,7 @@ impl LitcheeAdapter {
             .client
             .challenges()
             .challenge(username)
-            .rated(false)
+            .rated(rated)
             .color(LichessChallengeColor::Random);
         let req = match mode {
             ChallengeMode::Unlimited => req,
@@ -346,6 +362,106 @@ impl LitcheeAdapter {
         };
         let challenge: LichessChallenge = req.send().await?;
         Ok(map_challenge(&challenge, false))
+    }
+
+    /// Challenge the Lichess AI (`POST /api/challenge/ai`). The returned game
+    /// starts immediately. AI games are always casual on Lichess — no rated
+    /// flag is sent.
+    ///
+    /// NOTE: This bypasses litchee and uses reqwest directly. litchee 0.2.2
+    /// parses the response as `LichessGame`, whose `variant` is a string
+    /// enum, but the live API returns an object
+    /// (`{"key":"standard","name":"Standard","short":"Std"}`) — so the
+    /// decode fails (BUG-2026-11-11T122900). Same workaround pattern as
+    /// `get_ongoing_games`: raw POST, parse what we need (just the id).
+    pub async fn send_challenge_ai(
+        &self,
+        level: u8,
+        mode: &ChallengeMode,
+    ) -> Result<AiGame, LichessError> {
+        let token = self.token.as_deref().ok_or_else(|| {
+            LichessError::InvalidRequest("send_challenge_ai requires authentication".into())
+        })?;
+
+        let mut form: Vec<(String, String)> = vec![
+            ("level".into(), level.to_string()),
+            ("color".into(), "random".into()),
+        ];
+        match mode {
+            ChallengeMode::Unlimited => {}
+            // 10:5 real-time default
+            ChallengeMode::RealTime => {
+                form.push(("clock.limit".into(), "600".into()));
+                form.push(("clock.increment".into(), "5".into()));
+            }
+            ChallengeMode::Correspondence(days) => {
+                form.push(("days".into(), days.to_string()));
+            }
+        }
+
+        let url = format!("{}/challenge/ai", self.base_url);
+        let response = reqwest::Client::new()
+            .post(&url)
+            .bearer_auth(token)
+            .form(&form)
+            .send()
+            .await
+            .map_err(|e| LichessError::InvalidRequest(format!("HTTP request failed: {e}")))?;
+
+        if !response.status().is_success() {
+            return Err(LichessError::InvalidRequest(format!(
+                "challenge/ai returned {}",
+                response.status()
+            )));
+        }
+
+        let bytes = response.bytes().await.map_err(|e| {
+            LichessError::InvalidRequest(format!("failed to read response body: {e}"))
+        })?;
+        let body: serde_json::Value =
+            serde_json::from_slice(&bytes).map_err(|e| LichessError::Decode {
+                context: "challenge/ai response".into(),
+                source: e,
+            })?;
+        let id = body
+            .get("id")
+            .and_then(|v| v.as_str())
+            .ok_or_else(|| {
+                LichessError::InvalidRequest("challenge/ai response has no game id".into())
+            })?
+            .to_string();
+        Ok(AiGame { id })
+    }
+
+    /// Create an open challenge anyone can accept (`POST /api/challenge/open`).
+    /// Shows up as outgoing in the Invites screen until accepted.
+    pub async fn create_open_challenge(
+        &self,
+        mode: &ChallengeMode,
+        rated: bool,
+    ) -> Result<ChallengeSummary, LichessError> {
+        if self.token.is_none() {
+            return Err(LichessError::InvalidRequest(
+                "create_open_challenge requires authentication".into(),
+            ));
+        }
+        let challenges = self.client.challenges();
+        let req = challenges.create_open().rated(rated);
+        let req = match mode {
+            ChallengeMode::Unlimited => req,
+            ChallengeMode::RealTime => req.clock(600, 5),
+            ChallengeMode::Correspondence(days) => req.days(u32::from(*days)),
+        };
+        let open: litchee::api::gameplay::challenges::LichessOpenChallenge = req.send().await?;
+        Ok(ChallengeSummary {
+            id: open.id,
+            status: format!("{:?}", open.status).to_lowercase(),
+            opponent: String::new(), // open challenge: no opponent until accepted
+            incoming: false,
+            url: open.url,
+            rated: open.rated.unwrap_or(false),
+            open: true, // e06s08: mark open challenges so Invites can label them
+        })
     }
 
     /// List incoming + outgoing challenges, mapped to summaries.
@@ -392,7 +508,8 @@ impl LitcheeAdapter {
 }
 
 /// Map a litchee challenge to the app's summary. `incoming` is decided by the
-/// caller (send_challenge → false; list parsing → side of the list).
+/// caller (send_challenge → false; list parsing → side of the list). An
+/// outgoing entry with `dest_user: None` is an open challenge (e06s08).
 fn map_challenge(c: &LichessChallenge, incoming: bool) -> ChallengeSummary {
     let opponent = if incoming {
         c.challenger.as_ref().map(|u| u.name.clone())
@@ -400,12 +517,15 @@ fn map_challenge(c: &LichessChallenge, incoming: bool) -> ChallengeSummary {
         c.dest_user.as_ref().map(|u| u.name.clone())
     }
     .unwrap_or_default();
+    let open = !incoming && c.dest_user.is_none();
     ChallengeSummary {
         id: c.id.clone(),
         status: format!("{:?}", c.status).to_lowercase(),
         opponent,
         incoming,
         url: c.url.clone(),
+        rated: c.rated.unwrap_or(false),
+        open,
     }
 }
 

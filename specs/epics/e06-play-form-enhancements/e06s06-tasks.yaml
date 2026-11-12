@@ -1,0 +1,55 @@
+---
+# Story e06s06 — fix BUG-2026-11-11T122900 (AI challenge decode).
+story_id: e06s06
+title: "Bugfix: AI challenge 'failed to decode LichessGame' via raw POST /api/challenge/ai"
+status: passing
+bcps: 5
+delta: MODIFIED
+spec: e06s06-ai-decode-fix.md
+bug: BUG-2026-11-11T122900
+tasks:
+  - id: e06s06t01
+    description: >-
+      Fix wiremock fixture in crate/tests/challenge_ai_open.rs to the live payload shape
+      (variant as object {"key":"standard",...}); confirm the current test fails against
+      litchee decode (RED evidence).
+    verify: "cd crate && cargo test --test challenge_ai_open 2>&1 | grep -qE 'FAILED|panicked'"
+    risk: P0
+    security: low
+    status: passing
+    allure:
+      severity: critical
+      categories: ["e06", "bugfix", "challenge-ai", "wiremock"]
+  - id: e06s06t02
+    description: >-
+      litchee_adapter.rs: rewrite send_challenge_ai as raw reqwest POST to
+      {LICHESS_API_BASE}/challenge/ai (form: level, clock.limit/increment, days, color=random);
+      parse serde_json::Value, extract id -> return AiGame { id: String } (local struct).
+      Update board.rs facade return type and play.rs/chess_game.rs call sites (g.id).
+    verify: "cd crate && cargo build --all-targets 2>&1 | tail -1 | grep -q 'Finished'"
+    risk: P0
+    security: low
+    status: passing
+    allure:
+      severity: critical
+      categories: ["e06", "bugfix", "challenge-api", "Security Review"]
+  - id: e06s06t03
+    description: >-
+      Regression tests: object-variant AI response yields the id; missing id errors;
+      form body contains level + clock fields (body_string_contains assertions).
+    verify: "cd crate && cargo test --test challenge_ai_open 2>&1 | grep -q 'test result: ok'"
+    risk: P0
+    security: low
+    status: passing
+    allure:
+      severity: critical
+      categories: ["e06", "bugfix", "wiremock", "no new security findings in affected paths"]
+  - id: e06s06t04
+    description: "Full gates: test + clippy -D warnings + fmt"
+    verify: "cd crate && cargo test 2>&1 | grep -q 'test result: ok' && cargo clippy --all-targets -- -D warnings 2>&1 | tail -1 | grep -q 'Finished' && cargo fmt --check && echo GATES-OK"
+    risk: P1
+    security: none
+    status: passing
+    allure:
+      severity: high
+      categories: ["e06", "gates"]

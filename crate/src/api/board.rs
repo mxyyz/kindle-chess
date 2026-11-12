@@ -3,8 +3,8 @@ use crate::app::game::player0_turn;
 use crate::error::ChessError;
 use crate::models::bitboard::Bitboards;
 use crate::models::board_api::{
-    BoardAPI, ChallengeMode, ChallengeSummary, GameDataList, GameStateStreamEvent, Idle, InGame,
-    PlayedBy, Turn,
+    AiGame, BoardAPI, ChallengeMode, ChallengeSummary, GameDataList, GameStateStreamEvent, Idle,
+    InGame, PlayedBy, Turn,
 };
 use crate::models::oauth::{LichessUser, TokenInfo};
 use crate::ui::events::AppEvent;
@@ -39,13 +39,36 @@ impl<S> BoardAPI<S> {
         Ok(self.adapter.get_following().await?)
     }
 
-    /// Send a friend challenge with the given game mode.
+    /// Send a friend challenge with the given game mode and rated flag.
     pub async fn send_challenge(
         &self,
         username: &str,
         mode: &ChallengeMode,
+        rated: bool,
     ) -> Result<ChallengeSummary, ChessError> {
-        Ok(self.adapter.send_challenge(username, mode).await?)
+        Ok(self.adapter.send_challenge(username, mode, rated).await?)
+    }
+
+    /// Challenge the Lichess AI at `level` (1–8); the game starts immediately.
+    /// Returns the created game's id for opening ChessGameScreen (e06s06: the
+    /// live API response doesn't fit litchee's DTOs, so the adapter returns
+    /// just the id).
+    pub async fn send_challenge_ai(
+        &self,
+        level: u8,
+        mode: &ChallengeMode,
+    ) -> Result<AiGame, ChessError> {
+        Ok(self.adapter.send_challenge_ai(level, mode).await?)
+    }
+
+    /// Create an open challenge (Random opponent); appears as outgoing in
+    /// the Invites screen until someone accepts.
+    pub async fn create_open_challenge(
+        &self,
+        mode: &ChallengeMode,
+        rated: bool,
+    ) -> Result<ChallengeSummary, ChessError> {
+        Ok(self.adapter.create_open_challenge(mode, rated).await?)
     }
 
     /// Incoming + outgoing challenges (InvitesScreen data source).
@@ -104,6 +127,19 @@ impl BoardAPI<Idle> {
 }
 
 impl BoardAPI<InGame> {
+    /// Return to the idle scope, keeping token/user/adapter and dropping the
+    /// game scope. Used when a new game is attached from an already in-game
+    /// context (rematch — BUG-2026-11-11T145208): `detach().attach_game(..)`
+    /// re-scopes to the new game instead of being ignored.
+    pub fn detach(self) -> BoardAPI<Idle> {
+        BoardAPI {
+            token: self.token,
+            user: self.user,
+            state: Idle,
+            adapter: self.adapter,
+        }
+    }
+
     pub fn game_id(&self) -> &str {
         &self.state.game_id
     }
@@ -415,6 +451,21 @@ mod typestate_tests {
         let idle = BoardAPI::<Idle>::new(test_token(), test_user()).unwrap();
         let in_game = idle.attach_game("g2".into(), false);
         assert!(matches!(in_game.turn(), Turn::Waiting));
+    }
+
+    // BUG-2026-11-11T145208: detach + attach re-scopes an in-game API to a new
+    // game (rematch path) instead of being a no-op.
+    #[test]
+    fn in_game_detach_returns_to_idle_and_reattaches_to_new_game() {
+        let idle = BoardAPI::<Idle>::new(test_token(), test_user()).unwrap();
+        let in_game = idle.attach_game("oldGame".into(), true);
+        assert_eq!(in_game.game_id(), "oldGame");
+        let idle2 = in_game.detach();
+        // Back at idle: no game scoped, but still a usable online api.
+        let _: &Idle = &idle2.state;
+        let in_game2 = idle2.attach_game("newGame".into(), false);
+        assert_eq!(in_game2.game_id(), "newGame");
+        assert!(matches!(in_game2.turn(), Turn::Waiting));
     }
 
     #[test]

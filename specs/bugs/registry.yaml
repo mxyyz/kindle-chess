@@ -57,3 +57,47 @@ registry:
       renderer.rs. Window created with height 0.
     file: specs/bugs/BUG-2026-11-09T200000-run-dev-blackscreen.md
     status: fixed
+  - bug_id: BUG-2026-11-11T122900
+    date: 2026-11-11
+    severity: high
+    priority: high
+    scope: e06-challenge-ai
+    summary: >-
+      Send challenge with Computer fails: "failed to decode LichessGame" —
+      litchee LichessGame.variant is a string enum but the live
+      /api/challenge/ai returns a variant object. Fix in e06s06 (raw POST).
+    file: specs/bugs/BUG-2026-11-11T122900-ai-challenge-decode.md
+    status: fixed  # e06s06 on e06-play-form-enhancements (raw POST /api/challenge/ai)
+  - bug_id: BUG-2026-11-11T123000
+    date: 2026-11-11
+    severity: medium
+    priority: high
+    scope: e06-open-challenges
+    summary: >-
+      Open challenges (Random) render as blank outgoing rows in InvitesScreen
+      (destUser null -> empty opponent, no open marker). Fix in e06s08.
+    file: specs/bugs/BUG-2026-11-11T123000-open-challenges-invisible.md
+    status: fixed  # e06s08 on e06-play-form-enhancements (open flag + localized label + cancel wiremock)
+  - bug_id: BUG-2026-11-11T145208
+    date: 2026-11-11
+    severity: high
+    priority: high
+    scope: e06s04-rematch
+    summary: >-
+      Rematch starts the new game on Lichess but the board never loads it:
+      ChessApp::attach_game is a no-op on an already in-game backend, so the
+      pushed game screen stays scoped to the old game id. Affects AI rematch
+      immediately and player rematch after accept.
+    file: specs/bugs/BUG-2026-11-11T145208-rematch-new-game-not-loaded.md
+    status: fixed  # attach_game re-scopes in-game backend via detach(); RED->GREEN verified, gates green
+  - bug_id: BUG-2026-11-11T153246
+    date: 2026-11-11
+    severity: medium
+    priority: high
+    scope: e06s07-play-selector-row
+    summary: >-
+      AI-level taps swallowed: the hidden days group shares the selector row and
+      is hit-tested first, so most level-button taps never register. Fix: route
+      selector touches by the currently rendered selector only.
+    file: specs/bugs/BUG-2026-11-11T153246-ai-level-selector-shadowed.md
+    status: fixed  # selector_touch routes by selector_mode(); last-selected-wins + centered label in same run; gates green
