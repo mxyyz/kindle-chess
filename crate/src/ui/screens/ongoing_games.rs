@@ -241,8 +241,13 @@ impl Screen for OngoingChessGamesScreen {
             self.chessgame_button_2.draw(&mut display.renderer)?;
             self.chessgame_button_3.draw(&mut display.renderer)?;
             self.back_button.draw(&mut display.renderer)?;
-            self.next_page_button.draw(&mut display.renderer)?;
-            self.prev_page_button.draw(&mut display.renderer)?;
+            // e07s04: conditional pagination.
+            if self.page_index + 1 < self.page_count() {
+                self.next_page_button.draw(&mut display.renderer)?;
+            }
+            if self.page_index > 0 {
+                self.prev_page_button.draw(&mut display.renderer)?;
+            }
         } else {
             let label = tr(&i18n::locale_of(&self.config), "common-loading");
             let (tw, th) = display.renderer.measure_text(&label, size_px);
@@ -354,5 +359,73 @@ impl Screen for OngoingChessGamesScreen {
         // so the next render re-fetches and the ongoing-games view is current.
         self.games = None;
         self.error = None;
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::models::board_api::{GameData, GameDataList, PlayedBy, PlayedByPlayer};
+    use crate::ui::screens::test_config;
+    use std::sync::Arc;
+
+    fn dummy_game(id: &str) -> GameData {
+        GameData {
+            full_id: id.to_string(),
+            game_id: id.to_string(),
+            color: "white".into(),
+            fen: String::new(),
+            has_moved: false,
+            is_my_turn: true,
+            last_move: String::new(),
+            opponent: PlayedBy::User(PlayedByPlayer {
+                id: "x".into(),
+                name: "x".into(),
+                title: None,
+                rating: 1500,
+            }),
+            perf: "rapid".into(),
+            rated: false,
+            seconds_left: None,
+            source: "lobby".into(),
+            speed: crate::models::board_api::Speed::Rapid,
+            variant: crate::models::board_api::GameVariant {
+                key: "standard".into(),
+                name: "Standard".into(),
+                short: None,
+            },
+        }
+    }
+
+    fn make_screen_with(n: usize) -> OngoingChessGamesScreen {
+        let mut s = OngoingChessGamesScreen::new(ChessApp::new_offline(), test_config());
+        let games: Vec<GameData> = (0..n).map(|i| dummy_game(&format!("g{i}"))).collect();
+        s.games = Some(Arc::new(GameDataList { now_playing: games }));
+        s
+    }
+
+    /// e07s04: page_count edge cases — 0 items, 1 page, 2 pages, exact multiple.
+    #[test]
+    fn page_count_edge_cases() {
+        assert_eq!(make_screen_with(0).page_count(), 0);
+        assert_eq!(make_screen_with(1).page_count(), 1);
+        assert_eq!(make_screen_with(4).page_count(), 1); // exact multiple of 4
+        assert_eq!(make_screen_with(5).page_count(), 2);
+        assert_eq!(make_screen_with(8).page_count(), 2); // exact multiple
+        assert_eq!(make_screen_with(9).page_count(), 3);
+    }
+
+    /// e07s04: conditional pagination — prev hidden on page 0, next hidden on last.
+    #[test]
+    fn conditional_pagination_visibility() {
+        let mut s = make_screen_with(9); // 3 pages
+        assert_eq!(s.page_count(), 3);
+        // Page 0: prev hidden (page_index == 0), next visible (0+1 < 3).
+        assert!(s.page_index == 0);
+        assert!(s.page_index + 1 < s.page_count());
+        // Last page: next hidden.
+        s.page_index = 2;
+        assert!(!(s.page_index + 1 < s.page_count()));
+        assert!(s.page_index > 0);
     }
 }

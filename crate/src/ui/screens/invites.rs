@@ -329,10 +329,20 @@ impl Screen for InvitesScreen {
                     self.outgoing_cancel[k].draw(&mut display.renderer)?;
                 }
             }
-            self.incoming_prev.draw(&mut display.renderer)?;
-            self.incoming_next.draw(&mut display.renderer)?;
-            self.outgoing_prev.draw(&mut display.renderer)?;
-            self.outgoing_next.draw(&mut display.renderer)?;
+            // e07s04: conditional pagination — prev only on pages > 0, next
+            // only when more pages exist.
+            if self.incoming_page > 0 {
+                self.incoming_prev.draw(&mut display.renderer)?;
+            }
+            if self.incoming_page + 1 < self.incoming_page_count() {
+                self.incoming_next.draw(&mut display.renderer)?;
+            }
+            if self.outgoing_page > 0 {
+                self.outgoing_prev.draw(&mut display.renderer)?;
+            }
+            if self.outgoing_page + 1 < self.outgoing_page_count() {
+                self.outgoing_next.draw(&mut display.renderer)?;
+            }
         } else {
             let label = tr(&loc, "invites-loading");
             let (w, h) = display.renderer.measure_text(&label, 24.0);
@@ -609,7 +619,6 @@ mod invites_tests {
     /// e07s03: pagination icon rects must not intersect any action-button rect.
     #[test]
     fn pagination_icons_do_not_overlap_action_buttons() {
-        use crate::ui::events::RectangleExt;
         let s = InvitesScreen::new(ChessApp::new_offline(), test_config());
         let pag_rects = [
             s.incoming_prev.rect,
@@ -635,7 +644,6 @@ mod invites_tests {
     }
 
     fn rects_intersect(a: &crate::ui::events::Rectangle, b: &crate::ui::events::Rectangle) -> bool {
-        use crate::ui::events::RectangleExt;
         // Standard AABB overlap test (edges exclusive).
         a.x < b.x + b.width as i16
             && a.x + a.width as i16 > b.x

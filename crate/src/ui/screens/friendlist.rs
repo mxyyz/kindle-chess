@@ -192,8 +192,13 @@ impl Screen for FriendlistScreen {
                 self.friend_button_3.draw(&mut display.renderer)?;
             }
             self.back_button.draw(&mut display.renderer)?;
-            self.next_page_button.draw(&mut display.renderer)?;
-            self.prev_page_button.draw(&mut display.renderer)?;
+            // e07s04: conditional pagination.
+            if self.page_index + 1 < self.page_count() {
+                self.next_page_button.draw(&mut display.renderer)?;
+            }
+            if self.page_index > 0 {
+                self.prev_page_button.draw(&mut display.renderer)?;
+            }
         } else {
             let label = tr(&loc, "friends-loading");
             let (tw, th) = display.renderer.measure_text(&label, size_px);
