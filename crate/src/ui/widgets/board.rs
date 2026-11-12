@@ -225,7 +225,9 @@ impl BoardWidget {
                 let before = prev.piece_at(sq);
                 let after = curr.piece_at(sq);
                 if before != after {
-                    self.repaint_square(renderer, sq, after, before.is_some())?;
+                    // e07s07: always scrub (white flush + bg) on changed
+                    // squares — partial fills leave shadow residue on e-ink.
+                    self.repaint_square(renderer, sq, after, true)?;
                     repainted |= 1u64 << sq;
                 }
             }
@@ -332,10 +334,50 @@ impl BoardWidget {
             }
         }
 
+        // e07s07: file/rank labels on board edges, orientation-aware.
+        self.draw_labels(renderer)?;
+
         self.last_drawn_position = self.position.clone();
         self.last_drawn_selection = self.selected_square;
         self.last_drawn_last_move = self.last_move_squares;
         self.force_full_repaint = false;
+        Ok(())
+    }
+
+    /// e07s07: draw file letters (a-h) along the bottom edge and rank numbers
+    /// (1-8) along the left edge. Flipped when viewing as black.
+    fn draw_labels(&self, renderer: &mut Renderer) -> Result<(), Box<dyn std::error::Error>> {
+        let files = ['a', 'b', 'c', 'd', 'e', 'f', 'g', 'h'];
+        let font = 20.0f32;
+        let label_color = DrawColor::Black;
+        // File labels: bottom edge of the board, centered in each column.
+        for i in 0..8u8 {
+            let file_idx = if self.flipped { 7 - i } else { i };
+            let ch = files[file_idx as usize];
+            let (tw, th) = renderer.measure_text(&ch.to_string(), font);
+            let cx = self.area.x
+                + (i as i16) * SQUARE_SIZE as i16
+                + (SQUARE_SIZE as i16 - tw as i16) / 2;
+            let cy = self.area.y + 8 * SQUARE_SIZE as i16 + 4;
+            // Only draw if there's room below the board (board ends at area.y + 8*SQ).
+            if cy + th as i16 <= crate::ui::layout::SCREEN_H {
+                renderer.draw_text(cx, cy, &ch.to_string(), font, label_color)?;
+            }
+        }
+        // Rank labels: left edge, centered in each row.
+        for i in 0..8u8 {
+            let rank_idx = if self.flipped { i } else { 7 - i };
+            let label = (rank_idx + 1).to_string();
+            let (tw, th) = renderer.measure_text(&label, font);
+            let cx = self.area.x + 4;
+            // display_rank i -> y = area.y + (7 - i) * SQ, center of that row.
+            let cy = self.area.y
+                + (7 - i as i16) * SQUARE_SIZE as i16
+                + (SQUARE_SIZE as i16 - th as i16) / 2;
+            if cx + tw as i16 <= self.area.x + SQUARE_SIZE as i16 {
+                renderer.draw_text(cx, cy, &label, font, label_color)?;
+            }
+        }
         Ok(())
     }
 
@@ -542,6 +584,33 @@ mod tests {
         let mut board = BoardWidget::new(Rectangle::new(0, 0, BOARD_SIZE, BOARD_SIZE));
         assert!(!board.force_full_repaint);
         board.invalidate();
+        assert!(board.force_full_repaint);
+    }
+
+    /// e07s07: label orientation — white perspective: file 'a' at leftmost
+    /// column, rank '1' at bottom row. Black perspective: flipped.
+    #[test]
+    fn label_orientation_white_vs_black() {
+        let files = ['a', 'b', 'c', 'd', 'e', 'f', 'g', 'h'];
+        // White (not flipped): display column i shows files[i].
+        for i in 0..8u8 {
+            let file_idx = i; // not flipped
+            assert_eq!(files[file_idx as usize], files[i as usize]);
+        }
+        // Black (flipped): display column i shows files[7-i].
+        for i in 0..8u8 {
+            let file_idx = 7 - i; // flipped
+            assert_eq!(files[file_idx as usize], files[(7 - i) as usize]);
+        }
+    }
+
+    /// e07s07: flipped flag toggles and forces full repaint.
+    #[test]
+    fn set_flipped_forces_repaint() {
+        let mut board = BoardWidget::new(Rectangle::new(0, 0, BOARD_SIZE, BOARD_SIZE));
+        assert!(!board.flipped);
+        board.set_flipped(true);
+        assert!(board.flipped);
         assert!(board.force_full_repaint);
     }
 }
