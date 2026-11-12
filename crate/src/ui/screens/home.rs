@@ -130,6 +130,14 @@ impl Screen for HomeScreen {
         if !self.auth_started {
             self.auth_started = true;
             kick_auth_bootstrap(display.event_tx.clone());
+            // e07s10: also check daily puzzle availability for the badge.
+            // Anonymous endpoint — no auth needed.
+            let tx = display.event_tx.clone();
+            tokio::spawn(async move {
+                if crate::api::client::get_daily_puzzle().await.is_ok() {
+                    let _ = tx.send(AppEvent::DailyPuzzleAvailable);
+                }
+            });
         }
 
         display.renderer.clear(DrawColor::White)?;
@@ -184,6 +192,12 @@ impl Screen for HomeScreen {
             AppEvent::ChessReady(app) => {
                 info!("ChessApp ready — buttons live");
                 self.app = Some(*app);
+                Ok(Transition::Redraw)
+            }
+
+            // e07s10: daily puzzle exists → show badge on puzzle button.
+            AppEvent::DailyPuzzleAvailable => {
+                self.puzzle_badge = true;
                 Ok(Transition::Redraw)
             }
 

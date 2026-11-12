@@ -296,13 +296,8 @@ impl InvitesScreen {
 
 impl Screen for InvitesScreen {
     fn render(&mut self, display: &mut Display) -> Result<(), Box<dyn std::error::Error>> {
-        // e07s05: auto-poll every INVITES_POLL_INTERVAL up to MAX_POLLS times
-        // (30s total), then stop — a refresh button appears instead.
-        let stale = self
-            .last_fetch
-            .map(|t| t.elapsed() >= INVITES_POLL_INTERVAL)
-            .unwrap_or(true);
-        if !self.loading && self.error.is_none() && stale && self.poll_count < MAX_POLLS {
+        // e07s10: initial fetch on first paint; subsequent polls via Tick.
+        if self.challenges.is_none() && self.error.is_none() && !self.loading {
             self.kick_fetch(display);
         }
 
@@ -411,6 +406,18 @@ impl Screen for InvitesScreen {
         display: &mut Display,
     ) -> Result<Transition, Box<dyn std::error::Error>> {
         match event {
+            // e07s10: periodic tick drives auto-polling without constant redraws.
+            AppEvent::Tick(_) => {
+                let stale = self
+                    .last_fetch
+                    .map(|t| t.elapsed() >= INVITES_POLL_INTERVAL)
+                    .unwrap_or(true);
+                if !self.loading && self.error.is_none() && stale && self.poll_count < MAX_POLLS {
+                    self.kick_fetch(display);
+                }
+                Ok(Transition::Stay)
+            }
+
             AppEvent::ChallengesLoaded(list) => {
                 info!("Challenges loaded: {} entries", list.len());
                 self.last_fetch = Some(Instant::now());

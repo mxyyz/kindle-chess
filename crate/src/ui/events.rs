@@ -89,6 +89,8 @@ pub enum AppEvent {
     //   carrying the chosen params back to PuzzleScreen to drive a /next fetch.
     PuzzleLoaded(Puzzle),
     PuzzleLoadFailed(String),
+    /// e07s10: daily puzzle availability check for the Home badge.
+    DailyPuzzleAvailable,
     OpenPuzzleSettings,
     NextPuzzle,
     ShowPuzzleHint,

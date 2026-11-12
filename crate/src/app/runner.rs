@@ -84,6 +84,7 @@ impl App {
             let event = match self.display.event_rx.recv_timeout(tick) {
                 Ok(e) => e,
                 Err(std::sync::mpsc::RecvTimeoutError::Timeout) => {
+                    // Bootstrap: retry initial paint until X11 proves alive.
                     if !x11_alive
                         && !self.locked
                         && Instant::now() < bootstrap_deadline
@@ -95,8 +96,16 @@ impl App {
                             error!("Periodic render error: {}", e);
                         }
                         last_redraw = Instant::now();
+                        continue;
                     }
-                    continue;
+                    // e07s10: after bootstrap, send a Tick so screens with
+                    // polling logic can check staleness without causing
+                    // constant full redraws (which flicker on e-ink).
+                    if x11_alive && !self.locked {
+                        AppEvent::Tick(tick)
+                    } else {
+                        continue;
+                    }
                 }
                 Err(std::sync::mpsc::RecvTimeoutError::Disconnected) => {
                     info!("Event channel closed, shutting down.");

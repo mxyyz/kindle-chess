@@ -237,13 +237,9 @@ impl Screen for OngoingChessGamesScreen {
     fn render(&mut self, display: &mut Display) -> Result<(), Box<dyn std::error::Error>> {
         use crate::ui::renderer::DrawColor;
 
-        // e07s05: auto-poll every GAMES_POLL_INTERVAL up to MAX_POLLS_GAMES
-        // times (30s total). Initial fetch + subsequent polls.
-        let stale = self
-            .last_fetch
-            .map(|t| t.elapsed() >= GAMES_POLL_INTERVAL)
-            .unwrap_or(true);
-        if !self.loading && self.error.is_none() && stale && self.poll_count < MAX_POLLS_GAMES {
+        // e07s10: initial fetch on first paint (no data yet). Subsequent
+        // polls are driven by Tick events in handle_event.
+        if self.games.is_none() && self.error.is_none() && !self.loading {
             self.kick_fetch(display);
         }
 
@@ -301,11 +297,36 @@ impl Screen for OngoingChessGamesScreen {
     fn handle_event(
         &mut self,
         event: AppEvent,
-        _display: &mut Display,
+        display: &mut Display,
     ) -> Result<Transition, Box<dyn std::error::Error>> {
         match event {
+            // e07s10: periodic tick drives auto-polling without constant redraws.
+            AppEvent::Tick(_) => {
+                let stale = self
+                    .last_fetch
+                    .map(|t| t.elapsed() >= GAMES_POLL_INTERVAL)
+                    .unwrap_or(true);
+                if !self.loading
+                    && self.error.is_none()
+                    && stale
+                    && self.poll_count < MAX_POLLS_GAMES
+                {
+                    self.kick_fetch(display);
+                }
+                Ok(Transition::Stay)
+            }
+
             AppEvent::OngoingGamesLoaded(list) => {
                 info!("Ongoing games loaded: {} entries", list.now_playing.len());
+                // e07s10: if current page is empty but data exists, jump to page 0.
+                let current_page_empty = self.page_index > 0
+                    && list
+                        .now_playing
+                        .get(self.page_index * GAMES_PER_PAGE)
+                        .is_none();
+                if current_page_empty && !list.now_playing.is_empty() {
+                    self.page_index = 0;
+                }
                 self.games = Some(list);
                 self.loading = false;
                 self.last_fetch = Some(std::time::Instant::now());
@@ -338,7 +359,7 @@ impl Screen for OngoingChessGamesScreen {
                 {
                     self.poll_count = 0;
                     self.last_fetch = None;
-                    self.kick_fetch(_display);
+                    self.kick_fetch(display);
                     return Ok(Transition::Redraw);
                 }
 
