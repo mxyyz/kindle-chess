@@ -119,3 +119,5 @@ picker-empty = Keine Einträge
 ongoing-title = Laufende Partien
 auth-title = Bei Lichess anmelden
 puzzle-title = Tagesaufgabe
+refresh = Aktualisieren
+puzzle-badge-tooltip = Tagesaufgabe verfügbar

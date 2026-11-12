@@ -53,7 +53,15 @@ pub struct InvitesScreen {
     pub status: Option<String>,
     pub incoming_page: usize,
     pub outgoing_page: usize,
+    /// e07s05: poll cycle counter — auto-poll up to MAX_POLLS times, then
+    /// show a refresh button instead.
+    pub poll_count: usize,
+    /// e07s05: manual refresh button shown after the auto-poll cycle ends.
+    pub refresh_button: IconButton,
 }
+
+/// e07s05: max auto-polls (5s interval × 6 = 30s) before showing refresh.
+const MAX_POLLS: usize = 6;
 
 impl InvitesScreen {
     pub fn new(app: ChessApp, config: Arc<RwLock<AppConfig>>) -> Self {
@@ -95,6 +103,12 @@ impl InvitesScreen {
             outgoing_prev: IconButton::new(icon_prev_x, 700, "back-page.png"),
             outgoing_next: IconButton::new(icon_next_x, 700, "next-page.png"),
             back_button: IconButton::new(32 + ICON_BUTTON_SIZE as i16 / 2, bottom, "back-nav.png"),
+            // e07s05: refresh button, shown after MAX_POLLS auto-polls.
+            refresh_button: IconButton::new(
+                layout::CENTER_X - ICON_BUTTON_SIZE as i16 / 2,
+                bottom,
+                "refresh.png",
+            ),
             challenges: None,
             error: None,
             loading: false,
@@ -102,6 +116,7 @@ impl InvitesScreen {
             status: None,
             incoming_page: 0,
             outgoing_page: 0,
+            poll_count: 0,
         }
     }
 }
@@ -268,12 +283,13 @@ impl InvitesScreen {
 
 impl Screen for InvitesScreen {
     fn render(&mut self, display: &mut Display) -> Result<(), Box<dyn std::error::Error>> {
-        // Poll: initial fetch, then re-fetch every INVITES_POLL_INTERVAL.
+        // e07s05: auto-poll every INVITES_POLL_INTERVAL up to MAX_POLLS times
+        // (30s total), then stop — a refresh button appears instead.
         let stale = self
             .last_fetch
             .map(|t| t.elapsed() >= INVITES_POLL_INTERVAL)
             .unwrap_or(true);
-        if !self.loading && self.error.is_none() && stale {
+        if !self.loading && self.error.is_none() && stale && self.poll_count < MAX_POLLS {
             self.kick_fetch(display);
         }
 
@@ -355,6 +371,11 @@ impl Screen for InvitesScreen {
             )?;
         }
 
+        // e07s05: show refresh button after the auto-poll cycle ends.
+        if self.poll_count >= MAX_POLLS && self.challenges.is_some() {
+            self.refresh_button.draw(&mut display.renderer)?;
+        }
+
         if let Some(status) = &self.status {
             let (w, h) = display.renderer.measure_text(status, 24.0);
             display.renderer.draw_text(
@@ -382,6 +403,8 @@ impl Screen for InvitesScreen {
                 self.last_fetch = Some(Instant::now());
                 self.loading = false;
                 self.error = None;
+                // e07s05: count completed polls.
+                self.poll_count += 1;
                 // An accepted challenge means the game has started — join it.
                 if let Some(c) = accepted_game(&list)
                     && let Some(game_id) = c.game_id()
@@ -412,6 +435,16 @@ impl Screen for InvitesScreen {
                 }
                 if self.back_button.rect.contains(touch.x, touch.y) {
                     return Ok(Transition::Pop);
+                }
+
+                // e07s05: refresh button restarts the poll cycle.
+                if self.poll_count >= MAX_POLLS
+                    && self.refresh_button.rect.contains(touch.x, touch.y)
+                {
+                    self.poll_count = 0;
+                    self.last_fetch = None;
+                    self.kick_fetch(display);
+                    return Ok(Transition::Redraw);
                 }
 
                 // Per-section pagination: each section pages independently.
@@ -649,5 +682,19 @@ mod invites_tests {
             && a.x + a.width as i16 > b.x
             && a.y < b.y + b.height as i16
             && a.y + a.height as i16 > b.y
+    }
+
+    /// e07s05: poll cycle starts at 0, refresh resets it.
+    #[test]
+    fn poll_cycle_state_machine() {
+        let mut s = InvitesScreen::new(ChessApp::new_offline(), test_config());
+        assert_eq!(s.poll_count, 0);
+        assert!(s.poll_count < MAX_POLLS); // auto-polling active
+        // Simulate MAX_POLLS completed polls.
+        s.poll_count = MAX_POLLS;
+        assert!(!(s.poll_count < MAX_POLLS)); // refresh button should show
+        // Refresh resets the cycle.
+        s.poll_count = 0;
+        assert!(s.poll_count < MAX_POLLS);
     }
 }

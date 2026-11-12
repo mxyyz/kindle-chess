@@ -48,6 +48,9 @@ pub struct HomeScreen {
     /// Shared app configuration, cloned in from `App` at startup. Handed to
     /// the puzzle screen when the Puzzle button is pressed.
     pub config: Arc<RwLock<AppConfig>>,
+    /// e07s05: when true, draw a badge dot on the puzzle button corner
+    /// (daily puzzle available + unsolved).
+    pub puzzle_badge: bool,
 }
 
 impl HomeScreen {
@@ -90,6 +93,7 @@ impl HomeScreen {
             app: None,
             auth_started: false,
             config,
+            puzzle_badge: false,
         }
     }
 }
@@ -154,6 +158,13 @@ impl Screen for HomeScreen {
 
         self.chess_button.draw(&mut display.renderer)?;
         self.puzzle_button.draw(&mut display.renderer)?;
+        // e07s05: badge dot on the puzzle button's top-right corner when the
+        // daily puzzle is available and unsolved.
+        if self.puzzle_badge {
+            let bx = self.puzzle_button.rect.x + self.puzzle_button.rect.width as i16 - 20;
+            let by = self.puzzle_button.rect.y + 20;
+            display.renderer.draw_circle(bx, by, 12, DrawColor::Black)?;
+        }
         self.ongoing_games_button.draw(&mut display.renderer)?;
         self.settings_button.draw(&mut display.renderer)?;
         self.quit_button.draw(&mut display.renderer)?;
@@ -332,5 +343,12 @@ mod home_screen_tests {
         }
         // Quit is the last (bottom-most) button.
         assert!(s.quit_button.rect.y > s.settings_button.rect.y);
+    }
+
+    /// e07s05: puzzle badge defaults to false.
+    #[test]
+    fn puzzle_badge_defaults_off() {
+        let s = HomeScreen::new(test_config());
+        assert!(!s.puzzle_badge);
     }
 }

@@ -43,7 +43,16 @@ pub struct OngoingChessGamesScreen {
     // `set_page` (called on initial load and on next/prev taps), so `render`
     // doesn't recompute labels every frame.
     pub page_index: usize,
+
+    /// e07s05: poll cycle state — auto-poll up to MAX_POLLS_GAMES times.
+    pub poll_count: usize,
+    pub last_fetch: Option<std::time::Instant>,
+    pub refresh_button: IconButton,
 }
+
+/// e07s05: poll interval and max auto-polls for ongoing games (5s × 6 = 30s).
+const GAMES_POLL_INTERVAL: std::time::Duration = std::time::Duration::from_secs(5);
+const MAX_POLLS_GAMES: usize = 6;
 
 impl OngoingChessGamesScreen {
     pub fn new(app: ChessApp, config: Arc<RwLock<AppConfig>>) -> Self {
@@ -104,11 +113,19 @@ impl OngoingChessGamesScreen {
                 layout::CENTER_Y * 2 - (ICON_BUTTON_SIZE as i16 - 20) - 32,
                 "back-nav.png",
             ),
+            // e07s05: refresh button shown after the auto-poll cycle ends.
+            refresh_button: IconButton::new(
+                layout::CENTER_X - ICON_BUTTON_SIZE as i16 / 2,
+                layout::CENTER_Y * 2 - (ICON_BUTTON_SIZE as i16 - 20) - 32,
+                "refresh.png",
+            ),
 
             games: None,
             error: None,
             loading: false,
             page_index: 0,
+            poll_count: 0,
+            last_fetch: None,
         }
     }
 }
@@ -209,9 +226,13 @@ impl Screen for OngoingChessGamesScreen {
     fn render(&mut self, display: &mut Display) -> Result<(), Box<dyn std::error::Error>> {
         use crate::ui::renderer::DrawColor;
 
-        // First paint after Push: kick off the async fetch. Subsequent renders
-        // (after data arrives or on reload) skip this branch.
-        if self.games.is_none() && self.error.is_none() && !self.loading {
+        // e07s05: auto-poll every GAMES_POLL_INTERVAL up to MAX_POLLS_GAMES
+        // times (30s total). Initial fetch + subsequent polls.
+        let stale = self
+            .last_fetch
+            .map(|t| t.elapsed() >= GAMES_POLL_INTERVAL)
+            .unwrap_or(true);
+        if !self.loading && self.error.is_none() && stale && self.poll_count < MAX_POLLS_GAMES {
             self.kick_fetch(display);
         }
 
@@ -248,6 +269,10 @@ impl Screen for OngoingChessGamesScreen {
             if self.page_index > 0 {
                 self.prev_page_button.draw(&mut display.renderer)?;
             }
+            // e07s05: refresh button after auto-poll cycle ends.
+            if self.poll_count >= MAX_POLLS_GAMES {
+                self.refresh_button.draw(&mut display.renderer)?;
+            }
         } else {
             let label = tr(&i18n::locale_of(&self.config), "common-loading");
             let (tw, th) = display.renderer.measure_text(&label, size_px);
@@ -272,6 +297,9 @@ impl Screen for OngoingChessGamesScreen {
                 info!("Ongoing games loaded: {} entries", list.now_playing.len());
                 self.games = Some(list);
                 self.loading = false;
+                self.last_fetch = Some(std::time::Instant::now());
+                // e07s05: count completed polls.
+                self.poll_count += 1;
                 // Bake labels for the current page now that we have data.
                 self.set_page(self.page_index);
                 Ok(Transition::Redraw)
@@ -291,6 +319,16 @@ impl Screen for OngoingChessGamesScreen {
 
                 if self.back_button.rect.contains(touch.x, touch.y) {
                     return Ok(Transition::Pop);
+                }
+
+                // e07s05: refresh button restarts the poll cycle.
+                if self.poll_count >= MAX_POLLS_GAMES
+                    && self.refresh_button.rect.contains(touch.x, touch.y)
+                {
+                    self.poll_count = 0;
+                    self.last_fetch = None;
+                    self.kick_fetch(_display);
+                    return Ok(Transition::Redraw);
                 }
 
                 if self.next_page_button.rect.contains(touch.x, touch.y) {
