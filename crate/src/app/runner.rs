@@ -76,8 +76,12 @@ impl App {
         let tick = Duration::from_millis(16);
         let redraw_period = Duration::from_millis(100);
         let bootstrap_deadline = Instant::now() + Duration::from_millis(1500);
+        // e07s10: Tick events are synthesized at most this often — synced with
+        // the 5s poll interval. The 16ms recv_timeout stays for input latency.
+        let tick_interval = Duration::from_secs(5);
         let mut x11_alive = false;
         let mut last_redraw = Instant::now();
+        let mut last_tick = Instant::now();
 
         loop {
             // Wait for an event, but time out so we can drive periodic redraws.
@@ -98,11 +102,12 @@ impl App {
                         last_redraw = Instant::now();
                         continue;
                     }
-                    // e07s10: after bootstrap, send a Tick so screens with
-                    // polling logic can check staleness without causing
-                    // constant full redraws (which flicker on e-ink).
-                    if x11_alive && !self.locked {
-                        AppEvent::Tick(tick)
+                    // e07s10: after bootstrap, synthesize a Tick at most every
+                    // tick_interval (5s) so poll screens check staleness without
+                    // constant redraws. Touch events still wake the loop at 16ms.
+                    if x11_alive && !self.locked && last_tick.elapsed() >= tick_interval {
+                        last_tick = Instant::now();
+                        AppEvent::Tick(tick_interval)
                     } else {
                         continue;
                     }
