@@ -15,22 +15,27 @@ use crate::{
     },
     ui::{
         events::{AppEvent, RectangleExt, TouchKind},
-        widgets::{Button, IconButton, icon_button::ICON_BUTTON_SIZE},
+        widgets::{IconButton, icon_button::ICON_BUTTON_SIZE},
     },
     utils::config::AppConfig,
 };
 
 // ─── ChessGameScreen ──────────────────────────────────────────────────────────
 
+/// e07s11: a square game card — title (vs opponent) + detail rows below.
+pub struct GameCard {
+    pub rect: crate::ui::events::Rectangle,
+    pub title: String,
+    pub detail_lines: Vec<String>,
+}
+
 pub struct OngoingChessGamesScreen {
     pub app: ChessApp,
     pub config: Arc<RwLock<AppConfig>>,
     pub prev_page_button: IconButton,
     pub next_page_button: IconButton,
-    pub chessgame_button_0: Button,
-    pub chessgame_button_1: Button,
-    pub chessgame_button_2: Button,
-    pub chessgame_button_3: Button,
+    /// e07s11: 4 square game cards (2×2 grid) replacing the old button rows.
+    pub game_cards: [GameCard; 4],
     pub back_button: IconButton,
 
     // Async fetch state. `games == None && error == None && !loading` means the
@@ -39,9 +44,7 @@ pub struct OngoingChessGamesScreen {
     pub error: Option<String>,
     pub loading: bool,
 
-    // Pagination: 4 game buttons per page. Labels are baked into the buttons by
-    // `set_page` (called on initial load and on next/prev taps), so `render`
-    // doesn't recompute labels every frame.
+    // Pagination: 4 game cards per page.
     pub page_index: usize,
 
     /// e07s05: poll cycle state — auto-poll up to MAX_POLLS_GAMES times.
@@ -56,67 +59,47 @@ const MAX_POLLS_GAMES: usize = 6;
 
 impl OngoingChessGamesScreen {
     pub fn new(app: ChessApp, config: Arc<RwLock<AppConfig>>) -> Self {
-        // Layout: layout::SCREEN_W × layout::SCREEN_H total canvas
-        const BTN_W: u16 = 800;
-        const BTN_H: u16 = 120;
+        // e07s11: 2×2 grid of square cards. Card size 460×460, gap 40.
+        // Total grid: 960×960, centered horizontally, starting at y=220.
+        const CARD: u16 = 460;
+        const GAP: i16 = 40;
+        let grid_w = 2 * CARD as i16 + GAP;
+        let x0 = (layout::SCREEN_W - grid_w) / 2;
+        let y0: i16 = 220;
+        let card_rect = |col: usize, row: usize| {
+            crate::ui::events::Rectangle::new(
+                x0 + col as i16 * (CARD as i16 + GAP),
+                y0 + row as i16 * (CARD as i16 + GAP),
+                CARD,
+                CARD,
+            )
+        };
+        let empty_card = |rect| GameCard {
+            rect,
+            title: "-".to_string(),
+            detail_lines: Vec::new(),
+        };
+        let bottom = layout::SCREEN_H - (ICON_BUTTON_SIZE as i16 - 20) - 32;
         Self {
             config,
             app,
             prev_page_button: IconButton::new(
                 layout::CENTER_X - (ICON_BUTTON_SIZE as i16 + 8),
-                layout::CENTER_Y * 2 - (ICON_BUTTON_SIZE as i16 - 20) - 32,
+                bottom,
                 "back-page.png",
             ),
-            next_page_button: IconButton::new(
-                layout::CENTER_X + 8,
-                layout::CENTER_Y * 2 - (ICON_BUTTON_SIZE as i16 - 20) - 32,
-                "next-page.png",
-            ),
-            chessgame_button_0: Button::new(
-                layout::CENTER_X - (8 + BTN_W as i16 / 2),
-                layout::CENTER_Y - (BTN_H as i16 / 2 + 10),
-                BTN_W / 2,
-                BTN_H,
-                "-".to_string(),
-                40.0,
-                true,
-            ),
-            chessgame_button_1: Button::new(
-                layout::CENTER_X + 8,
-                layout::CENTER_Y - (BTN_H as i16 / 2 + 10),
-                BTN_W / 2,
-                BTN_H,
-                "-".to_string(),
-                40.0,
-                true,
-            ),
-            chessgame_button_2: Button::new(
-                layout::CENTER_X - (8 + BTN_W as i16 / 2),
-                layout::CENTER_Y + (BTN_H as i16 / 2 + 10),
-                BTN_W / 2,
-                BTN_H,
-                "-".to_string(),
-                40.0,
-                true,
-            ),
-            chessgame_button_3: Button::new(
-                layout::CENTER_X + 8,
-                layout::CENTER_Y + (BTN_H as i16 / 2 + 10),
-                BTN_W / 2,
-                BTN_H,
-                String::from("-"),
-                40.0,
-                true,
-            ),
-            back_button: IconButton::new(
-                32 + ICON_BUTTON_SIZE as i16 / 2,
-                layout::CENTER_Y * 2 - (ICON_BUTTON_SIZE as i16 - 20) - 32,
-                "back-nav.png",
-            ),
+            next_page_button: IconButton::new(layout::CENTER_X + 8, bottom, "next-page.png"),
+            game_cards: [
+                empty_card(card_rect(0, 0)),
+                empty_card(card_rect(1, 0)),
+                empty_card(card_rect(0, 1)),
+                empty_card(card_rect(1, 1)),
+            ],
+            back_button: IconButton::new(32 + ICON_BUTTON_SIZE as i16 / 2, bottom, "back-nav.png"),
             // e07s05: refresh button shown after the auto-poll cycle ends.
             refresh_button: IconButton::new(
                 layout::CENTER_X - ICON_BUTTON_SIZE as i16 / 2,
-                layout::CENTER_Y * 2 - (ICON_BUTTON_SIZE as i16 - 20) - 32,
+                bottom,
                 "refresh.png",
             ),
 
@@ -168,25 +151,17 @@ impl OngoingChessGamesScreen {
         }
     }
 
-    /// Bake labels for `index`'s page of games into the four chess-game buttons,
-    /// and update `self.page_index`. No-op when `games` hasn't loaded yet — the
-    /// `OngoingGamesLoaded` handler calls this again once data arrives. Slots
-    /// past the available game count get a "-" so they're visibly inert; the
-    /// touch handler also short-circuits taps on those slots.
+    /// e07s11: bake `index`'s page of games into the 4 square cards.
+    /// Each card gets a title ("vs {opponent}") + detail rows (rating, speed,
+    /// rated). Empty slots get "-" title and no details.
     fn set_page(&mut self, index: usize) {
         self.page_index = index;
         let Some(games) = self.games.as_ref() else {
             return;
         };
-        let buttons: [&mut Button; 4] = [
-            &mut self.chessgame_button_0,
-            &mut self.chessgame_button_1,
-            &mut self.chessgame_button_2,
-            &mut self.chessgame_button_3,
-        ];
         let loc = i18n::locale_of(&self.config);
         let start = index * GAMES_PER_PAGE;
-        for (k, btn) in buttons.into_iter().enumerate() {
+        for (k, card) in self.game_cards.iter_mut().enumerate() {
             match games.now_playing.get(start + k) {
                 Some(game) => {
                     let (opp, opp_rating) = match &game.opponent {
@@ -199,24 +174,26 @@ impl OngoingChessGamesScreen {
                             None => (tr(&loc, "ongoing-ai"), None),
                         },
                     };
-                    // e07s06: detail line — opponent, rating, speed, rated badge.
-                    let mut details = String::new();
-                    if let Some(r) = opp_rating {
-                        details.push_str(&format!(" ({r})"));
-                    }
-                    let speed_str = format!("{:?}", game.speed).to_lowercase();
-                    details.push_str(&format!(" · {speed_str}"));
-                    if game.rated {
-                        details.push_str(&format!(" · {}", tr(&loc, "play-rated")));
-                    }
-                    let mut l = format!("{opp}{details}");
+                    let mut title = format!("vs {opp}");
                     if game.is_my_turn {
-                        l = format!("> {l} <");
+                        title = format!("▶ {title}");
                     }
-                    btn.label = l;
+                    card.title = title;
+                    card.detail_lines.clear();
+                    if let Some(r) = opp_rating {
+                        card.detail_lines.push(format!("Rating: {r}"));
+                    }
+                    card.detail_lines.push(format!(
+                        "Mode: {}",
+                        format!("{:?}", game.speed).to_lowercase()
+                    ));
+                    if game.rated {
+                        card.detail_lines.push(tr(&loc, "play-rated"));
+                    }
                 }
                 None => {
-                    btn.label = "-".to_string();
+                    card.title = "-".to_string();
+                    card.detail_lines.clear();
                 }
             }
         }
@@ -261,13 +238,39 @@ impl Screen for OngoingChessGamesScreen {
                 .renderer
                 .draw_text(tx, ty, &label, size_px, DrawColor::Black)?;
         } else if self.games.is_some() {
-            // Labels were baked into the buttons by `set_page` (called from
-            // OngoingGamesLoaded and from next/prev taps), so render is just
-            // a draw pass.
-            self.chessgame_button_0.draw(&mut display.renderer)?;
-            self.chessgame_button_1.draw(&mut display.renderer)?;
-            self.chessgame_button_2.draw(&mut display.renderer)?;
-            self.chessgame_button_3.draw(&mut display.renderer)?;
+            // e07s11: draw square game cards — title + detail rows.
+            for card in &self.game_cards {
+                if card.title == "-" {
+                    continue; // empty slot
+                }
+                // Card border + fill.
+                display
+                    .renderer
+                    .draw_rectangle(card.rect, DrawColor::White, true)?;
+                display
+                    .renderer
+                    .draw_rectangle(card.rect, DrawColor::Black, false)?;
+                // Title centered near the top of the card.
+                let (tw, th) = display.renderer.measure_text(&card.title, 28.0);
+                let tx = card.rect.x + (card.rect.width as i16 - tw as i16) / 2;
+                let ty = card.rect.y + 30;
+                display
+                    .renderer
+                    .draw_text(tx, ty, &card.title, 28.0, DrawColor::Black)?;
+                let _ = th;
+                // Detail rows below the title, one per line, 20px font.
+                let mut dy = ty + 50;
+                for line in &card.detail_lines {
+                    display.renderer.draw_text(
+                        card.rect.x + 20,
+                        dy,
+                        line,
+                        20.0,
+                        DrawColor::Black,
+                    )?;
+                    dy += 30;
+                }
+            }
             self.back_button.draw(&mut display.renderer)?;
             // e07s04: conditional pagination.
             if self.page_index + 1 < self.page_count() {
@@ -380,16 +383,10 @@ impl Screen for OngoingChessGamesScreen {
                     return Ok(Transition::Stay);
                 }
 
-                // Game-button taps. Resolve via `game_at_slot` so paginated
+                // e07s11: game-card taps. Resolve via `game_at_slot` so paginated
                 // slots without backing data are inert.
-                let game_buttons = [
-                    &self.chessgame_button_0,
-                    &self.chessgame_button_1,
-                    &self.chessgame_button_2,
-                    &self.chessgame_button_3,
-                ];
-                for (k, btn) in game_buttons.into_iter().enumerate() {
-                    if !btn.rect.contains(touch.x, touch.y) {
+                for (k, card) in self.game_cards.iter().enumerate() {
+                    if !card.rect.contains(touch.x, touch.y) {
                         continue;
                     }
                     let Some(game) = self.game_at_slot(k) else {

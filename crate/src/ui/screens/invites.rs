@@ -34,8 +34,10 @@ pub struct InvitesScreen {
     // Up to 4 incoming + 4 outgoing rows per page: opponent name + action
     // button(s). Rows past the list end are simply not drawn.
     pub incoming_name: [Button; 4],
-    pub incoming_accept: [Button; 4],
-    pub incoming_decline: [Button; 4],
+    /// e07s11: accept = check.png icon button (was text "Accept").
+    pub incoming_accept: [IconButton; 4],
+    /// e07s11: decline = close.png icon button (was text "Decline").
+    pub incoming_decline: [IconButton; 4],
     pub outgoing_name: [Button; 4],
     pub outgoing_cancel: [Button; 4],
     // Separate pagination per section; each section's page icons sit on its
@@ -68,19 +70,23 @@ impl InvitesScreen {
         // Layout: layout::SCREEN_W × layout::SCREEN_H. "Incoming" section at top (4 rows), "Outgoing"
         // below (4 rows), status line near the bottom, back/page icons along
         // the bottom edge.
-        const NAME_W: u16 = 420;
+        // e07s11: NAME_W increased from 420 → 600 (freed by replacing 2×200px
+        // text buttons with 2×134px icon buttons; capped to clear icon buttons
+        // starting at acc_x=764: 136 + 600 + 16 = 752 < 764).
+        const NAME_W: u16 = 600;
         const ACT_W: u16 = 200;
         const ROW_H: u16 = 80;
         const ROW_GAP: i16 = 16;
         let name_x = 136;
-        let acc_x = 576;
-        let dec_x = 792;
-        // e07s03: rows pushed down so pagination icons (on the section-label
-        // row) don't overlap action buttons. Icons at y=176 end at 310;
-        // incoming rows start at 320. Icons at y=700 end at 834; outgoing
-        // rows start at 840.
+        // Icon buttons sit at the right edge; each is ICON_BUTTON_SIZE (134px).
+        let dec_x = layout::SCREEN_W - ICON_BUTTON_SIZE as i16 - 24; // close.png
+        let acc_x = dec_x - ICON_BUTTON_SIZE as i16 - 16; // check.png
+        // e07s03/e07s11: rows pushed down so pagination icons don't overlap
+        // action buttons. Incoming icons at y=176 end at 310; incoming rows
+        // start at 320 (last icon ends at 320+3*96+134=742). Outgoing icons
+        // at y=760 end at 894; outgoing rows start at 900.
         let irow = |i: usize| 320 + i as i16 * (ROW_H as i16 + ROW_GAP);
-        let orow = |i: usize| 840 + i as i16 * (ROW_H as i16 + ROW_GAP);
+        let orow = |i: usize| 900 + i as i16 * (ROW_H as i16 + ROW_GAP);
         let btn = |x: i16, y: i16, w: u16, label: &str| {
             Button::new(x, y, w, ROW_H, label.to_string(), 32.0, true)
         };
@@ -93,15 +99,18 @@ impl InvitesScreen {
             app,
             config,
             incoming_name: std::array::from_fn(|i| btn(name_x, irow(i), NAME_W, "-")),
-            incoming_accept: std::array::from_fn(|i| btn(acc_x, irow(i), ACT_W, "Accept")),
-            incoming_decline: std::array::from_fn(|i| btn(dec_x, irow(i), ACT_W, "Decline")),
+            // e07s11: accept/decline are icon buttons now.
+            incoming_accept: std::array::from_fn(|i| IconButton::new(acc_x, irow(i), "check.png")),
+            incoming_decline: std::array::from_fn(|i| IconButton::new(dec_x, irow(i), "close.png")),
             outgoing_name: std::array::from_fn(|i| btn(name_x, orow(i), NAME_W, "-")),
             outgoing_cancel: std::array::from_fn(|i| btn(acc_x, orow(i), ACT_W, "Cancel")),
             // e07s03: pagination icons on the section-label row, clear of rows.
             incoming_prev: IconButton::new(icon_prev_x, 176, "back-page.png"),
             incoming_next: IconButton::new(icon_next_x, 176, "next-page.png"),
-            outgoing_prev: IconButton::new(icon_prev_x, 700, "back-page.png"),
-            outgoing_next: IconButton::new(icon_next_x, 700, "next-page.png"),
+            // e07s11: outgoing pagination at y=760 — clears incoming row 3
+            // icons (last incoming icon ends at y=742).
+            outgoing_prev: IconButton::new(icon_prev_x, 760, "back-page.png"),
+            outgoing_next: IconButton::new(icon_next_x, 760, "next-page.png"),
             back_button: IconButton::new(32 + ICON_BUTTON_SIZE as i16 / 2, bottom, "back-nav.png"),
             // e07s05: refresh button, shown after MAX_POLLS auto-polls.
             refresh_button: IconButton::new(
@@ -307,12 +316,8 @@ impl Screen for InvitesScreen {
         let title = tr(&loc, "invites-title");
         layout::draw_title_bar(&mut display.renderer, &title)?;
 
-        for btn in self.incoming_accept.iter_mut() {
-            btn.label = tr(&loc, "invites-accept");
-        }
-        for btn in self.incoming_decline.iter_mut() {
-            btn.label = tr(&loc, "invites-decline");
-        }
+        // e07s11: accept/decline are IconButtons (no label). Only outgoing_cancel
+        // is still a text Button.
         for btn in self.outgoing_cancel.iter_mut() {
             btn.label = tr(&loc, "invites-cancel");
         }
@@ -324,7 +329,7 @@ impl Screen for InvitesScreen {
             Ok(())
         };
         label(200, &tr(&loc, "invites-incoming"))?;
-        label(724, &tr(&loc, "invites-outgoing"))?;
+        label(784, &tr(&loc, "invites-outgoing"))?;
 
         if let Some(err) = &self.error {
             let label = i18n::t(
@@ -685,18 +690,23 @@ mod invites_tests {
             s.outgoing_prev.rect,
             s.outgoing_next.rect,
         ];
-        let action_rects: Vec<_> = s
-            .incoming_accept
-            .iter()
-            .chain(s.incoming_decline.iter())
-            .chain(s.outgoing_cancel.iter())
-            .map(|b| b.rect)
-            .collect();
+        // e07s11: accept/decline are IconButtons, cancel is Button — collect separately.
+        let mut action_rects: Vec<_> = s.incoming_accept.iter().map(|b| b.rect).collect();
+        action_rects.extend(s.incoming_decline.iter().map(|b| b.rect));
+        action_rects.extend(s.outgoing_cancel.iter().map(|b| b.rect));
         for pr in &pag_rects {
             for ar in &action_rects {
                 assert!(
                     !rects_intersect(pr, ar),
-                    "pagination rect {pr:?} intersects action rect {ar:?}"
+                    "pagination rect (x={},y={},w={},h={}) intersects action rect (x={},y={},w={},h={})",
+                    pr.x,
+                    pr.y,
+                    pr.width,
+                    pr.height,
+                    ar.x,
+                    ar.y,
+                    ar.width,
+                    ar.height
                 );
             }
         }
