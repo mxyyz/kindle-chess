@@ -58,8 +58,11 @@ const GAMES_POLL_INTERVAL: std::time::Duration = std::time::Duration::from_secs(
 const MAX_POLLS_GAMES: usize = 6;
 
 /// Flicker fix: compare two game lists by the fields that affect what the
-/// screen renders (game id, turn, clock, opponent name, rated, speed). If
-/// all equal, the poll result is visually identical and must not redraw.
+/// screen renders (game id, turn, opponent name, rated, speed). `seconds_left`
+/// is deliberately excluded — it's a live countdown that changes on every poll
+/// and is not displayed on the game cards, so including it would always trigger
+/// a redraw. If all compared fields are equal, the poll result is visually
+/// identical and must not redraw.
 fn games_display_eq(
     a: &[crate::models::board_api::GameData],
     b: &[crate::models::board_api::GameData],
@@ -70,7 +73,6 @@ fn games_display_eq(
     a.iter().zip(b.iter()).all(|(ga, gb)| {
         ga.game_id == gb.game_id
             && ga.is_my_turn == gb.is_my_turn
-            && ga.seconds_left == gb.seconds_left
             && ga.rated == gb.rated
             && ga.opponent.display_name() == gb.opponent.display_name()
             && std::mem::discriminant(&ga.speed) == std::mem::discriminant(&gb.speed)
