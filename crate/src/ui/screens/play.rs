@@ -674,20 +674,39 @@ impl PlayScreen {
         self.dirty_rects.is_empty() || self.dirty_rects.iter().any(|d| rects_intersect(rect, d))
     }
 
-    /// Mark a selection change: if the selector mode also changed, force a
-    /// full render (clear dirty_rects); otherwise only the old and new
-    /// button rects are marked dirty for partial repaint.
+    /// The selector band rect — covers the shared row plus the label areas
+    /// above and below it. When the selector mode changes (AiLevel ↔ Days ↔
+    /// Info), only this band needs clearing + redrawing, not the full screen.
+    fn selector_band_rect() -> Rectangle {
+        let label_h = SELECTOR_LABEL_MARGIN + 30;
+        Rectangle::new(
+            0,
+            SELECTOR_Y - label_h,
+            layout::SCREEN_W_U16,
+            (SELECTOR_H as i16 + 2 * label_h) as u16,
+        )
+    }
+
+    /// The rated row rect — needed when rated visibility changes (Computer
+    /// hides the rated toggle).
+    fn rated_row_rect() -> Rectangle {
+        Rectangle::new(0, RATED_Y, layout::SCREEN_W_U16, layout::BTN_H)
+    }
+
+    /// Mark a selection change. Always pushes old+new button rects. If the
+    /// selector mode also changed, additionally pushes the selector band rect
+    /// so the old selector buttons are erased and the new ones drawn — without
+    /// a full-screen redraw.
     fn mark_selection_change(
         &mut self,
         old_rect: Rectangle,
         new_rect: Rectangle,
         selector_changed: bool,
     ) {
+        self.dirty_rects.push(old_rect);
+        self.dirty_rects.push(new_rect);
         if selector_changed {
-            self.dirty_rects.clear();
-        } else {
-            self.dirty_rects.push(old_rect);
-            self.dirty_rects.push(new_rect);
+            self.dirty_rects.push(Self::selector_band_rect());
         }
     }
 }
@@ -1093,9 +1112,18 @@ impl Screen for PlayScreen {
                         if !Self::kind_selectable(i) {
                             return Ok(Transition::Stay);
                         }
-                        // Kind change always affects the selector row → full render.
-                        self.dirty_rects.clear();
+                        let old_kind_rect = self.selected_kind_button().rect;
+                        let old_rated_visible = self.rated_visible();
                         self.select_kind(i);
+                        // Kind change: redraw old+new kind button, the selector
+                        // band (selector mode may change), and the rated row if
+                        // its visibility changed (Computer hides it).
+                        self.dirty_rects.push(old_kind_rect);
+                        self.dirty_rects.push(self.selected_kind_button().rect);
+                        self.dirty_rects.push(Self::selector_band_rect());
+                        if old_rated_visible != self.rated_visible() {
+                            self.dirty_rects.push(Self::rated_row_rect());
+                        }
                         // e07s01: tapping the Friend kind button selects
                         // kind=Friend AND opens the ListPicker modal (replaces
                         // the old FriendlistScreen push); the picked name
