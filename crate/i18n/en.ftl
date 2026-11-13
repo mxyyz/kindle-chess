@@ -45,6 +45,16 @@ invites-loading = Loading…
 settings-language = Language: {$lang}
 settings-check-update = Check for updates
 settings-back = back
+tab-screen = This screen
+tab-general = General
+settings-orientation = Board orientation: {$value}
+settings-auto-update = Auto-check updates: {$value}
+settings-board-labels = Board labels: {$value}
+orient-auto = Auto
+orient-white = White
+orient-black = Black
+toggle-on = On
+toggle-off = Off
 
 common-loading = Loading…
 common-error = Error: {$error}
