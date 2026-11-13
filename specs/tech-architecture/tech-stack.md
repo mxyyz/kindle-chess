@@ -18,7 +18,7 @@
 | **X11** | `x11rb` 0.13 | Direct X11 protocol access for Kindle framebuffer drawing |
 | **Image** | `image` 0.25.8 | PNG decoding, RGBA/Luma buffer manipulation, piece sprites |
 | **QR Code** | `qrcode` 0.14.1 | Generate QR codes for OAuth URL |
-| **Font** | `fontdue` 0.9 | Embedded font rendering (AdwaitaSans-Regular.ttf) |
+| **Font** | `fontdue` 0.9 | Embedded font rendering (Ithaca-LVB75.ttf) |
 | **Logging** | `log` 0.4.27 + `log4rs` 1.3.0 + `env_logger` | Structured logging to files |
 | **Serialization** | `serde` 1.0 + `serde_json` | JSON parsing for API responses and token persistence |
 | **UUID** | `uuid` 1.18.1 | PKCE verifier/challenge generation |
@@ -250,7 +250,7 @@ crate/
 - **Double Buffering**: x11rb auto-flushes, but Renderer uses put_image for full-frame updates
 - **Partial Rendering**: BoardWidget diffs current vs last position, only repaints changed squares
 - **Color Model**: `DrawColor` enum (Black, White, Gray, DarkGray, LightGray) mapped to X11 pixel values
-- **Font**: Embedded AdwaitaSans-Regular.ttf, loaded once at Renderer construction
+- **Font**: Embedded Ithaca-LVB75.ttf, loaded once at Renderer construction
 
 ### OAuth Flow
 

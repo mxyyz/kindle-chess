@@ -9,7 +9,7 @@ use x11rb::COPY_DEPTH_FROM_PARENT;
 use x11rb::connection::Connection;
 use x11rb::protocol::xproto::{self, *};
 
-const FONT_BYTES: &[u8] = include_bytes!("../../assets/AdwaitaSans-Regular.ttf");
+const FONT_BYTES: &[u8] = include_bytes!("../../assets/Ithaca-LVB75.ttf");
 
 pub struct Renderer {
     conn: StdArc<x11rb::rust_connection::RustConnection>,
@@ -318,7 +318,8 @@ impl Renderer {
     }
 
     /// Draws `text` with its top-left at (x, y) on a white background.
-    /// `size_px` is the cap height in pixels (Adwaita Sans cap ≈ 0.7 × size).
+    /// `size_px` is the font size in pixels; glyph metrics come from the
+    /// embedded font's own ascent/descent.
     /// Glyph coverage is alpha-blended onto a transient grayscale buffer
     /// (initialised to white) which is then put_image'd via `draw_image`.
     pub fn draw_text(
