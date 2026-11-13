@@ -459,11 +459,12 @@ impl Screen for SettingsScreen {
                 {
                     let label = tr(&loc, "coming-soon");
                     let (tw, _) = display.renderer.measure_text(&label, 16.0);
+                    // Clockwise 45°: text runs top-left → bottom-right (\ direction).
                     let bx = self.orientation_button.rect.x
                         + self.orientation_button.rect.width as i16
-                        - tw as i16 / 2
-                        - 8;
-                    let by = self.orientation_button.rect.y - 2;
+                        - tw as i16
+                        + 2;
+                    let by = self.orientation_button.rect.y - 6;
                     display.renderer.draw_text_rotated45(
                         bx,
                         by,
