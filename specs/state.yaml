@@ -1,15 +1,15 @@
 session:
   active_flow: build_epic
-  active_epic: e08-settings-tabs (release cycle 2, wsjf_order 4) — SLICED, READY FOR KICKOFF
-  active_story: none — e08s01 next (general settings model + persistence)
-  phase: "e07 merged to main via PR #43 (87bee7a, 2026-11-13); e08-e10 sliced and plan-ready; kicking off e08-settings-tabs worktree"
+  active_epic: e08-settings-tabs (release cycle 2, wsjf_order 4) — ALL 3 STORIES DONE
+  active_story: none — e08 complete (s01 GeneralSettings model, s02 2-tab UI, s03 migrate screens)
+  phase: "e08 done 2026-11-13 — 3 commits on e08-settings-tabs @ b1df701 (s01 bcda0e6, s02 520a967, s03 b1df701); gates green (build / 299 tests / clippy -D warnings / fmt)"
 vcs:
   kind: git
   branch: e08-settings-tabs
-  head: 1193611
+  head: b1df701
   worktree: /home/mxy/repos/e08-settings-tabs
 handoff:
-  last_step_completed: e07 merged to main (PR #43, 87bee7a); e08s01-tasks.yaml corrected (bea1080 — config file rename to settings.json, GeneralSettings fields trimmed); state reconciled; kickoff-branch next for e08-settings-tabs
+  last_step_completed: e08 all 3 stories done (s01 GeneralSettings+persistence bcda0e6, s02 2-tab SettingsScreen UI 520a967, s03 migrate Game/Puzzle/Home b1df701); 299 tests / clippy / fmt green; ready for release-branch (PR + merge to main)
   open_decisions:
   - On-device UAT of the v0.5.0 bundle update needs the k2 on the LAN (device currently holds v0.4.0 + new infra)
   - armv7 cross build not re-run after e07 fix commits (container runtime issue in dev env); changes are pure Rust, no platform-specific code
@@ -19,9 +19,12 @@ handoff:
   - specs/planning-context.yaml
   - specs/release-plan.yaml
   - specs/epics/e08-settings-tabs/epic.yaml
-  next_skill: build-epic (run e08s01-e08s03 on e08-settings-tabs worktree)
+  - crate/src/utils/config.rs
+  - crate/src/ui/screens/settings.rs
+  next_skill: release-branch (open PR for e08-settings-tabs, merge to main)
 notes:
   e02-e07: merged to main; tags v0.1.2-v0.5.0 present
+  e08: 3 commits on e08-settings-tabs @ b1df701, ready to merge
   e08-e10: sliced 2026-11-10 (release cycle 2); per-story -tasks.yaml populated, plan-ready
   e11: planned for release cycle 3
   ci: '.github/workflows/rust.yml — cargo test + cross build on push/PR (working-directory: crate)'

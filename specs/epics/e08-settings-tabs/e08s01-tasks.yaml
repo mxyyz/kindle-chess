@@ -2,7 +2,7 @@
 # Story e08s01 — general settings model + persistence.
 story_id: e08s01
 title: "General settings model + persistence in AppConfig"
-status: todo
+status: done
 bcps: 5
 delta: ADDED
 tasks:

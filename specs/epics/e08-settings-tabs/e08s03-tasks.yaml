@@ -2,7 +2,7 @@
 # Story e08s03 — migrate existing screens to 2-tab pattern.
 story_id: e08s03
 title: "Migrate Game/Puzzle/Home settings to 2-tab pattern"
-status: todo
+status: done
 bcps: 3
 delta: MODIFIED
 tasks:

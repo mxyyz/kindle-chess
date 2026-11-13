@@ -184,7 +184,7 @@ epics:
     bcps: 2
     delta: MODIFIED
 - id: e08-settings-tabs
-  status: sliced (tasks populated; ready for kickoff)
+  status: "done (3/3 stories on e08-settings-tabs @ b1df701, 2026-11-13 — s01 GeneralSettings model + settings.json rename, s02 2-tab SettingsScreen UI, s03 migrate Game/Puzzle/Home; gates green 299 tests / clippy / fmt)"
   wsjf_order: 4
   scope: specs/product/SCOPE_LATEST.yaml
   planning_context: specs/planning-context.yaml
