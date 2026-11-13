@@ -1,33 +1,34 @@
 session:
   active_flow: build_epic
-  active_epic: e07-ui-enhancements (release cycle 2, wsjf_order 3) — ALL STORIES + USER FIXES DONE
-  active_story: none — e07 complete including 6 user-reported fix commits; next epic e08-settings-tabs
-  phase: "e07 done 2026-11-13 — 27 commits on e07-ui-enhancements @ 5979ac0 (12 stories s01-s12 + 6 fix rounds: poll flicker, daily badge correctness+45° text, Play dirty-rect partial redraw, board label styling, font switch to Ithaca-LVB75); gates green (build / 283 tests / clippy -D warnings / fmt)"
+  active_epic: e08-settings-tabs (release cycle 2, wsjf_order 4) — COMPLETE, READY FOR MERGE
+  active_story: none — e08 complete: 3 stories + 6 user-fix rounds + 1 bug fix
+  phase: "e08 done 2026-11-13 — 14 commits on e08-settings-tabs @ e74f869 (3 feature: bcda0e6 s01, 520a967 s02, b1df701 s03; 6 user fixes: 635436b board_labels on_reveal, f454bb1+669fdb9 home-tab/chrome-button, d894a10 defer-orientation+icons, 16e0342 clockwise-45, 29b2451 sizes, c6baa10+e74f869 reposition; 1 bug: 693cc80 stream-cancel-on-drop BUG-2026-11-13T014911); gates green (build / 302 tests / clippy -D warnings / fmt)"
 vcs:
   kind: git
-  branch: e07-ui-enhancements
-  head: 5979ac0
-  worktree: /home/mxy/repos/e07-ui-enhancements
+  branch: e08-settings-tabs
+  head: e74f869
+  worktree: /home/mxy/repos/e08-settings-tabs
 handoff:
-  last_step_completed: e07 complete — all 12 stories (s01-s12) + 6 user-fix commits (4a7d424, 84533d6, 5e0f539, 03eb45f, 39ab03b, 5979ac0) addressing poll flicker, daily badge, Play partial redraw, board labels, font switch; 283 tests / clippy / fmt green 2026-11-13; ready for release-branch (PR + merge to main)
+  last_step_completed: e08 complete — 3 stories (s01 GeneralSettings+persistence+settings.json rename, s02 2-tab SettingsScreen UI, s03 migrate Game/Puzzle/Home through SettingsScreen) + 7 user-reported fixes (board_labels on_reveal, home-tab/chrome-button restructure, defer board-orientation with Coming-soon label, clockwise 45° rotation, doubled angled text + halved invite icons, repositioning, reduced lift) + BUG-2026-11-13T014911 (stream cancel on Drop); 302 tests / clippy -D warnings / fmt green 2026-11-13; ready for release-branch (PR + merge to main)
   open_decisions:
   - On-device UAT of the v0.5.0 bundle update needs the k2 on the LAN (device currently holds v0.4.0 + new infra)
-  - armv7 cross build not re-run after fix commits (container runtime issue in dev env); changes are pure Rust, no platform-specific code
+  - armv7 cross build not re-run (container runtime issue in dev env); changes are pure Rust, no platform-specific code
   required_reading:
   - CLAUDE.md
   - specs/product/SCOPE_LATEST.yaml
   - specs/planning-context.yaml
   - specs/release-plan.yaml
-  - specs/epics/e07-ui-enhancements/epic.yaml
-  next_skill: release-branch (open PR for e07-ui-enhancements, merge to main)
+  - specs/epics/e08-settings-tabs/epic.yaml
+  - crate/src/utils/config.rs
+  - crate/src/ui/screens/settings.rs
+  next_skill: release-branch (open PR for e08-settings-tabs, merge to main)
 notes:
-  e02-e05: merged to main; tags v0.1.2-v0.5.0 present
-  e06: merged to main via PR #42 (0648ffe, v0.5.0)
-  e07: 27 commits on e07-ui-enhancements @ 5979ac0, ready to merge
-  e08-e10: sliced 2026-11-10 (release cycle 2); per-story -tasks.yaml populated, plan-ready
+  e02-e07: merged to main; tags v0.1.2-v0.5.0 present
+  e08: 14 commits on e08-settings-tabs @ e74f869, ready to merge via PR
+  e09-e10: sliced 2026-11-10 (release cycle 2); per-story -tasks.yaml populated, plan-ready
   e11: planned for release cycle 3
   ci: '.github/workflows/rust.yml — cargo test + cross build on push/PR (working-directory: crate)'
 metrics:
-  reconciled: 2026-11-13T00:17:18Z
+  reconciled: 2026-11-13T02:00:00Z
 release:
   last_tag: v0.5.0

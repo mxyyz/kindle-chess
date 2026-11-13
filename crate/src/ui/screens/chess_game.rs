@@ -316,10 +316,8 @@ impl Screen for ChessGameScreen {
                 Ok(Transition::Redraw)
             }
 
-            // Sidebar top.png button: toggle the Kindle status bar (PC:T)
-            // over the app window. Handled here (not in the app loop) because
-            // the sidebar re-emits widget events via this screen-local
-            // recursion — an app-loop handler would never see them.
+            // Chrome-mode toggle (formerly the top.png sidebar button; now
+            // handled directly in SettingsScreen). Kept as a fallback handler.
             AppEvent::ToggleTopBar => {
                 let new_mode = !display.chrome_mode();
                 info!("ToggleTopBar — chrome mode -> {}", new_mode);
@@ -335,11 +333,14 @@ impl Screen for ChessGameScreen {
             }
 
             AppEvent::OpenGameActions => {
-                info!("Opening game-actions screen");
-                Ok(Transition::Push(Box::new(GameActionsScreen::new(
-                    self.app.clone(),
-                    self.config.clone(),
-                ))))
+                info!("Opening settings screen (game context)");
+                Ok(Transition::Push(Box::new(
+                    SettingsScreen::with_context_and_app(
+                        self.config.clone(),
+                        SettingsContext::Game,
+                        Some(self.app.clone()),
+                    ),
+                )))
             }
 
             AppEvent::Expose => {
@@ -379,10 +380,28 @@ impl Screen for ChessGameScreen {
     }
 
     fn on_reveal(&mut self) {
-        // A sub-screen (game actions) drew over the board + sidebar while we
+        // A sub-screen (settings) drew over the board + sidebar while we
         // were covered — force a full repaint instead of a stale partial diff.
+        // e08: also re-read board_labels so toggles from the 2-tab settings
+        // screen take effect regardless of which context opened it.
+        if let Ok(c) = self.config.read() {
+            self.board.set_show_labels(c.board_labels);
+        }
         self.board.invalidate();
         self.sidebar.invalidate();
+    }
+}
+
+/// BUG-2026-11-13T014911: when the screen is popped (or replaced), cancel its
+/// game stream task so the old game's events stop flowing into the shared
+/// channel — otherwise the next ChessGameScreen receives both games' events
+/// and the board alternates between them.
+impl Drop for ChessGameScreen {
+    fn drop(&mut self) {
+        if let Some(cancel) = &self.stream_cancel {
+            cancel.store(true, std::sync::atomic::Ordering::SeqCst);
+            info!("ChessGameScreen dropped — game stream cancelled");
+        }
     }
 }
 
@@ -543,5 +562,34 @@ mod rematch_tests {
         );
         // The original app keeps the old scope (clone semantics).
         assert_eq!(app.online_in_game_api().unwrap().game_id(), "oldGame");
+    }
+
+    // BUG-2026-11-13T014911: dropping a ChessGameScreen must cancel its
+    // stream task, otherwise the old game's events keep flowing into the
+    // shared channel and the next screen's board alternates between games.
+    #[test]
+    fn drop_cancels_game_stream() {
+        use std::sync::Arc;
+        use std::sync::atomic::{AtomicBool, Ordering};
+
+        let cancel = Arc::new(AtomicBool::new(false));
+        {
+            let mut s = screen();
+            s.stream_started = true;
+            s.stream_cancel = Some(cancel.clone());
+            assert!(!cancel.load(Ordering::SeqCst));
+        } // s dropped here
+        assert!(
+            cancel.load(Ordering::SeqCst),
+            "Drop must set stream_cancel so the old game's stream stops"
+        );
+    }
+
+    #[test]
+    fn drop_without_stream_is_noop() {
+        // A screen that never started a stream (offline/demo) must drop cleanly.
+        let s = screen();
+        assert!(s.stream_cancel.is_none());
+        drop(s); // must not panic
     }
 }

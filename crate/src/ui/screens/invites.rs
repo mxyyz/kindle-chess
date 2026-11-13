@@ -79,8 +79,11 @@ impl InvitesScreen {
         const ROW_GAP: i16 = 16;
         let name_x = 136;
         // Icon buttons sit at the right edge; each is ICON_BUTTON_SIZE (134px).
+        // e08: gap between accept/decline reduced by 30% (16 → 11px).
         let dec_x = layout::SCREEN_W - ICON_BUTTON_SIZE as i16 - 24; // close.png
-        let acc_x = dec_x - ICON_BUTTON_SIZE as i16 - 16; // check.png
+        let acc_x = dec_x - ICON_BUTTON_SIZE as i16 - 11; // check.png
+        // e08: accept/decline icons shifted up by ~30% of their height.
+        let icon_lift: i16 = ICON_BUTTON_SIZE as i16 * 3 / 10;
         // e07s03/e07s11: rows pushed down so pagination icons don't overlap
         // action buttons. Incoming icons at y=176 end at 310; incoming rows
         // start at 320 (last icon ends at 320+3*96+134=742). Outgoing icons
@@ -92,16 +95,23 @@ impl InvitesScreen {
         };
         let bottom = layout::SCREEN_H - (ICON_BUTTON_SIZE as i16 - 20) - 32;
         // Section label rows: incoming label y=200 (icons y=176), outgoing
-        // label y=680 (icons y=656) — icons at the right edge of the canvas.
-        let icon_next_x = layout::SCREEN_W - ICON_BUTTON_SIZE as i16 - 24;
+        // label y=784 (icons y=760). e08: pagination icons moved to the left
+        // of the label row so they don't collide with the lifted accept/
+        // decline icons on the right edge.
+        let icon_next_x = 420;
         let icon_prev_x = icon_next_x - ICON_BUTTON_SIZE as i16 - 16;
         Self {
             app,
             config,
             incoming_name: std::array::from_fn(|i| btn(name_x, irow(i), NAME_W, "-")),
-            // e07s11: accept/decline are icon buttons now.
-            incoming_accept: std::array::from_fn(|i| IconButton::new(acc_x, irow(i), "check.png")),
-            incoming_decline: std::array::from_fn(|i| IconButton::new(dec_x, irow(i), "close.png")),
+            // e07s11: accept/decline are icon buttons now. e08: glyph at 50%
+            // of the default 100px — the full-size icons dominated the row.
+            incoming_accept: std::array::from_fn(|i| {
+                IconButton::new(acc_x, irow(i) - icon_lift, "check.png").with_glyph_size(50)
+            }),
+            incoming_decline: std::array::from_fn(|i| {
+                IconButton::new(dec_x, irow(i) - icon_lift, "close.png").with_glyph_size(50)
+            }),
             outgoing_name: std::array::from_fn(|i| btn(name_x, orow(i), NAME_W, "-")),
             outgoing_cancel: std::array::from_fn(|i| btn(acc_x, orow(i), ACT_W, "Cancel")),
             // e07s03: pagination icons on the section-label row, clear of rows.

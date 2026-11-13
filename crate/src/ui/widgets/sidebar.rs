@@ -5,13 +5,13 @@ use crate::ui::widgets::icon_button::{ICON_BUTTON_SIZE, Icon, IconButton, load_i
 use log::info;
 
 /// Sidebar shown below the board on the live-game screen. Displays the opponent
-/// and whose turn it is, with buttons: status-bar toggle (top.png, top-left,
-/// above the back-nav button), back-nav (bottom-left), settings (right).
+/// and whose turn it is, with buttons: back-nav (top-left), settings (right).
+/// e08: the status-bar toggle (top.png) moved into the SettingsScreen general
+/// tab as a 3-icon chrome button.
 pub struct SidebarWidget {
     area: Rectangle,
     /// UI locale used for the status line; refreshed by the owning screen.
     pub locale: String,
-    top_button: IconButton,
     back_button: IconButton,
     settings_button: IconButton,
     // Driven by `set_turn` from the game-state stream events arriving on
@@ -38,9 +38,8 @@ pub struct SidebarWidget {
 impl SidebarWidget {
     pub fn new(area: Rectangle) -> Self {
         const MARGIN: i16 = 24;
-        // Left column: status-bar toggle on top, back-nav below it.
-        let top_btn_y = area.y + MARGIN;
-        let btn_y = top_btn_y + ICON_BUTTON_SIZE as i16 + 8;
+        // Left column: back-nav at the top (top.png chrome toggle removed in e08).
+        let btn_y = area.y + MARGIN;
         // Dynamic text bands are centred and only as wide as their content can
         // get. A narrow, centred band leaves a wide gap to the edge-mounted
         // buttons, so the e-ink refresh of a band never disturbs one — the
@@ -49,7 +48,6 @@ impl SidebarWidget {
         Self {
             area,
             locale: crate::i18n::DEFAULT_LOCALE.to_string(),
-            top_button: IconButton::new(area.x + MARGIN, top_btn_y, "top.png"),
             back_button: IconButton::new(area.x + MARGIN, btn_y, "back-nav.png"),
             settings_button: IconButton::new(
                 area.x + area.width as i16 - ICON_BUTTON_SIZE as i16 - MARGIN,
@@ -101,10 +99,6 @@ impl SidebarWidget {
         if touch.kind != TouchKind::Up {
             return None;
         }
-        if self.top_button.contains(touch.x, touch.y) {
-            info!("Top-bar (status bar) button pressed");
-            return Some(AppEvent::ToggleTopBar);
-        }
         if self.back_button.contains(touch.x, touch.y) {
             info!("Back button pressed");
             return Some(AppEvent::ExitToMenu);
@@ -152,7 +146,6 @@ impl SidebarWidget {
         // Buttons are static — drawn once per full repaint; the bands above
         // are sized to never overlap them.
         if full {
-            self.top_button.draw(renderer)?;
             self.back_button.draw(renderer)?;
             self.settings_button.draw(renderer)?;
             self.needs_full_repaint = false;

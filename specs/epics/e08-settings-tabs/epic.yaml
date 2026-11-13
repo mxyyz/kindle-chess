@@ -2,7 +2,7 @@
 # Epic capsule manifest — e08-settings-tabs
 # Sliced 2026-11-10 from specs/product/SCOPE_LATEST.yaml (release cycle 2).
 epic_id: e08-settings-tabs
-status: sliced (plan-work pending)
+status: done (3/3 stories + 7 user fixes + BUG-2026-11-13T014911 @ e74f869, 2026-11-13 — ready for merge)
 scope: specs/product/SCOPE_LATEST.yaml
 planning_context: specs/planning-context.yaml
 # Order: settings model + persistence first, then 2-tab UI, then migration of

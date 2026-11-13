@@ -2,7 +2,7 @@
 # Story e08s02 — 2-tab settings UI.
 story_id: e08s02
 title: "SettingsScreen 2-tab UI: screen-specific primary + general secondary"
-status: todo
+status: done
 bcps: 5
 delta: MODIFIED
 tasks:

@@ -2,15 +2,15 @@
 # Story e08s01 — general settings model + persistence.
 story_id: e08s01
 title: "General settings model + persistence in AppConfig"
-status: todo
+status: done
 bcps: 5
 delta: ADDED
 tasks:
   - id: e08s01t01
     description: >-
       utils/config.rs: add GeneralSettings struct (language, board_orientation,
-      auto_update_check, poll_interval_secs, theme?) with serde defaults; persist
-      to config file (JSON) under ROOT_DIR/config/.
+      auto_update_check) with serde defaults; persist
+      to the config file (JSON) under ROOT_DIR/config/. Rename it from default_cfg.json to settings.json
     verify: "cd crate && cargo build 2>&1 | tail -1 | grep -q 'Finished'"
     status: todo
   - id: e08s01t02

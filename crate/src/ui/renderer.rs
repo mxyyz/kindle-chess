@@ -441,8 +441,8 @@ impl Renderer {
             pen_x += m.advance_width;
         }
 
-        // 2. Rotate the buffer 45° clockwise. Output dimensions cover the
-        //    rotated bounding box: out_w = (w+h)/√2, out_h = same.
+        // 2. Rotate the buffer 45° clockwise (text reads top-left → bottom-right,
+        //    "\" direction). Output dimensions cover the rotated bounding box.
         let diag = ((buf_w + buf_h) as f32 * FRAC_1_SQRT_2).ceil() as u32;
         let out_w = diag.max(1);
         let out_h = diag.max(1);
@@ -454,11 +454,12 @@ impl Renderer {
         let cy_out = out_h as f32 / 2.0;
         for oy in 0..out_h {
             for ox in 0..out_w {
-                // Inverse-map output pixel to input (rotate -45° = counter-clockwise).
+                // Inverse-map output → input: rotate output by +45° CCW to get
+                // input coords, which makes the displayed image clockwise.
                 let rx = ox as f32 - cx_out;
                 let ry = oy as f32 - cy_out;
-                let ix = (rx * FRAC_1_SQRT_2 - ry * FRAC_1_SQRT_2 + cx_in).round() as i32;
-                let iy = (rx * FRAC_1_SQRT_2 + ry * FRAC_1_SQRT_2 + cy_in).round() as i32;
+                let ix = (rx * FRAC_1_SQRT_2 + ry * FRAC_1_SQRT_2 + cx_in).round() as i32;
+                let iy = (-rx * FRAC_1_SQRT_2 + ry * FRAC_1_SQRT_2 + cy_in).round() as i32;
                 if ix >= 0 && iy >= 0 && ix < buf_w as i32 && iy < buf_h as i32 {
                     let v = src.get_pixel(ix as u32, iy as u32)[0];
                     dst.put_pixel(ox, oy, Luma([v]));

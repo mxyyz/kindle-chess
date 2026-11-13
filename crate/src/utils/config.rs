@@ -1,6 +1,6 @@
 //! App-wide configuration, read from a user-editable file on disk.
 //!
-//! The config file sits at `<bundle>/config/default_cfg.json` — inside the
+//! The config file sits at `<bundle>/config/settings.json` — inside the
 //! bundle's `config/` directory, next to `bin/` (the binary is at
 //! `<bundle>/bin/kindle-hello`) — so it can be edited by the user without
 //! rebuilding. It is read exactly once at startup, in `App::new` (the app's
@@ -14,22 +14,79 @@
 use std::path::{Path, PathBuf};
 
 use log::{info, warn};
-use serde::{Deserialize, Serialize};
+use serde::{Deserialize, Deserializer, Serialize};
 
 use crate::models::puzzle::PuzzleParams;
 
 /// Name of the config file inside the bundle's `config/` directory.
-const CONFIG_FILE: &str = "default_cfg.json";
+/// e08s01: renamed from `default_cfg.json` to `settings.json`.
+const CONFIG_FILE: &str = "settings.json";
+
+/// Board orientation preference (e08s01).
+///
+/// Controls which color sits at the bottom of the board on game/puzzle
+/// screens. `Auto` follows the player's color (white at bottom when you
+/// play white, black at bottom when you play black) — the pre-e08 behavior.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default, Serialize, Deserialize)]
+pub enum BoardOrientation {
+    /// Follow the player's color (default, pre-e08 behavior).
+    #[default]
+    #[serde(rename = "auto")]
+    Auto,
+    /// Always show white at the bottom.
+    #[serde(rename = "white")]
+    White,
+    /// Always show black at the bottom.
+    #[serde(rename = "black")]
+    Black,
+}
+
+impl BoardOrientation {
+    /// All variants in cycle order (for tap-to-cycle UI in e08s02).
+    pub const ALL: [Self; 3] = [Self::Auto, Self::White, Self::Black];
+
+    /// Next variant in cycle order.
+    pub fn next(self) -> Self {
+        let idx = Self::ALL.iter().position(|v| *v == self).unwrap_or(0);
+        Self::ALL[(idx + 1) % Self::ALL.len()]
+    }
+}
+
+/// General (app-wide) settings shared across all screens (e08s01).
+///
+/// Persisted inside the `general` section of `settings.json`. Screen-specific
+/// settings (e.g. puzzle params) stay as top-level fields on `AppConfig`.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(default)]
+pub struct GeneralSettings {
+    /// UI language (Fluent locale id), e.g. "en" / "de".
+    pub language: String,
+    /// Which color to show at the bottom of the board.
+    pub board_orientation: BoardOrientation,
+    /// Whether to check for app updates automatically on startup.
+    pub auto_update_check: bool,
+}
+
+impl Default for GeneralSettings {
+    fn default() -> Self {
+        Self {
+            language: crate::i18n::DEFAULT_LOCALE.to_string(),
+            board_orientation: BoardOrientation::Auto,
+            auto_update_check: true,
+        }
+    }
+}
 
 /// Root of the app configuration.
 ///
-/// New sections (app-wide settings, …) are added as new fields. The
-/// container-level `#[serde(default)]` keeps deserialization tolerant in
-/// both directions: missing fields fall back to `Default`, and unknown
-/// fields (e.g. a config file written by a newer version) are ignored.
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
-#[serde(default)]
+/// New sections (app-wide settings, …) are added as new fields.
+/// Deserialization is tolerant in both directions: missing fields fall back
+/// to `Default`, unknown fields are ignored, and the legacy pre-e08
+/// top-level `language` field is migrated into `general.language`.
+#[derive(Debug, Clone, PartialEq, Serialize)]
 pub struct AppConfig {
+    /// General app-wide settings (language, board orientation, update check).
+    pub general: GeneralSettings,
     /// Defaults for the puzzle screens. Confirmed user choices replace these
     /// in the in-memory store for the app's lifetime.
     pub puzzle: PuzzleParams,
@@ -37,20 +94,63 @@ pub struct AppConfig {
     /// instead of fullscreen. Default false = current fullscreen behavior;
     /// the top.png sidebar button toggles it at runtime either way.
     pub chrome_on_start: bool,
-    /// UI language (Fluent locale id), e.g. "en" / "de". Runtime choice held
-    /// in the in-memory store; defaults to English.
-    pub language: String,
     /// e07s12: show file/rank labels on the board edges. Default true.
     /// UI toggle deferred to e08-settings-tabs.
     pub board_labels: bool,
 }
 
+/// Custom deserialization with backward compatibility for the pre-e08
+/// top-level `language` field. Old config files like
+/// `{"language": "de", "puzzle": {...}}` are migrated so that `language`
+/// lands in `general.language`.
+impl<'de> Deserialize<'de> for AppConfig {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: Deserializer<'de>,
+    {
+        #[derive(Deserialize)]
+        #[serde(default)]
+        struct Raw {
+            general: GeneralSettings,
+            puzzle: PuzzleParams,
+            chrome_on_start: bool,
+            board_labels: bool,
+            /// Legacy pre-e08 top-level language field.
+            language: Option<String>,
+        }
+        impl Default for Raw {
+            fn default() -> Self {
+                let cfg = AppConfig::default();
+                Self {
+                    general: cfg.general,
+                    puzzle: cfg.puzzle,
+                    chrome_on_start: cfg.chrome_on_start,
+                    board_labels: cfg.board_labels,
+                    language: None,
+                }
+            }
+        }
+        let raw = Raw::deserialize(deserializer)?;
+        let mut general = raw.general;
+        // Migrate legacy top-level language into general if present.
+        if let Some(lang) = raw.language {
+            general.language = lang;
+        }
+        Ok(Self {
+            general,
+            puzzle: raw.puzzle,
+            chrome_on_start: raw.chrome_on_start,
+            board_labels: raw.board_labels,
+        })
+    }
+}
+
 impl Default for AppConfig {
     fn default() -> Self {
         Self {
+            general: GeneralSettings::default(),
             puzzle: PuzzleParams::default(),
             chrome_on_start: false,
-            language: crate::i18n::DEFAULT_LOCALE.to_string(),
             board_labels: true,
         }
     }
@@ -59,10 +159,10 @@ impl Default for AppConfig {
 impl AppConfig {
     /// Candidate config file locations, in priority order:
     ///
-    /// 1. `<bundle>/config/default_cfg.json`, resolved relative to the
+    /// 1. `<bundle>/config/settings.json`, resolved relative to the
     ///    running binary at `<bundle>/bin/kindle-hello` — works on the
     ///    Kindle and whenever the bundle's own binary is run.
-    /// 2. `<ROOT_DIR>/config/default_cfg.json` — the bundle root baked in
+    /// 2. `<ROOT_DIR>/config/settings.json` — the bundle root baked in
     ///    at compile time (the same mechanism as `secrets/token.json`);
     ///    covers dev runs via `run-dev.sh`, where the binary lives in
     ///    `target/` rather than in the bundle.
@@ -247,28 +347,93 @@ mod tests {
 }
 
 #[cfg(test)]
-mod config_tests {
+mod general_settings_tests {
     use super::*;
 
     #[test]
     fn default_language_is_english() {
-        assert_eq!(AppConfig::default().language, "en");
+        assert_eq!(AppConfig::default().general.language, "en");
     }
 
     #[test]
-    fn language_field_survives_serde_roundtrip_and_missing_field_defaults() {
+    fn default_board_orientation_is_auto() {
+        assert_eq!(
+            AppConfig::default().general.board_orientation,
+            BoardOrientation::Auto
+        );
+    }
+
+    #[test]
+    fn default_auto_update_check_is_true() {
+        assert!(AppConfig::default().general.auto_update_check);
+    }
+
+    #[test]
+    fn general_settings_serde_roundtrip() {
         let cfg = AppConfig {
-            language: "de".into(),
+            general: GeneralSettings {
+                language: "de".into(),
+                board_orientation: BoardOrientation::White,
+                auto_update_check: false,
+            },
             ..Default::default()
         };
         let s = serde_json::to_string(&cfg).unwrap();
+        assert!(s.contains("\"general\""));
         assert!(s.contains("\"language\":\"de\""));
+        assert!(s.contains("\"board_orientation\":\"white\""));
+        assert!(s.contains("\"auto_update_check\":false"));
         let back: AppConfig = serde_json::from_str(&s).unwrap();
-        assert_eq!(back.language, "de");
-        // Old config files without the field still parse, defaulting to en.
-        let old = r#"{"puzzle":{"angle":"endgame"},"chrome_on_start":true}"#;
+        assert_eq!(back.general.language, "de");
+        assert_eq!(back.general.board_orientation, BoardOrientation::White);
+        assert!(!back.general.auto_update_check);
+    }
+
+    #[test]
+    fn legacy_top_level_language_migrates_to_general() {
+        // Pre-e08 config file with top-level language, no general section.
+        let old = r#"{"language":"de","puzzle":{"difficulty":"hardest"},"chrome_on_start":true}"#;
         let parsed: AppConfig = serde_json::from_str(old).unwrap();
-        assert_eq!(parsed.language, "en");
+        assert_eq!(parsed.general.language, "de");
+        assert_eq!(parsed.general.board_orientation, BoardOrientation::Auto);
+        assert!(parsed.general.auto_update_check);
+        assert!(parsed.chrome_on_start);
+    }
+
+    #[test]
+    fn legacy_language_without_general_section_defaults_other_general_fields() {
+        let old = r#"{"language":"de"}"#;
+        let parsed: AppConfig = serde_json::from_str(old).unwrap();
+        assert_eq!(parsed.general.language, "de");
+        assert_eq!(parsed.general.board_orientation, BoardOrientation::Auto);
+    }
+
+    #[test]
+    fn new_format_general_section_parses() {
+        let json = r#"{"general":{"language":"de","board_orientation":"black","auto_update_check":false}}"#;
+        let parsed: AppConfig = serde_json::from_str(json).unwrap();
+        assert_eq!(parsed.general.language, "de");
+        assert_eq!(parsed.general.board_orientation, BoardOrientation::Black);
+        assert!(!parsed.general.auto_update_check);
+    }
+
+    #[test]
+    fn board_orientation_cycles_through_all_variants() {
+        let mut o = BoardOrientation::Auto;
+        o = o.next();
+        assert_eq!(o, BoardOrientation::White);
+        o = o.next();
+        assert_eq!(o, BoardOrientation::Black);
+        o = o.next();
+        assert_eq!(o, BoardOrientation::Auto);
+    }
+
+    #[test]
+    fn general_settings_missing_fields_default() {
+        // Old config files without a general section still parse.
+        let old = r#"{"puzzle":{"difficulty":"easiest"},"chrome_on_start":true}"#;
+        let parsed: AppConfig = serde_json::from_str(old).unwrap();
+        assert_eq!(parsed.general, GeneralSettings::default());
     }
 }
 
@@ -284,7 +449,10 @@ mod persistence_tests {
             uuid::Uuid::new_v4()
         ));
         let cfg = AppConfig {
-            language: "de".into(),
+            general: GeneralSettings {
+                language: "de".into(),
+                ..Default::default()
+            },
             puzzle: crate::models::puzzle::PuzzleParams {
                 difficulty: Difficulty::Hardest,
                 ..Default::default()
@@ -294,7 +462,7 @@ mod persistence_tests {
         cfg.save_to(&path).unwrap();
 
         let loaded = AppConfig::load_from(&path).unwrap();
-        assert_eq!(loaded.language, "de");
+        assert_eq!(loaded.general.language, "de");
         assert_eq!(loaded.puzzle.difficulty, Difficulty::Hardest);
 
         std::fs::remove_file(&path).ok();
@@ -304,9 +472,14 @@ mod persistence_tests {
     fn save_to_creates_missing_parent_dirs() {
         let dir =
             std::env::temp_dir().join(format!("kindle-chess-persist-{}", uuid::Uuid::new_v4()));
-        let path = dir.join("config").join("default_cfg.json");
+        let path = dir.join("config").join("settings.json");
         AppConfig::default().save_to(&path).unwrap();
         assert!(path.exists());
         std::fs::remove_dir_all(&dir).ok();
+    }
+
+    #[test]
+    fn config_file_is_named_settings_json() {
+        assert_eq!(CONFIG_FILE, "settings.json");
     }
 }

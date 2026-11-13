@@ -45,6 +45,17 @@ invites-loading = Lädt…
 settings-language = Sprache: {$lang}
 settings-check-update = Nach Updates suchen
 settings-back = zurück
+tab-screen = Dieser Bildschirm
+tab-general = Allgemein
+settings-orientation = Brettorientierung: {$value}
+settings-auto-update = Updates automatisch prüfen: {$value}
+settings-board-labels = Brettbeschriftung: {$value}
+orient-auto = Auto
+orient-white = Weiß
+orient-black = Schwarz
+toggle-on = An
+toggle-off = Aus
+coming-soon = Kommt bald..
 
 common-loading = Lädt…
 common-error = Fehler: {$error}

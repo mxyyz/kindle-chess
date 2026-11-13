@@ -163,19 +163,20 @@ impl Screen for HomeScreen {
         // daily puzzle.
         if self.puzzle_badge {
             let label = tr(&loc, "home-new-daily");
-            let (tw, th) = display.renderer.measure_text(&label, 18.0);
+            let (tw, th) = display.renderer.measure_text(&label, 36.0);
             // Position the rotated text so it sits on the top-right corner of
             // the button, running diagonally down-right.
-            let bx = self.puzzle_button.rect.x + self.puzzle_button.rect.width as i16
-                - tw as i16 / 2
-                - 10;
-            let by = self.puzzle_button.rect.y - 4;
-            let _ = th;
+            // Clockwise 45°: text runs top-left → bottom-right (\ direction).
+            // Anchor offset: half the text width right, 25% of height up.
+            let bx = self.puzzle_button.rect.x + self.puzzle_button.rect.width as i16 - tw as i16
+                + 4
+                + tw as i16 / 2;
+            let by = self.puzzle_button.rect.y - 8 - th as i16 / 4;
             display.renderer.draw_text_rotated45(
                 bx,
                 by,
                 &label,
-                18.0,
+                36.0,
                 DrawColor::Black,
                 DrawColor::White,
             )?;
