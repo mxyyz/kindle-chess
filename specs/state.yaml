@@ -5,9 +5,9 @@ session:
   phase: "e07 merged to main via PR #43 (87bee7a, 2026-11-13); e08-e10 sliced and plan-ready; kicking off e08-settings-tabs worktree"
 vcs:
   kind: git
-  branch: main
-  head: bea1080
-  worktree: /home/mxy/repos/kindle-chess
+  branch: e08-settings-tabs
+  head: 1193611
+  worktree: /home/mxy/repos/e08-settings-tabs
 handoff:
   last_step_completed: e07 merged to main (PR #43, 87bee7a); e08s01-tasks.yaml corrected (bea1080 — config file rename to settings.json, GeneralSettings fields trimmed); state reconciled; kickoff-branch next for e08-settings-tabs
   open_decisions:
@@ -19,7 +19,7 @@ handoff:
   - specs/planning-context.yaml
   - specs/release-plan.yaml
   - specs/epics/e08-settings-tabs/epic.yaml
-  next_skill: kickoff-branch (create e08-settings-tabs worktree + branch from main)
+  next_skill: build-epic (run e08s01-e08s03 on e08-settings-tabs worktree)
 notes:
   e02-e07: merged to main; tags v0.1.2-v0.5.0 present
   e08-e10: sliced 2026-11-10 (release cycle 2); per-story -tasks.yaml populated, plan-ready
