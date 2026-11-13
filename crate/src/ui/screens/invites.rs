@@ -82,8 +82,8 @@ impl InvitesScreen {
         // e08: gap between accept/decline reduced by 30% (16 → 11px).
         let dec_x = layout::SCREEN_W - ICON_BUTTON_SIZE as i16 - 24; // close.png
         let acc_x = dec_x - ICON_BUTTON_SIZE as i16 - 11; // check.png
-        // e08: accept/decline icons shifted up by half their height (67px).
-        let icon_lift: i16 = ICON_BUTTON_SIZE as i16 / 2;
+        // e08: accept/decline icons shifted up by ~30% of their height.
+        let icon_lift: i16 = ICON_BUTTON_SIZE as i16 * 3 / 10;
         // e07s03/e07s11: rows pushed down so pagination icons don't overlap
         // action buttons. Incoming icons at y=176 end at 310; incoming rows
         // start at 320 (last icon ends at 320+3*96+134=742). Outgoing icons
