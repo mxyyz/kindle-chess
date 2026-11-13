@@ -675,22 +675,25 @@ impl PlayScreen {
     }
 
     /// The selector band rect — covers the shared row plus the label areas
-    /// above and below it. When the selector mode changes (AiLevel ↔ Days ↔
-    /// Info), only this band needs clearing + redrawing, not the full screen.
+    /// above and below it, expanded by 1px to cover X11 border lines drawn
+    /// at `y+height` / `x+width`. When the selector mode changes (AiLevel ↔
+    /// Days ↔ Info), only this band needs clearing + redrawing.
     fn selector_band_rect() -> Rectangle {
         let label_h = SELECTOR_LABEL_MARGIN + 30;
         Rectangle::new(
             0,
-            SELECTOR_Y - label_h,
+            SELECTOR_Y - label_h - 1,
             layout::SCREEN_W_U16,
-            (SELECTOR_H as i16 + 2 * label_h) as u16,
+            (SELECTOR_H as i16 + 2 * label_h + 2) as u16,
         )
     }
 
     /// The rated row rect — needed when rated visibility changes (Computer
-    /// hides the rated toggle).
+    /// hides the rated toggle). Expanded by 1px on all sides because X11
+    /// `poly_rectangle` draws the bottom/right border lines at `y+height` /
+    /// `x+width`, which fall outside the `poly_fill_rectangle` area.
     fn rated_row_rect() -> Rectangle {
-        Rectangle::new(0, RATED_Y, layout::SCREEN_W_U16, layout::BTN_H)
+        Rectangle::new(0, RATED_Y - 1, layout::SCREEN_W_U16, layout::BTN_H + 2)
     }
 
     /// Mark a selection change. Always pushes old+new button rects. If the
