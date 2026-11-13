@@ -392,6 +392,19 @@ impl Screen for ChessGameScreen {
     }
 }
 
+/// BUG-2026-11-13T014911: when the screen is popped (or replaced), cancel its
+/// game stream task so the old game's events stop flowing into the shared
+/// channel — otherwise the next ChessGameScreen receives both games' events
+/// and the board alternates between them.
+impl Drop for ChessGameScreen {
+    fn drop(&mut self) {
+        if let Some(cancel) = &self.stream_cancel {
+            cancel.store(true, std::sync::atomic::Ordering::SeqCst);
+            info!("ChessGameScreen dropped — game stream cancelled");
+        }
+    }
+}
+
 /// Re-scope the app to a rematch game. `attach_game` works both from Idle and
 /// from an already in-game backend (the latter is the rematch case —
 /// BUG-2026-11-11T145208), so the pushed screen streams the NEW game id.
@@ -549,5 +562,34 @@ mod rematch_tests {
         );
         // The original app keeps the old scope (clone semantics).
         assert_eq!(app.online_in_game_api().unwrap().game_id(), "oldGame");
+    }
+
+    // BUG-2026-11-13T014911: dropping a ChessGameScreen must cancel its
+    // stream task, otherwise the old game's events keep flowing into the
+    // shared channel and the next screen's board alternates between games.
+    #[test]
+    fn drop_cancels_game_stream() {
+        use std::sync::Arc;
+        use std::sync::atomic::{AtomicBool, Ordering};
+
+        let cancel = Arc::new(AtomicBool::new(false));
+        {
+            let mut s = screen();
+            s.stream_started = true;
+            s.stream_cancel = Some(cancel.clone());
+            assert!(!cancel.load(Ordering::SeqCst));
+        } // s dropped here
+        assert!(
+            cancel.load(Ordering::SeqCst),
+            "Drop must set stream_cancel so the old game's stream stops"
+        );
+    }
+
+    #[test]
+    fn drop_without_stream_is_noop() {
+        // A screen that never started a stream (offline/demo) must drop cleanly.
+        let s = screen();
+        assert!(s.stream_cancel.is_none());
+        drop(s); // must not panic
     }
 }

@@ -101,3 +101,16 @@ registry:
       selector touches by the currently rendered selector only.
     file: specs/bugs/BUG-2026-11-11T153246-ai-level-selector-shadowed.md
     status: fixed  # selector_touch routes by selector_mode(); last-selected-wins + centered label in same run; gates green
+  - bug_id: BUG-2026-11-13T014911
+    date: 2026-11-13
+    severity: medium
+    priority: high
+    scope: ongoing-games-switch
+    summary: >-
+      Board switching loop when hopping between ongoing games: popping a
+      ChessGameScreen never cancels its SSE stream task, so the old game's
+      GameFullReceived/TurnChanged events keep arriving on the shared channel
+      and the next screen applies both games' positions alternately. Fix:
+      Drop impl on ChessGameScreen sets stream_cancel.
+    file: specs/bugs/BUG-2026-11-13T014911-ongoing-game-switch-loop.md
+    status: fixed  # Drop impl cancels stream on pop; 258 tests green
