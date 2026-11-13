@@ -1,5 +1,55 @@
 # Changelog
 
+## [0.6.0](https://github.com/mxyyz/kindle-chess/compare/v0.5.0...v0.6.0) (2026-11-13)
+
+
+### Features
+
+* **e07s01:** reusable ListPicker modal widget + PlayScreen friend picker integration ([55c9a9e](https://github.com/mxyyz/kindle-chess/commit/55c9a9ec6c949142d9545b4c1f21112a540f0180))
+* **e07s02:** uniform title bar helper (draw_title_bar/draw_page_title) across 9 screens ([0df58f7](https://github.com/mxyyz/kindle-chess/commit/0df58f7bfd14cf782123f407a9d0a75518752595))
+* **e07s04:** conditional pagination — next only when more pages, prev hidden on first ([d411ad4](https://github.com/mxyyz/kindle-chess/commit/d411ad4f520fc616c6f7178d2fab4fee290e07d6))
+* **e07s05:** recurring fetch (5s×6 then refresh btn) on Games/Invites + Home puzzle badge ([9294c34](https://github.com/mxyyz/kindle-chess/commit/9294c340fc07a6cdd53cc95f42e3c4fd5d0088cb))
+* **e07s06:** per-item details on OngoingGames + Invites rows ([0ba479f](https://github.com/mxyyz/kindle-chess/commit/0ba479f9ffaeff93e386b980f55442a1f47f1244))
+* **e07s07:** board file/rank labels (orientation-aware) + piece-move shadow fix ([5ae36a4](https://github.com/mxyyz/kindle-chess/commit/5ae36a4e8616d2cee4080d3316a93b6f1b98d47e))
+* **e07s08:** ListPicker tap_to_select mode — friend picker selects on first tap ([df411fe](https://github.com/mxyyz/kindle-chess/commit/df411fe46f6a64e9f191cadcc9de2ac0d9bc9b98))
+* **e07s09:** uniform 56px titles on all screens + Play title → New Game/Neue Partie ([d427ce0](https://github.com/mxyyz/kindle-chess/commit/d427ce0eaf284b19ba15029485a90941f84385c3))
+* **e07s11:** OngoingGames square cards + Invites check/close icon buttons ([277fe52](https://github.com/mxyyz/kindle-chess/commit/277fe52c126b7773cc71e6faeea4e83c530a51d7))
+* **e07s12:** board labels gated by AppConfig.board_labels (default true) ([7dfe7f7](https://github.com/mxyyz/kindle-chess/commit/7dfe7f7ba1fc92e57dc66948d1061db3994b4f82))
+* **e07:** switch embedded font from AdwaitaSans-Regular to Ithaca-LVB75 ([5979ac0](https://github.com/mxyyz/kindle-chess/commit/5979ac01eac9ff119735a672e3d648fee489cc4b))
+* **e08:** move language/update to home tab, replace top.png with 3-icon chrome button ([f454bb1](https://github.com/mxyyz/kindle-chess/commit/f454bb10a4c26259399756bdf7e1411357711598))
+* **e08s01:** GeneralSettings model + persistence, rename config to settings.json ([bcda0e6](https://github.com/mxyyz/kindle-chess/commit/bcda0e6c4a09c15336534aca25ca52e2fd7b37b6))
+* **e08s02:** SettingsScreen 2-tab UI with context-aware primary tab ([520a967](https://github.com/mxyyz/kindle-chess/commit/520a96713334a436f6c2eec3375d6caff6dad337))
+* **e08s03:** route Game/Puzzle/Home settings through 2-tab SettingsScreen ([b1df701](https://github.com/mxyyz/kindle-chess/commit/b1df7016c5ee6d8788fc59fa7b12eb24855eb1fd))
+
+
+### Bug Fixes
+
+* **e07:** actually fix inverted rank labels + contrast (round 3) ([5446901](https://github.com/mxyyz/kindle-chess/commit/5446901e446358120e70ca3e9e58cee4d86460bd))
+* **e07:** address 4 user-reported issues — poll flicker, daily badge, play redraw, board labels ([4a7d424](https://github.com/mxyyz/kindle-chess/commit/4a7d4243c27ca01d44977d86bcbf78d8c5569eaa))
+* **e07:** address reviewer must-fix findings (round 1) ([51d1b8c](https://github.com/mxyyz/kindle-chess/commit/51d1b8c3ee9ea2688e21be63dd13d92ba4c19a48))
+* **e07:** address round-2 reviewer must-fix findings ([646a279](https://github.com/mxyyz/kindle-chess/commit/646a2793ad3dec45698a58c5ab42b49797874b1e))
+* **e07:** address round-4 should-fix items (offline picker, dead i18n keys, badge doc) ([437f959](https://github.com/mxyyz/kindle-chess/commit/437f9591c6e510c7493cb59b7f80fb0fba729a25))
+* **e07:** exclude seconds_left from ongoing-games poll comparison ([20e442b](https://github.com/mxyyz/kindle-chess/commit/20e442bebae08ba658743bf0ca576b59515fd605))
+* **e07:** expand rated_row_rect and selector_band_rect by 1px to cover X11 border lines ([39ab03b](https://github.com/mxyyz/kindle-chess/commit/39ab03b8116216f3b51bcf9b2af6d9368d17cfd8))
+* **e07:** replace skip_full_clear with dirty-rect partial redraw on Play screen ([5e0f539](https://github.com/mxyyz/kindle-chess/commit/5e0f5394bde347c8e645ab60c4e42cf100f66288))
+* **e07:** right-align rank numbers on board's right edge ([84533d6](https://github.com/mxyyz/kindle-chess/commit/84533d656c68ad3da5e02255997c85da74db9146))
+* **e07s03:** invites pagination icons no longer overlap action button rows ([873618f](https://github.com/mxyyz/kindle-chess/commit/873618fbf2c146335a9652f8ec420399be24f603))
+* **e07s10:** periodic Tick drives polls (no flicker) + Home daily-puzzle badge ([1b0504a](https://github.com/mxyyz/kindle-chess/commit/1b0504a8c340c229e164184f93b5f46e900a632d))
+* **e07:** selector mode change redraws only the selector band, not full screen ([03eb45f](https://github.com/mxyyz/kindle-chess/commit/03eb45f9707923da2cdef6d64725d339e9a57b30))
+* **e08:** cancel game stream on ChessGameScreen drop (BUG-2026-11-13T014911) ([693cc80](https://github.com/mxyyz/kindle-chess/commit/693cc80115474b5df767f6f17b8c6c098fddb04b))
+* **e08:** defer board orientation, fix chrome icon loading ([d894a10](https://github.com/mxyyz/kindle-chess/commit/d894a10b974812e6119dfdf622a7e4ac41f5e7c3))
+* **e08:** double angled text sizes, halve invite accept/decline icons ([29b2451](https://github.com/mxyyz/kindle-chess/commit/29b2451d54fe43e568a151152279eee14251b137))
+* **e08:** flip draw_text_rotated45 to clockwise rotation ([16e0342](https://github.com/mxyyz/kindle-chess/commit/16e03421d865167a72a944ea8ceed8b948220712))
+* **e08:** re-read board_labels from config in on_reveal for game/puzzle screens ([635436b](https://github.com/mxyyz/kindle-chess/commit/635436b17f8acc7ab608129b898091f93ddc8980))
+* **e08:** reduce accept/decline icon lift to 30% of height ([e74f869](https://github.com/mxyyz/kindle-chess/commit/e74f8698c651abbfe27ec37e425535a7ed73028f))
+* **e08:** reposition angled texts and invite action icons ([c6baa10](https://github.com/mxyyz/kindle-chess/commit/c6baa10d62189e4ccb046934a2df02a1d29aa74e))
+* **e08:** skip chrome icon load assertion when ASSETS_DIR absent (CI) ([10488ce](https://github.com/mxyyz/kindle-chess/commit/10488ce0743948b56484c059e10cb2b24a9e2edc))
+
+
+### Performance Improvements
+
+* **e07s10:** throttle synthetic Tick to 5s (synced with poll interval) ([e763cca](https://github.com/mxyyz/kindle-chess/commit/e763ccac1f086da4ac6ef86a9ae5d40959c31a3b))
+
 ## [0.5.0](https://github.com/mxyyz/kindle-chess/compare/v0.4.0...v0.5.0) (2026-11-11)
 
 
