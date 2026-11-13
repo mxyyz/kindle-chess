@@ -8,7 +8,11 @@ use super::*;
 
 use crate::ui::layout;
 use crate::{
-    models::ui::{Display, Screen, Transition},
+    models::{
+        chess::ChessApp,
+        puzzle::PuzzleParams,
+        ui::{Display, Screen, Transition},
+    },
     ui::{
         events::{AppEvent, RectangleExt, TouchKind},
         renderer::DrawColor,
@@ -58,6 +62,16 @@ pub struct SettingsScreen {
     auto_update_button: Button,
     board_labels_button: Button,
     check_update_button: Button,
+    // Puzzle primary-tab buttons (context == Puzzle)
+    puzzle_params: PuzzleParams,
+    puzzle_difficulty_button: Button,
+    puzzle_phase_button: Button,
+    puzzle_color_button: Button,
+    puzzle_fetch_button: Button,
+    // Game primary-tab buttons (context == Game)
+    game_app: Option<ChessApp>,
+    resign_button: Button,
+    abort_button: Button,
     // Navigation
     back_button: Button,
 }
@@ -68,6 +82,14 @@ impl SettingsScreen {
     }
 
     pub fn with_context(config: Arc<RwLock<AppConfig>>, context: SettingsContext) -> Self {
+        Self::with_context_and_app(config, context, None)
+    }
+
+    pub fn with_context_and_app(
+        config: Arc<RwLock<AppConfig>>,
+        context: SettingsContext,
+        game_app: Option<ChessApp>,
+    ) -> Self {
         const BTN_W: u16 = 760;
         const BTN_H: u16 = 100;
         const TAB_W: u16 = 490;
@@ -85,6 +107,8 @@ impl SettingsScreen {
             SettingsContext::General => SettingsTab::General,
             _ => SettingsTab::Primary,
         };
+
+        let puzzle_params = config.read().map(|c| c.puzzle).unwrap_or_default();
 
         Self {
             config,
@@ -150,6 +174,62 @@ impl SettingsScreen {
                 BTN_W,
                 BTN_H,
                 String::from("Check for updates"),
+                38.0,
+                true,
+            ),
+            puzzle_params,
+            puzzle_difficulty_button: Button::new(
+                x,
+                content_y,
+                BTN_W,
+                BTN_H,
+                String::from("Difficulty"),
+                38.0,
+                true,
+            ),
+            puzzle_phase_button: Button::new(
+                x,
+                content_y + stride,
+                BTN_W,
+                BTN_H,
+                String::from("Phase"),
+                38.0,
+                true,
+            ),
+            puzzle_color_button: Button::new(
+                x,
+                content_y + 2 * stride,
+                BTN_W,
+                BTN_H,
+                String::from("Color"),
+                38.0,
+                true,
+            ),
+            puzzle_fetch_button: Button::new(
+                x,
+                content_y + 3 * stride + 40,
+                BTN_W,
+                BTN_H,
+                String::from("Get new puzzle"),
+                38.0,
+                true,
+            ),
+            game_app,
+            resign_button: Button::new(
+                x,
+                content_y + stride,
+                BTN_W,
+                BTN_H,
+                String::from("Resign"),
+                38.0,
+                true,
+            ),
+            abort_button: Button::new(
+                x,
+                content_y + 2 * stride,
+                BTN_W,
+                BTN_H,
+                String::from("Abort"),
                 38.0,
                 true,
             ),
@@ -246,6 +326,28 @@ impl SettingsScreen {
         self.back_button.label = tr(&loc, "settings-back");
         self.tab_primary_button.label = tr(&loc, "tab-screen");
         self.tab_general_button.label = tr(&loc, "tab-general");
+
+        // Puzzle primary-tab labels
+        self.puzzle_difficulty_button.label = i18n::t(
+            &loc,
+            "puzzle-difficulty",
+            &[("value", &tr(&loc, self.puzzle_params.difficulty.i18n_key()))],
+        );
+        self.puzzle_phase_button.label = i18n::t(
+            &loc,
+            "puzzle-phase",
+            &[("value", &tr(&loc, self.puzzle_params.phase.i18n_key()))],
+        );
+        self.puzzle_color_button.label = i18n::t(
+            &loc,
+            "puzzle-color",
+            &[("value", &tr(&loc, self.puzzle_params.color.i18n_key()))],
+        );
+        self.puzzle_fetch_button.label = tr(&loc, "puzzle-fetch");
+
+        // Game primary-tab labels
+        self.resign_button.label = tr(&loc, "game-resign");
+        self.abort_button.label = tr(&loc, "game-abort");
     }
 }
 
@@ -288,10 +390,8 @@ impl Screen for SettingsScreen {
                 self.board_labels_button.draw(&mut display.renderer)?;
                 self.check_update_button.draw(&mut display.renderer)?;
             }
-            SettingsTab::Primary => {
-                // Primary tab: screen-specific content.
-                // General context → version info. Game/Puzzle → e08s03 fills in.
-                if self.context == SettingsContext::General {
+            SettingsTab::Primary => match self.context {
+                SettingsContext::General => {
                     let info_size = 28.0;
                     let lines = [
                         format!("Version:  {}", version::VERSION),
@@ -306,8 +406,17 @@ impl Screen for SettingsScreen {
                         y += 40;
                     }
                 }
-                // Game/Puzzle primary tab content added in e08s03.
-            }
+                SettingsContext::Puzzle => {
+                    self.puzzle_difficulty_button.draw(&mut display.renderer)?;
+                    self.puzzle_phase_button.draw(&mut display.renderer)?;
+                    self.puzzle_color_button.draw(&mut display.renderer)?;
+                    self.puzzle_fetch_button.draw(&mut display.renderer)?;
+                }
+                SettingsContext::Game => {
+                    self.resign_button.draw(&mut display.renderer)?;
+                    self.abort_button.draw(&mut display.renderer)?;
+                }
+            },
         }
 
         self.back_button.draw(&mut display.renderer)?;
@@ -378,6 +487,71 @@ impl Screen for SettingsScreen {
                         return Ok(Transition::Push(Box::new(UpdateScreen::new(
                             self.config.clone(),
                         ))));
+                    }
+                }
+
+                // Primary tab actions (only when primary tab is active)
+                if self.active_tab == SettingsTab::Primary {
+                    match self.context {
+                        SettingsContext::Puzzle => {
+                            if self
+                                .puzzle_difficulty_button
+                                .rect
+                                .contains(touch.x, touch.y)
+                            {
+                                self.puzzle_params.difficulty =
+                                    self.puzzle_params.difficulty.next();
+                                return Ok(Transition::Redraw);
+                            }
+                            if self.puzzle_phase_button.rect.contains(touch.x, touch.y) {
+                                self.puzzle_params.phase = self.puzzle_params.phase.next();
+                                return Ok(Transition::Redraw);
+                            }
+                            if self.puzzle_color_button.rect.contains(touch.x, touch.y) {
+                                self.puzzle_params.color = self.puzzle_params.color.next();
+                                return Ok(Transition::Redraw);
+                            }
+                            if self.puzzle_fetch_button.rect.contains(touch.x, touch.y) {
+                                info!("Fetching puzzle with {:?}", self.puzzle_params);
+                                if let Ok(mut c) = self.config.write() {
+                                    c.puzzle = self.puzzle_params;
+                                    c.save();
+                                }
+                                let _ = _display
+                                    .event_tx
+                                    .send(AppEvent::ApplyPuzzleParams(self.puzzle_params));
+                                return Ok(Transition::Pop);
+                            }
+                        }
+                        SettingsContext::Game => {
+                            if self.resign_button.rect.contains(touch.x, touch.y) {
+                                if let Some(app) = &self.game_app
+                                    && let Some(api) = app.online_in_game_api()
+                                {
+                                    info!("Resigning game");
+                                    tokio::spawn(async move {
+                                        if let Err(e) = api.resign_game().await {
+                                            warn!("resign_game failed: {}", e);
+                                        }
+                                    });
+                                }
+                                return Ok(Transition::Pop);
+                            }
+                            if self.abort_button.rect.contains(touch.x, touch.y) {
+                                if let Some(app) = &self.game_app
+                                    && let Some(api) = app.online_in_game_api()
+                                {
+                                    info!("Aborting game");
+                                    tokio::spawn(async move {
+                                        if let Err(e) = api.abort_game().await {
+                                            warn!("abort_game failed: {}", e);
+                                        }
+                                    });
+                                }
+                                return Ok(Transition::Pop);
+                            }
+                        }
+                        SettingsContext::General => {}
                     }
                 }
 

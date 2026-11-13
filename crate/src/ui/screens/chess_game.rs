@@ -335,11 +335,14 @@ impl Screen for ChessGameScreen {
             }
 
             AppEvent::OpenGameActions => {
-                info!("Opening game-actions screen");
-                Ok(Transition::Push(Box::new(GameActionsScreen::new(
-                    self.app.clone(),
-                    self.config.clone(),
-                ))))
+                info!("Opening settings screen (game context)");
+                Ok(Transition::Push(Box::new(
+                    SettingsScreen::with_context_and_app(
+                        self.config.clone(),
+                        SettingsContext::Game,
+                        Some(self.app.clone()),
+                    ),
+                )))
             }
 
             AppEvent::Expose => {

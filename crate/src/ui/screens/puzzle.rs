@@ -256,7 +256,7 @@ impl Screen for PuzzleScreen {
             }
 
             AppEvent::OpenPuzzleSettings => Ok(Transition::Push(Box::new(
-                PuzzleSettingsScreen::new(self.config.clone()),
+                SettingsScreen::with_context(self.config.clone(), SettingsContext::Puzzle),
             ))),
 
             // The sidebar's "Next puzzle" button — refetch with current params.

@@ -24,7 +24,7 @@ pub use ongoing_games::OngoingChessGamesScreen;
 pub use play::PlayScreen;
 pub use puzzle::PuzzleScreen;
 pub use puzzle_settings::PuzzleSettingsScreen;
-pub use settings::SettingsScreen;
+pub use settings::{SettingsContext, SettingsScreen};
 pub use update::{UpdateScreen, UpdateState};
 
 #[cfg(test)]
