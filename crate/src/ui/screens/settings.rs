@@ -129,7 +129,7 @@ impl Screen for SettingsScreen {
                     };
                     info!("Language switched to {next}");
                     if let Ok(mut c) = self.config.write() {
-                        c.language = next;
+                        c.general.language = next;
                         c.save();
                     }
                     return Ok(Transition::Redraw);

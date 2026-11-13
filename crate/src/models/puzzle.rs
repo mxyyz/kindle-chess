@@ -253,9 +253,10 @@ fn uci_from_to_mask(uci: &str) -> u64 {
 // for the tap-to-cycle settings buttons.
 //
 // The serde representation is the same vocabulary as the wire values
-// (`as_param` / `as_angle`): the config file (`default_cfg.json`) speaks the
+// (`as_param` / `as_angle`): the config file (`settings.json`) speaks the
 // Lichess parameter language, so there is exactly one set of strings to keep
-// in sync. The tests at the bottom of this file lock the two together.
+// in sync. The config file (`settings.json`) speaks the same vocabulary; the
+// tests at the bottom of this file lock the two together.
 
 #[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "lowercase")]

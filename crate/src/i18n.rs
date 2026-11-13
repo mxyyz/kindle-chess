@@ -77,7 +77,7 @@ pub fn tr(locale: &str, key: &str) -> String {
 pub fn locale_of(config: &std::sync::RwLock<crate::utils::config::AppConfig>) -> String {
     config
         .read()
-        .map(|c| c.language.clone())
+        .map(|c| c.general.language.clone())
         .unwrap_or_else(|_| DEFAULT_LOCALE.to_string())
 }
 
