@@ -663,4 +663,22 @@ mod tests {
         assert!(board.flipped);
         assert!(board.force_full_repaint);
     }
+
+    /// e08: set_show_labels forces a full repaint when the value changes
+    /// (so on_reveal can pick up config changes from the settings screen),
+    /// and is a no-op when the value is unchanged.
+    #[test]
+    fn set_show_labels_forces_repaint_on_change() {
+        let mut board = BoardWidget::new(Rectangle::new(0, 0, BOARD_SIZE, BOARD_SIZE));
+        assert!(board.show_labels); // default true
+        board.force_full_repaint = false;
+        board.set_show_labels(false);
+        assert!(!board.show_labels);
+        assert!(board.force_full_repaint);
+
+        // No-op when same value — must not force repaint.
+        board.force_full_repaint = false;
+        board.set_show_labels(false);
+        assert!(!board.force_full_repaint);
+    }
 }

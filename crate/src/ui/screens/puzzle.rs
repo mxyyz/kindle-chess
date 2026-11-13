@@ -304,6 +304,11 @@ impl Screen for PuzzleScreen {
     fn on_reveal(&mut self) {
         // The settings screen drew over the board + sidebar while we were
         // covered — force a full repaint instead of a stale partial diff.
+        // e08: also re-read board_labels so toggles from the 2-tab settings
+        // screen take effect regardless of which context opened it.
+        if let Ok(c) = self.config.read() {
+            self.board.set_show_labels(c.board_labels);
+        }
         self.board.invalidate();
         self.sidebar.invalidate();
     }
