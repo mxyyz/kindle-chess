@@ -99,9 +99,14 @@ impl InvitesScreen {
             app,
             config,
             incoming_name: std::array::from_fn(|i| btn(name_x, irow(i), NAME_W, "-")),
-            // e07s11: accept/decline are icon buttons now.
-            incoming_accept: std::array::from_fn(|i| IconButton::new(acc_x, irow(i), "check.png")),
-            incoming_decline: std::array::from_fn(|i| IconButton::new(dec_x, irow(i), "close.png")),
+            // e07s11: accept/decline are icon buttons now. e08: glyph at 50%
+            // of the default 100px — the full-size icons dominated the row.
+            incoming_accept: std::array::from_fn(|i| {
+                IconButton::new(acc_x, irow(i), "check.png").with_glyph_size(50)
+            }),
+            incoming_decline: std::array::from_fn(|i| {
+                IconButton::new(dec_x, irow(i), "close.png").with_glyph_size(50)
+            }),
             outgoing_name: std::array::from_fn(|i| btn(name_x, orow(i), NAME_W, "-")),
             outgoing_cancel: std::array::from_fn(|i| btn(acc_x, orow(i), ACT_W, "Cancel")),
             // e07s03: pagination icons on the section-label row, clear of rows.

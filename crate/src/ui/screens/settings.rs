@@ -458,7 +458,7 @@ impl Screen for SettingsScreen {
                 // "Coming soon.." label on the button's top-right corner.
                 {
                     let label = tr(&loc, "coming-soon");
-                    let (tw, _) = display.renderer.measure_text(&label, 16.0);
+                    let (tw, _) = display.renderer.measure_text(&label, 32.0);
                     // Clockwise 45°: text runs top-left → bottom-right (\ direction).
                     let bx = self.orientation_button.rect.x
                         + self.orientation_button.rect.width as i16
@@ -469,7 +469,7 @@ impl Screen for SettingsScreen {
                         bx,
                         by,
                         &label,
-                        16.0,
+                        32.0,
                         DrawColor::Black,
                         DrawColor::White,
                     )?;
