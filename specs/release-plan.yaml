@@ -184,7 +184,7 @@ epics:
     bcps: 2
     delta: MODIFIED
 - id: e08-settings-tabs
-  status: "done (3/3 stories on e08-settings-tabs @ b1df701, 2026-11-13 — s01 GeneralSettings model + settings.json rename, s02 2-tab SettingsScreen UI, s03 migrate Game/Puzzle/Home; gates green 299 tests / clippy / fmt)"
+  status: "done (3/3 stories + 7 user fixes + 1 bug fix on e08-settings-tabs @ e74f869, 2026-11-13 — s01 GeneralSettings model + settings.json rename, s02 2-tab SettingsScreen UI, s03 migrate Game/Puzzle/Home through SettingsScreen; fixes: board_labels on_reveal, home-tab/chrome-button restructure, defer board-orientation, clockwise 45°, text/icon sizing+repositioning, BUG-2026-11-13T014911 stream-cancel-on-drop; gates green 302 tests / clippy / fmt; ready for PR)"
   wsjf_order: 4
   scope: specs/product/SCOPE_LATEST.yaml
   planning_context: specs/planning-context.yaml
