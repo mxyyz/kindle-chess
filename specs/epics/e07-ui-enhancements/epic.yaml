@@ -3,7 +3,7 @@
 # Sliced 2026-11-10 from specs/product/SCOPE_LATEST.yaml (release cycle 2) +
 # specs/planning-context.yaml. User-specified list of UI fixes + QOL items.
 epic_id: e07-ui-enhancements
-status: s01-s07 done; s08-s12 sliced 2026-11-12 from user feedback (round 2)
+status: done 2026-11-13 — all 12 stories (s01-s12) + 6 user-fix commits on branch e07-ui-enhancements @ 5979ac0; gates green (283 tests / clippy / fmt)
 scope: specs/product/SCOPE_LATEST.yaml
 planning_context: specs/planning-context.yaml
 # Order: s01-s07 done. s08-s12 are user-feedback fixes from the s01-s07 review:
