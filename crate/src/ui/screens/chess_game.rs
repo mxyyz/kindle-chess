@@ -55,10 +55,17 @@ impl ChessGameScreen {
         if let Some(turn) = app.turn() {
             sidebar.set_turn(turn.clone(), &loc);
         }
+        // e07s12: read board_labels before config is moved into the struct.
+        let board_labels = config.read().map(|c| c.board_labels).unwrap_or(true);
         Self {
             app,
             config,
-            board: BoardWidget::new(Rectangle::new(0, 0, layout::BOARD_SIZE, layout::BOARD_SIZE)),
+            board: {
+                let mut b =
+                    BoardWidget::new(Rectangle::new(0, 0, layout::BOARD_SIZE, layout::BOARD_SIZE));
+                b.set_show_labels(board_labels);
+                b
+            },
             sidebar,
             stream_started: false,
             stream_cancel: None,

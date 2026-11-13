@@ -189,6 +189,39 @@ impl LitcheeAdapter {
         Ok(daily)
     }
 
+    /// Returns true when the authenticated user has NOT solved today's daily
+    /// puzzle (i.e. the daily puzzle id does not appear in their puzzle
+    /// activity from the last 24 h). Requires the `puzzle:read` scope.
+    /// On any error returns false (badge stays off — safe default).
+    pub async fn is_daily_unsolved(&self) -> bool {
+        let now_ms = match std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH) {
+            Ok(d) => d.as_millis() as i64,
+            Err(_) => return false,
+        };
+        let since_24h_ago = now_ms - 86_400_000;
+        let daily = match self.get_daily_puzzle().await {
+            Ok(d) => d,
+            Err(_) => return false,
+        };
+        let mut activity = match self
+            .client
+            .puzzles()
+            .activity(None, None, Some(since_24h_ago))
+            .await
+        {
+            Ok(s) => s,
+            Err(_) => return false,
+        };
+        while let Some(entry) = activity.next().await {
+            match entry {
+                Ok(e) if e.puzzle.id == daily.id => return false, // solved today
+                Ok(_) => continue,
+                Err(_) => return false,
+            }
+        }
+        true // daily not found in recent activity → unsolved
+    }
+
     // Account
     pub async fn get_user_info(&self) -> Result<LichessUser, LichessError> {
         let litchee_user = self.client.account().profile().await?.user;
@@ -461,6 +494,9 @@ impl LitcheeAdapter {
             url: open.url,
             rated: open.rated.unwrap_or(false),
             open: true, // e06s08: mark open challenges so Invites can label them
+            rating: None,
+            speed: None,
+            time_control: None,
         })
     }
 
@@ -511,13 +547,38 @@ impl LitcheeAdapter {
 /// caller (send_challenge → false; list parsing → side of the list). An
 /// outgoing entry with `dest_user: None` is an open challenge (e06s08).
 fn map_challenge(c: &LichessChallenge, incoming: bool) -> ChallengeSummary {
-    let opponent = if incoming {
-        c.challenger.as_ref().map(|u| u.name.clone())
+    let (user, opponent) = if incoming {
+        (
+            c.challenger.as_ref(),
+            c.challenger.as_ref().map(|u| u.name.clone()),
+        )
     } else {
-        c.dest_user.as_ref().map(|u| u.name.clone())
-    }
-    .unwrap_or_default();
+        (
+            c.dest_user.as_ref(),
+            c.dest_user.as_ref().map(|u| u.name.clone()),
+        )
+    };
+    let opponent = opponent.unwrap_or_default();
     let open = !incoming && c.dest_user.is_none();
+    // e07s06: extract rating, speed, time control for detail display.
+    let rating = user.and_then(|u| u.rating);
+    let speed = c.speed.map(|s| format!("{s:?}").to_lowercase());
+    let time_control = c.time_control.as_ref().map(|tc| {
+        use litchee::api::gameplay::challenges::LichessTimeControl;
+        match tc {
+            LichessTimeControl::Clock {
+                show,
+                limit,
+                increment,
+            } => show.clone().unwrap_or_else(|| {
+                format!("{}+{}", limit.unwrap_or(0) / 60, increment.unwrap_or(0))
+            }),
+            LichessTimeControl::Correspondence { days_per_turn, .. } => {
+                format!("{}d", days_per_turn.unwrap_or(0))
+            }
+            _ => "∞".to_string(),
+        }
+    });
     ChallengeSummary {
         id: c.id.clone(),
         status: format!("{:?}", c.status).to_lowercase(),
@@ -526,6 +587,9 @@ fn map_challenge(c: &LichessChallenge, incoming: bool) -> ChallengeSummary {
         url: c.url.clone(),
         rated: c.rated.unwrap_or(false),
         open,
+        rating,
+        speed,
+        time_control,
     }
 }
 

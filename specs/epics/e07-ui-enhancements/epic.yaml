@@ -3,11 +3,12 @@
 # Sliced 2026-11-10 from specs/product/SCOPE_LATEST.yaml (release cycle 2) +
 # specs/planning-context.yaml. User-specified list of UI fixes + QOL items.
 epic_id: e07-ui-enhancements
-status: sliced (plan-work pending)
+status: done 2026-11-13 — all 12 stories (s01-s12) + 6 user-fix commits on branch e07-ui-enhancements @ 5979ac0; gates green (283 tests / clippy / fmt)
 scope: specs/product/SCOPE_LATEST.yaml
 planning_context: specs/planning-context.yaml
-# Order: shared infra (list-picker, uniform layout) first so later stories
-# reuse them; bug fixes next; QOL features; rendering fix; verification last.
+# Order: s01-s07 done. s08-s12 are user-feedback fixes from the s01-s07 review:
+# tap-to-select picker, uniform titles, auto-rerender fix, layout overhaul,
+# board-labels setting.
 stories:
   - story_id: e07s01
     title: >-
@@ -62,3 +63,44 @@ stories:
     bcps: 2
     delta: MODIFIED
     tasks_file: e07s07-tasks.yaml
+  - story_id: e07s08
+    title: >-
+      ListPicker tap-to-select mode (tap item = immediate select, no Select
+      button); friend-opponent picker uses this mode
+    bcps: 3
+    delta: MODIFIED
+    tasks_file: e07s08-tasks.yaml
+    spec_file: e07s08-tap-select-picker.md
+  - story_id: e07s09
+    title: >-
+      Uniform title font size 56px on ALL screens (Settings-page size);
+      rename Play title to "New Game" / "Neue Partie"
+    bcps: 3
+    delta: MODIFIED
+    tasks_file: e07s09-tasks.yaml
+    spec_file: e07s09-uniform-title-size.md
+  - story_id: e07s10
+    title: >-
+      Fix auto-rerender: runner sends periodic render after bootstrap so polls
+      fire automatically on OngoingGames/Invites; Home fetches daily puzzle
+      status and sets badge
+    bcps: 5
+    delta: MODIFIED
+    tasks_file: e07s10-tasks.yaml
+    spec_file: e07s10-auto-rerender-fix.md
+  - story_id: e07s11
+    title: >-
+      Layout overhaul: OngoingGames → square cards (title + detail rows);
+      Invites → check.png/close.png IconButtons for accept/decline, wider labels
+    bcps: 8
+    delta: MODIFIED
+    tasks_file: e07s11-tasks.yaml
+    spec_file: e07s11-layout-overhaul.md
+  - story_id: e07s12
+    title: >-
+      Board file/rank labels visibility gated by persistent AppConfig.board_labels
+      (default true; UI toggle deferred to e08)
+    bcps: 3
+    delta: MODIFIED
+    tasks_file: e07s12-tasks.yaml
+    spec_file: e07s12-board-labels-setting.md

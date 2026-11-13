@@ -34,8 +34,10 @@ pub struct InvitesScreen {
     // Up to 4 incoming + 4 outgoing rows per page: opponent name + action
     // button(s). Rows past the list end are simply not drawn.
     pub incoming_name: [Button; 4],
-    pub incoming_accept: [Button; 4],
-    pub incoming_decline: [Button; 4],
+    /// e07s11: accept = check.png icon button (was text "Accept").
+    pub incoming_accept: [IconButton; 4],
+    /// e07s11: decline = close.png icon button (was text "Decline").
+    pub incoming_decline: [IconButton; 4],
     pub outgoing_name: [Button; 4],
     pub outgoing_cancel: [Button; 4],
     // Separate pagination per section; each section's page icons sit on its
@@ -53,22 +55,38 @@ pub struct InvitesScreen {
     pub status: Option<String>,
     pub incoming_page: usize,
     pub outgoing_page: usize,
+    /// e07s05: poll cycle counter — auto-poll up to MAX_POLLS times, then
+    /// show a refresh button instead.
+    pub poll_count: usize,
+    /// e07s05: manual refresh button shown after the auto-poll cycle ends.
+    pub refresh_button: IconButton,
 }
+
+/// e07s05: max auto-polls (5s interval × 6 = 30s) before showing refresh.
+const MAX_POLLS: usize = 6;
 
 impl InvitesScreen {
     pub fn new(app: ChessApp, config: Arc<RwLock<AppConfig>>) -> Self {
         // Layout: layout::SCREEN_W × layout::SCREEN_H. "Incoming" section at top (4 rows), "Outgoing"
         // below (4 rows), status line near the bottom, back/page icons along
         // the bottom edge.
-        const NAME_W: u16 = 420;
+        // e07s11: NAME_W increased from 420 → 600 (freed by replacing 2×200px
+        // text buttons with 2×134px icon buttons; capped to clear icon buttons
+        // starting at acc_x=764: 136 + 600 + 16 = 752 < 764).
+        const NAME_W: u16 = 600;
         const ACT_W: u16 = 200;
         const ROW_H: u16 = 80;
         const ROW_GAP: i16 = 16;
         let name_x = 136;
-        let acc_x = 576;
-        let dec_x = 792;
-        let irow = |i: usize| 240 + i as i16 * (ROW_H as i16 + ROW_GAP);
-        let orow = |i: usize| 720 + i as i16 * (ROW_H as i16 + ROW_GAP);
+        // Icon buttons sit at the right edge; each is ICON_BUTTON_SIZE (134px).
+        let dec_x = layout::SCREEN_W - ICON_BUTTON_SIZE as i16 - 24; // close.png
+        let acc_x = dec_x - ICON_BUTTON_SIZE as i16 - 16; // check.png
+        // e07s03/e07s11: rows pushed down so pagination icons don't overlap
+        // action buttons. Incoming icons at y=176 end at 310; incoming rows
+        // start at 320 (last icon ends at 320+3*96+134=742). Outgoing icons
+        // at y=760 end at 894; outgoing rows start at 900.
+        let irow = |i: usize| 320 + i as i16 * (ROW_H as i16 + ROW_GAP);
+        let orow = |i: usize| 900 + i as i16 * (ROW_H as i16 + ROW_GAP);
         let btn = |x: i16, y: i16, w: u16, label: &str| {
             Button::new(x, y, w, ROW_H, label.to_string(), 32.0, true)
         };
@@ -81,15 +99,25 @@ impl InvitesScreen {
             app,
             config,
             incoming_name: std::array::from_fn(|i| btn(name_x, irow(i), NAME_W, "-")),
-            incoming_accept: std::array::from_fn(|i| btn(acc_x, irow(i), ACT_W, "Accept")),
-            incoming_decline: std::array::from_fn(|i| btn(dec_x, irow(i), ACT_W, "Decline")),
+            // e07s11: accept/decline are icon buttons now.
+            incoming_accept: std::array::from_fn(|i| IconButton::new(acc_x, irow(i), "check.png")),
+            incoming_decline: std::array::from_fn(|i| IconButton::new(dec_x, irow(i), "close.png")),
             outgoing_name: std::array::from_fn(|i| btn(name_x, orow(i), NAME_W, "-")),
             outgoing_cancel: std::array::from_fn(|i| btn(acc_x, orow(i), ACT_W, "Cancel")),
+            // e07s03: pagination icons on the section-label row, clear of rows.
             incoming_prev: IconButton::new(icon_prev_x, 176, "back-page.png"),
             incoming_next: IconButton::new(icon_next_x, 176, "next-page.png"),
-            outgoing_prev: IconButton::new(icon_prev_x, 656, "back-page.png"),
-            outgoing_next: IconButton::new(icon_next_x, 656, "next-page.png"),
+            // e07s11: outgoing pagination at y=760 — clears incoming row 3
+            // icons (last incoming icon ends at y=742).
+            outgoing_prev: IconButton::new(icon_prev_x, 760, "back-page.png"),
+            outgoing_next: IconButton::new(icon_next_x, 760, "next-page.png"),
             back_button: IconButton::new(32 + ICON_BUTTON_SIZE as i16 / 2, bottom, "back-nav.png"),
+            // e07s05: refresh button, shown after MAX_POLLS auto-polls.
+            refresh_button: IconButton::new(
+                layout::CENTER_X - ICON_BUTTON_SIZE as i16 / 2,
+                bottom,
+                "refresh.png",
+            ),
             challenges: None,
             error: None,
             loading: false,
@@ -97,6 +125,7 @@ impl InvitesScreen {
             status: None,
             incoming_page: 0,
             outgoing_page: 0,
+            poll_count: 0,
         }
     }
 }
@@ -226,7 +255,20 @@ impl InvitesScreen {
                 Some(c) if outgoing_section && c.open => {
                     format!("{} ({})", tr(&loc, "invites-open-challenge"), c.status)
                 }
-                Some(c) => format!("{} ({})", c.opponent, c.status),
+                Some(c) => {
+                    // e07s06: detail suffix — rating, time control, rated badge.
+                    let mut details = String::new();
+                    if let Some(r) = c.rating {
+                        details.push_str(&format!(" ({r})"));
+                    }
+                    if let Some(tc) = &c.time_control {
+                        details.push_str(&format!(" · {tc}"));
+                    }
+                    if c.rated {
+                        details.push_str(&format!(" · {}", tr(&loc, "play-rated")));
+                    }
+                    format!("{}{details} ({})", c.opponent, c.status)
+                }
                 None => "-".to_string(),
             };
         for k in 0..INVITES_PER_PAGE {
@@ -263,12 +305,8 @@ impl InvitesScreen {
 
 impl Screen for InvitesScreen {
     fn render(&mut self, display: &mut Display) -> Result<(), Box<dyn std::error::Error>> {
-        // Poll: initial fetch, then re-fetch every INVITES_POLL_INTERVAL.
-        let stale = self
-            .last_fetch
-            .map(|t| t.elapsed() >= INVITES_POLL_INTERVAL)
-            .unwrap_or(true);
-        if !self.loading && self.error.is_none() && stale {
+        // e07s10: initial fetch on first paint; subsequent polls via Tick.
+        if self.challenges.is_none() && self.error.is_none() && !self.loading {
             self.kick_fetch(display);
         }
 
@@ -276,21 +314,10 @@ impl Screen for InvitesScreen {
 
         let loc = i18n::locale_of(&self.config);
         let title = tr(&loc, "invites-title");
-        let (tw, _) = display.renderer.measure_text(&title, 36.0);
-        display.renderer.draw_text(
-            (layout::SCREEN_W - tw as i16) / 2,
-            120,
-            &title,
-            36.0,
-            DrawColor::Black,
-        )?;
+        layout::draw_title_bar(&mut display.renderer, &title)?;
 
-        for btn in self.incoming_accept.iter_mut() {
-            btn.label = tr(&loc, "invites-accept");
-        }
-        for btn in self.incoming_decline.iter_mut() {
-            btn.label = tr(&loc, "invites-decline");
-        }
+        // e07s11: accept/decline are IconButtons (no label). Only outgoing_cancel
+        // is still a text Button.
         for btn in self.outgoing_cancel.iter_mut() {
             btn.label = tr(&loc, "invites-cancel");
         }
@@ -302,7 +329,7 @@ impl Screen for InvitesScreen {
             Ok(())
         };
         label(200, &tr(&loc, "invites-incoming"))?;
-        label(680, &tr(&loc, "invites-outgoing"))?;
+        label(784, &tr(&loc, "invites-outgoing"))?;
 
         if let Some(err) = &self.error {
             let label = i18n::t(
@@ -331,10 +358,20 @@ impl Screen for InvitesScreen {
                     self.outgoing_cancel[k].draw(&mut display.renderer)?;
                 }
             }
-            self.incoming_prev.draw(&mut display.renderer)?;
-            self.incoming_next.draw(&mut display.renderer)?;
-            self.outgoing_prev.draw(&mut display.renderer)?;
-            self.outgoing_next.draw(&mut display.renderer)?;
+            // e07s04: conditional pagination — prev only on pages > 0, next
+            // only when more pages exist.
+            if self.incoming_page > 0 {
+                self.incoming_prev.draw(&mut display.renderer)?;
+            }
+            if self.incoming_page + 1 < self.incoming_page_count() {
+                self.incoming_next.draw(&mut display.renderer)?;
+            }
+            if self.outgoing_page > 0 {
+                self.outgoing_prev.draw(&mut display.renderer)?;
+            }
+            if self.outgoing_page + 1 < self.outgoing_page_count() {
+                self.outgoing_next.draw(&mut display.renderer)?;
+            }
         } else {
             let label = tr(&loc, "invites-loading");
             let (w, h) = display.renderer.measure_text(&label, 24.0);
@@ -347,11 +384,17 @@ impl Screen for InvitesScreen {
             )?;
         }
 
+        // e07s05: show refresh button after the auto-poll cycle ends.
+        if self.poll_count >= MAX_POLLS && self.challenges.is_some() {
+            self.refresh_button.draw(&mut display.renderer)?;
+        }
+
         if let Some(status) = &self.status {
             let (w, h) = display.renderer.measure_text(status, 24.0);
             display.renderer.draw_text(
                 (layout::SCREEN_W - w as i16) / 2,
-                1240 - h as i16 / 2,
+                // Review fix: moved below outgoing row 3 (ends y=1268) to avoid overlap.
+                1290 - h as i16 / 2,
                 status,
                 24.0,
                 DrawColor::Black,
@@ -369,11 +412,33 @@ impl Screen for InvitesScreen {
         display: &mut Display,
     ) -> Result<Transition, Box<dyn std::error::Error>> {
         match event {
+            // e07s10: periodic tick drives auto-polling without constant redraws.
+            AppEvent::Tick(_) => {
+                let stale = self
+                    .last_fetch
+                    .map(|t| t.elapsed() >= INVITES_POLL_INTERVAL)
+                    .unwrap_or(true);
+                if !self.loading && self.error.is_none() && stale && self.poll_count < MAX_POLLS {
+                    self.kick_fetch(display);
+                }
+                Ok(Transition::Stay)
+            }
+
             AppEvent::ChallengesLoaded(list) => {
                 info!("Challenges loaded: {} entries", list.len());
+                // Flicker fix: only redraw when the challenge list actually
+                // changed — a poll returning identical data must not trigger
+                // clear(White)+full repaint (e-ink flash).
+                let changed = self
+                    .challenges
+                    .as_ref()
+                    .map(|old| old.as_ref() != list.as_ref())
+                    .unwrap_or(true);
                 self.last_fetch = Some(Instant::now());
                 self.loading = false;
                 self.error = None;
+                // e07s05: count completed polls.
+                self.poll_count += 1;
                 // An accepted challenge means the game has started — join it.
                 if let Some(c) = accepted_game(&list)
                     && let Some(game_id) = c.game_id()
@@ -388,7 +453,11 @@ impl Screen for InvitesScreen {
                 }
                 self.challenges = Some(list);
                 self.set_rows();
-                Ok(Transition::Redraw)
+                if changed {
+                    Ok(Transition::Redraw)
+                } else {
+                    Ok(Transition::Stay)
+                }
             }
 
             AppEvent::ChallengesFailed(e) => {
@@ -404,6 +473,16 @@ impl Screen for InvitesScreen {
                 }
                 if self.back_button.rect.contains(touch.x, touch.y) {
                     return Ok(Transition::Pop);
+                }
+
+                // e07s05: refresh button restarts the poll cycle.
+                if self.poll_count >= MAX_POLLS
+                    && self.refresh_button.rect.contains(touch.x, touch.y)
+                {
+                    self.poll_count = 0;
+                    self.last_fetch = None;
+                    self.kick_fetch(display);
+                    return Ok(Transition::Redraw);
                 }
 
                 // Per-section pagination: each section pages independently.
@@ -493,6 +572,8 @@ impl Screen for InvitesScreen {
         self.last_fetch = None;
         self.challenges = None;
         self.error = None;
+        // Review fix: reset poll cycle so auto-polling resumes on re-entry.
+        self.poll_count = 0;
     }
 }
 
@@ -511,6 +592,9 @@ mod invites_tests {
             url: url.into(),
             rated: false,
             open: false,
+            rating: None,
+            speed: None,
+            time_control: None,
         }
     }
 
@@ -523,6 +607,9 @@ mod invites_tests {
             url: "https://lichess.org/".into(),
             rated: false,
             open: true,
+            rating: None,
+            speed: None,
+            time_control: None,
         }
     }
 
@@ -606,5 +693,89 @@ mod invites_tests {
         assert!(s.outgoing_visible(0));
         assert!(s.outgoing_visible(1));
         assert!(!s.outgoing_visible(2));
+    }
+
+    /// e07s03: pagination icon rects must not intersect any action-button rect.
+    #[test]
+    fn pagination_icons_do_not_overlap_action_buttons() {
+        let s = InvitesScreen::new(ChessApp::new_offline(), test_config());
+        let pag_rects = [
+            s.incoming_prev.rect,
+            s.incoming_next.rect,
+            s.outgoing_prev.rect,
+            s.outgoing_next.rect,
+        ];
+        // e07s11: accept/decline are IconButtons, cancel is Button — collect separately.
+        let mut action_rects: Vec<_> = s.incoming_accept.iter().map(|b| b.rect).collect();
+        action_rects.extend(s.incoming_decline.iter().map(|b| b.rect));
+        action_rects.extend(s.outgoing_cancel.iter().map(|b| b.rect));
+        for pr in &pag_rects {
+            for ar in &action_rects {
+                assert!(
+                    !rects_intersect(pr, ar),
+                    "pagination rect (x={},y={},w={},h={}) intersects action rect (x={},y={},w={},h={})",
+                    pr.x,
+                    pr.y,
+                    pr.width,
+                    pr.height,
+                    ar.x,
+                    ar.y,
+                    ar.width,
+                    ar.height
+                );
+            }
+        }
+    }
+
+    fn rects_intersect(a: &crate::ui::events::Rectangle, b: &crate::ui::events::Rectangle) -> bool {
+        // Standard AABB overlap test (edges exclusive).
+        a.x < b.x + b.width as i16
+            && a.x + a.width as i16 > b.x
+            && a.y < b.y + b.height as i16
+            && a.y + a.height as i16 > b.y
+    }
+
+    /// e07s05: poll cycle starts at 0, refresh resets it.
+    #[test]
+    fn poll_cycle_state_machine() {
+        let mut s = InvitesScreen::new(ChessApp::new_offline(), test_config());
+        assert_eq!(s.poll_count, 0);
+        assert!(s.poll_count < MAX_POLLS); // auto-polling active
+        // Simulate MAX_POLLS completed polls.
+        s.poll_count = MAX_POLLS;
+        assert!(!(s.poll_count < MAX_POLLS)); // refresh button should show
+        // Refresh resets the cycle.
+        s.poll_count = 0;
+        assert!(s.poll_count < MAX_POLLS);
+    }
+
+    /// e07s06: label includes rating + time control + rated badge when present.
+    #[test]
+    fn label_includes_details() {
+        let mut s = InvitesScreen::new(ChessApp::new_offline(), test_config());
+        let mut c = ch("in1", "created", "u", true);
+        c.rating = Some(1500);
+        c.time_control = Some("10+5".into());
+        c.rated = true;
+        s.challenges = Some(Arc::new(vec![c]));
+        s.set_rows();
+        let label = &s.incoming_name[0].label;
+        assert!(label.contains("1500"), "label missing rating: {label}");
+        assert!(
+            label.contains("10+5"),
+            "label missing time control: {label}"
+        );
+        assert!(label.contains("created"), "label missing status: {label}");
+    }
+
+    /// e07s06: label without rating/time control falls back to name + status.
+    #[test]
+    fn label_without_details() {
+        let mut s = InvitesScreen::new(ChessApp::new_offline(), test_config());
+        s.challenges = Some(Arc::new(vec![ch("in1", "created", "u", true)]));
+        s.set_rows();
+        let label = &s.incoming_name[0].label;
+        assert!(label.contains('X'), "label missing opponent: {label}");
+        assert!(label.contains("created"), "label missing status: {label}");
     }
 }

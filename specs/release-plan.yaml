@@ -147,7 +147,7 @@ epics:
     bcps: 2
     delta: ADDED
 - id: e07-ui-enhancements
-  status: sliced (tasks populated; ready for kickoff)
+  status: "done (27 commits on e07-ui-enhancements @ 5979ac0, 2026-11-13 — 12 stories s01-s12 + 6 user-fix commits; gates green 283 tests / clippy / fmt; ready for PR/merge via release-branch)"
   wsjf_order: 3
   scope: specs/product/SCOPE_LATEST.yaml
   planning_context: specs/planning-context.yaml

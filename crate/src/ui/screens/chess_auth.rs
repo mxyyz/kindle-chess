@@ -71,6 +71,14 @@ impl Screen for ChessAuthScreen {
         }
 
         display.renderer.clear(DrawColor::White)?;
+        // e07s02: uniform title bar.
+        {
+            let loc = crate::i18n::locale_of(&self.config);
+            crate::ui::layout::draw_title_bar(
+                &mut display.renderer,
+                &crate::i18n::tr(&loc, "auth-title"),
+            )?;
+        }
         if let Some(ref img) = self.qr_image {
             display.renderer.draw_image(
                 self.qr_code.x,

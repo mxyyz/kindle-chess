@@ -3,8 +3,9 @@ home-play = Play
 home-puzzle = Puzzle
 home-ongoing = Ongoing Games
 home-settings = Settings
+home-new-daily = New Daily
 
-play-title = Play vs friend
+play-title = New Game
 play-mode-unlimited = Unlimited
 play-mode-realtime = Real time 10:5
 play-mode-correspondence = Correspondence
@@ -112,3 +113,11 @@ update-size-mb = ({$mb} MB)
 update-bundle-contents = Bundle: binary + assets + launcher
 update-bundle-hint = Verified and staged — relaunch to install.
 update-staged-relaunch = Quit and relaunch to finish installing.
+
+picker-select = Select
+picker-cancel = Cancel
+ongoing-title = Ongoing Games
+auth-title = Sign in to Lichess
+puzzle-title = Daily Puzzle
+ongoing-rating = Rating: {$rating}
+ongoing-mode = Mode: {$mode}

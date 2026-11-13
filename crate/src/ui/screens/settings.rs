@@ -86,15 +86,7 @@ impl Screen for SettingsScreen {
         self.check_update_button.label = tr(&loc, "settings-check-update");
         self.back_button.label = tr(&loc, "settings-back");
         let title = tr(&loc, "home-settings");
-        let title_size = 56.0;
-        let (tw, _) = display.renderer.measure_text(&title, title_size);
-        display.renderer.draw_text(
-            (layout::SCREEN_W - tw as i16) / 2,
-            120,
-            &title,
-            title_size,
-            DrawColor::Black,
-        )?;
+        layout::draw_page_title(&mut display.renderer, &title)?;
 
         // Version block
         let info_size = 28.0;

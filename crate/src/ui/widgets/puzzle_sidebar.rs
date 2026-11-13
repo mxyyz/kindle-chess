@@ -87,7 +87,7 @@ impl PuzzleSidebarWidget {
             status_icon: StatusIcon::None,
             rating: None,
             themes: String::new(),
-            check_icon: load_icon("check.png"),
+            check_icon: load_icon("correct.png"),
             x_icon: load_icon("x.png"),
             status_band: Rectangle::new(centered(600), area.y + 32, 600, 72),
             info_band: Rectangle::new(centered(600), area.y + 120, 600, 92),

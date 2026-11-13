@@ -33,6 +33,49 @@ pub const SIDEBAR_H: u16 = SCREEN_H_U16 - SCREEN_W_U16;
 /// Icon button footprint = one chess cell.
 pub const ICON_BUTTON_SIZE: u16 = SQUARE_SIZE;
 
+/// Y position for title bars.
+pub const TITLE_Y: i16 = 120;
+/// Font size for ALL screen titles — e07s09: unified to 56px (Settings-page size).
+pub const TITLE_FONT: f32 = 56.0;
+/// Alias for backward compat — same as TITLE_FONT now.
+pub const PAGE_TITLE_Y: i16 = TITLE_Y;
+/// Alias — same as TITLE_FONT now.
+pub const PAGE_TITLE_FONT: f32 = TITLE_FONT;
+
+/// Draw a centered list-screen title bar (36px, y=120).
+pub fn draw_title_bar(
+    renderer: &mut crate::ui::renderer::Renderer,
+    title: &str,
+) -> Result<(), Box<dyn std::error::Error>> {
+    use crate::ui::renderer::DrawColor;
+    let (tw, _) = renderer.measure_text(title, TITLE_FONT);
+    renderer.draw_text(
+        (SCREEN_W - tw as i16) / 2,
+        TITLE_Y,
+        title,
+        TITLE_FONT,
+        DrawColor::Black,
+    )?;
+    Ok(())
+}
+
+/// Draw a centered full-page title (56px, y=120).
+pub fn draw_page_title(
+    renderer: &mut crate::ui::renderer::Renderer,
+    title: &str,
+) -> Result<(), Box<dyn std::error::Error>> {
+    use crate::ui::renderer::DrawColor;
+    let (tw, _) = renderer.measure_text(title, PAGE_TITLE_FONT);
+    renderer.draw_text(
+        (SCREEN_W - tw as i16) / 2,
+        PAGE_TITLE_Y,
+        title,
+        PAGE_TITLE_FONT,
+        DrawColor::Black,
+    )?;
+    Ok(())
+}
+
 /// Default button width used by most screens.
 pub const BTN_W: u16 = 600;
 /// Default button height used by most screens.
@@ -71,5 +114,14 @@ mod tests {
     fn center_is_half() {
         assert_eq!(CENTER_X, SCREEN_W / 2);
         assert_eq!(CENTER_Y, SCREEN_H / 2);
+    }
+
+    #[test]
+    fn title_constants_are_sane() {
+        // e07s09: all titles unified to 56px.
+        assert_eq!(TITLE_Y, 120);
+        assert_eq!(TITLE_FONT, 56.0);
+        assert_eq!(PAGE_TITLE_Y, TITLE_Y);
+        assert_eq!(PAGE_TITLE_FONT, TITLE_FONT);
     }
 }

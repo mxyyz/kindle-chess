@@ -3,8 +3,9 @@ home-play = Spielen
 home-puzzle = Aufgabe
 home-ongoing = Laufende Partien
 home-settings = Einstellungen
+home-new-daily = Neues Daily
 
-play-title = Gegen Freund spielen
+play-title = Neue Partie
 play-mode-unlimited = Unbegrenzt
 play-mode-realtime = Echtzeit 10:5
 play-mode-correspondence = Fernschach
@@ -112,3 +113,11 @@ update-size-mb = ({$mb} MB)
 update-bundle-contents = Paket: Binärdatei + Assets + Launcher
 update-bundle-hint = Geprüft und bereitgelegt — Neustart installiert.
 update-staged-relaunch = Beenden und neu starten zum Abschließen.
+
+picker-select = Auswählen
+picker-cancel = Abbrechen
+ongoing-title = Laufende Partien
+auth-title = Bei Lichess anmelden
+puzzle-title = Tagesaufgabe
+ongoing-rating = Wertung: {$rating}
+ongoing-mode = Modus: {$mode}

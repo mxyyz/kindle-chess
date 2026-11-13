@@ -157,14 +157,7 @@ impl Screen for FriendlistScreen {
         // Title strip
         let loc = i18n::locale_of(&self.config);
         let title = tr(&loc, "friends-title");
-        let (tw, _) = display.renderer.measure_text(&title, 36.0);
-        display.renderer.draw_text(
-            (layout::SCREEN_W - tw as i16) / 2,
-            120,
-            &title,
-            36.0,
-            DrawColor::Black,
-        )?;
+        layout::draw_title_bar(&mut display.renderer, &title)?;
 
         let size_px = 24.0;
         if let Some(err) = &self.error {
@@ -199,8 +192,13 @@ impl Screen for FriendlistScreen {
                 self.friend_button_3.draw(&mut display.renderer)?;
             }
             self.back_button.draw(&mut display.renderer)?;
-            self.next_page_button.draw(&mut display.renderer)?;
-            self.prev_page_button.draw(&mut display.renderer)?;
+            // e07s04: conditional pagination.
+            if self.page_index + 1 < self.page_count() {
+                self.next_page_button.draw(&mut display.renderer)?;
+            }
+            if self.page_index > 0 {
+                self.prev_page_button.draw(&mut display.renderer)?;
+            }
         } else {
             let label = tr(&loc, "friends-loading");
             let (tw, th) = display.renderer.measure_text(&label, size_px);

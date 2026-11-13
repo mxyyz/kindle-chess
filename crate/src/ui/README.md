@@ -61,8 +61,9 @@ Details that matter:
   pick up their square's colour.
 - **`draw_text`** rasterises with `fontdue` into a transient greyscale buffer initialised
   to white, then `put_image`s it. Consequence: **text always paints an opaque white
-  background box**. There is no transparent text. `size_px` is cap height; Adwaita Sans
-  cap ≈ 0.7 × em. The font is `include_bytes!`-embedded, so no asset file is needed.
+  background box** (use `draw_text_on_bg` for transparent-on-color text). `size_px` is
+  the font size in pixels. The font is `include_bytes!`-embedded (Ithaca-LVB75.ttf),
+  so no asset file is needed at runtime.
 - **`present()`** flushes only when `dirty` is set. `Drop` destroys the window.
 
 ## `events.rs`
@@ -210,4 +211,4 @@ against `env!("ASSETS_DIR")` and returns `None` with a warning on failure, so a 
 PNG degrades to an invisible-but-still-tappable button rather than a crash.
 
 Icons in use: `back-nav.png`, `back-page.png`, `next-page.png`, `settings.png`,
-`hint.png`, `check.png`, `x.png`, `logo.png`.
+`hint.png`, `correct.png`, `x.png`, `logo.png`.

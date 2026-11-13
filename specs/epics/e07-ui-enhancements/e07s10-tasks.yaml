@@ -1,0 +1,36 @@
+---
+# Story e07s10 — auto-rerender fix + Home puzzle badge fetch.
+story_id: e07s10
+title: "Periodic render after bootstrap drives polls; Home puzzle badge fetch"
+status: todo
+bcps: 5
+delta: MODIFIED
+tasks:
+  - id: e07s10t01
+    description: >-
+      runner.rs: after bootstrap (x11_alive), on recv_timeout timeout, call
+      screen.render() periodically (e.g. every 100ms like bootstrap path) so
+      poll checks in render() fire automatically.
+    verify: "cd crate && cargo build 2>&1 | tail -1 | grep -q 'Finished'"
+    status: todo
+  - id: e07s10t02
+    description: >-
+      ongoing_games.rs: on OngoingGamesLoaded, if current page has no visible
+      games but list is non-empty, reset page_index to 0 and set_page(0).
+    verify: "cd crate && cargo test --lib ongoing_games 2>&1 | grep -q 'test result: ok'"
+    status: todo
+  - id: e07s10t03
+    description: >-
+      home.rs: on first render when app is online, kick a daily-puzzle-status
+      fetch; on arrival set puzzle_badge = true. Add AppEvent variant or reuse
+      existing puzzle events.
+    verify: "cd crate && cargo build 2>&1 | tail -1 | grep -q 'Finished' && grep -q 'puzzle_badge = true' crate/src/ui/screens/home.rs"
+    status: todo
+  - id: e07s10t04
+    description: "Unit tests: page reset on new data, badge state"
+    verify: "cd crate && cargo test --lib ongoing_games 2>&1 | grep -q 'test result: ok' && cargo test --lib home 2>&1 | grep -q 'test result: ok'"
+    status: todo
+  - id: e07s10t05
+    description: "Full gates: test + clippy -D warnings + fmt"
+    verify: "cd crate && cargo test 2>&1 | grep -q 'test result: ok' && cargo clippy --all-targets -- -D warnings 2>&1 | tail -1 | grep -q 'Finished' && cargo fmt --check && echo GATES-OK"
+    status: todo

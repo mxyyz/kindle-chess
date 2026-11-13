@@ -1,29 +1,33 @@
 session:
   active_flow: build_epic
-  active_epic: e06-play-form-enhancements (done); e11-random-opponent-seek planned next (release cycle 3)
-  active_story: none — e06 done; e11 capsule planned (specs/epics/e11-random-opponent-seek/)
-  phase: "kickoff done 2026-11-11 — worktree /home/mxy/repos/e06-play-form-enhancements on branch e06-play-form-enhancements @ 55d8e94; preflight green on main (build/test 9x ok/clippy -D warnings/fmt)"
+  active_epic: e07-ui-enhancements (release cycle 2, wsjf_order 3) — ALL STORIES + USER FIXES DONE
+  active_story: none — e07 complete including 6 user-reported fix commits; next epic e08-settings-tabs
+  phase: "e07 done 2026-11-13 — 27 commits on e07-ui-enhancements @ 5979ac0 (12 stories s01-s12 + 6 fix rounds: poll flicker, daily badge correctness+45° text, Play dirty-rect partial redraw, board label styling, font switch to Ithaca-LVB75); gates green (build / 283 tests / clippy -D warnings / fmt)"
 vcs:
   kind: git
-  branch: e06-play-form-enhancements
-  head: 55d8e94
-  worktree: /home/mxy/repos/e06-play-form-enhancements
+  branch: e07-ui-enhancements
+  head: 5979ac0
+  worktree: /home/mxy/repos/e07-ui-enhancements
 handoff:
-  last_step_completed: e06 finished — Random button disabled + relabeled "coming soon"; final gates incl. armv7 cross green on e06-play-form-enhancements; BUG-2026-11-11T145208 + T153246 + label-margin + blank-row fixes committed (ae7134c, de49136, 9077cda, 28a42e8); random-opponent-seek moved from e06.5 to release cycle 3 as e11 — capsule specs/epics/e11-random-opponent-seek/ (POST /api/board/seek held-open + GET /api/stream/event first), impact specs/IMPACT_LATEST.md; e07+ untouched
+  last_step_completed: e07 complete — all 12 stories (s01-s12) + 6 user-fix commits (4a7d424, 84533d6, 5e0f539, 03eb45f, 39ab03b, 5979ac0) addressing poll flicker, daily badge, Play partial redraw, board labels, font switch; 283 tests / clippy / fmt green 2026-11-13; ready for release-branch (PR + merge to main)
   open_decisions:
   - On-device UAT of the v0.5.0 bundle update needs the k2 on the LAN (device currently holds v0.4.0 + new infra)
+  - armv7 cross build not re-run after fix commits (container runtime issue in dev env); changes are pure Rust, no platform-specific code
   required_reading:
   - CLAUDE.md
   - specs/product/SCOPE_LATEST.yaml
   - specs/planning-context.yaml
   - specs/release-plan.yaml
-  - specs/epics/e06-play-form-enhancements/epic.yaml
-  next_skill: kickoff-branch for e11, then develop-tdd e11s01..s04 (do not touch e07+)
+  - specs/epics/e07-ui-enhancements/epic.yaml
+  next_skill: release-branch (open PR for e07-ui-enhancements, merge to main)
 notes:
   e02-e05: merged to main; tags v0.1.2-v0.5.0 present
-  e06-e10: sliced 2026-11-10 (release cycle 2); per-story -tasks.yaml populated, plan-ready
+  e06: merged to main via PR #42 (0648ffe, v0.5.0)
+  e07: 27 commits on e07-ui-enhancements @ 5979ac0, ready to merge
+  e08-e10: sliced 2026-11-10 (release cycle 2); per-story -tasks.yaml populated, plan-ready
+  e11: planned for release cycle 3
   ci: '.github/workflows/rust.yml — cargo test + cross build on push/PR (working-directory: crate)'
 metrics:
-  reconciled: 2026-11-11T10:23:33Z
+  reconciled: 2026-11-13T00:17:18Z
 release:
   last_tag: v0.5.0

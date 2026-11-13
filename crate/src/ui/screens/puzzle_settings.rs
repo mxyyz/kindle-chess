@@ -105,15 +105,7 @@ impl Screen for PuzzleSettingsScreen {
         // switches and the current param values).
         let loc = i18n::locale_of(&self.config);
         let title = tr(&loc, "puzzle-settings-title");
-        let title_size = 56.0;
-        let (tw, _) = display.renderer.measure_text(&title, title_size);
-        display.renderer.draw_text(
-            (layout::SCREEN_W - tw as i16) / 2,
-            150,
-            &title,
-            title_size,
-            DrawColor::Black,
-        )?;
+        layout::draw_page_title(&mut display.renderer, &title)?;
 
         self.difficulty_button.label = i18n::t(
             &loc,

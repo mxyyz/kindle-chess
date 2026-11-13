@@ -307,6 +307,12 @@ pub struct ChallengeSummary {
     /// Open challenge (Random opponent, `destUser: null`) — listed as
     /// outgoing with a localized label instead of a blank opponent (e06s08).
     pub open: bool,
+    /// e07s06: challenger/dest rating for detail display.
+    pub rating: Option<u32>,
+    /// e07s06: speed category string (e.g. "blitz", "rapid").
+    pub speed: Option<String>,
+    /// e07s06: human-readable time control (e.g. "10+5", "3 days").
+    pub time_control: Option<String>,
 }
 
 /// An AI game created via `POST /api/challenge/ai` (e06s06). The game starts
@@ -589,6 +595,9 @@ mod tests {
             url: "https://lichess.org/abc".into(),
             rated: false,
             open: false,
+            rating: None,
+            speed: None,
+            time_control: None,
         };
         assert_eq!(c.game_id(), None);
     }
@@ -603,6 +612,9 @@ mod tests {
             url: "https://lichess.org/XyZ123ab".into(),
             rated: false,
             open: false,
+            rating: None,
+            speed: None,
+            time_control: None,
         };
         assert_eq!(c.game_id(), Some("XyZ123ab"));
     }
@@ -659,6 +671,9 @@ mod tests {
             url: "https://lichess.org/abc".into(),
             rated: true,
             open: false,
+            rating: None,
+            speed: None,
+            time_control: None,
         };
         assert!(c.rated);
     }

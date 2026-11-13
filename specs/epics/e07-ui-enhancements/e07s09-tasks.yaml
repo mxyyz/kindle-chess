@@ -1,0 +1,27 @@
+---
+# Story e07s09 — uniform 56px titles everywhere + Play title rename.
+story_id: e07s09
+title: "Uniform title font (56px) on all screens + play-title → New Game / Neue Partie"
+status: todo
+bcps: 3
+delta: MODIFIED
+tasks:
+  - id: e07s09t01
+    description: >-
+      layout.rs: set TITLE_FONT = 56.0 so draw_title_bar and draw_page_title
+      use the same size; or merge into one function. Update layout tests.
+    verify: "cd crate && cargo test --lib layout 2>&1 | grep -q 'test result: ok'"
+    status: todo
+  - id: e07s09t02
+    description: >-
+      i18n: en.ftl play-title = New Game; de.ftl play-title = Neue Partie.
+    verify: "grep -q 'play-title = New Game' crate/i18n/en.ftl && grep -q 'play-title = Neue Partie' crate/i18n/de.ftl"
+    status: todo
+  - id: e07s09t03
+    description: "All screens compile with unified title size"
+    verify: "cd crate && cargo build 2>&1 | tail -1 | grep -q 'Finished'"
+    status: todo
+  - id: e07s09t04
+    description: "Full gates: test + clippy -D warnings + fmt"
+    verify: "cd crate && cargo test 2>&1 | grep -q 'test result: ok' && cargo clippy --all-targets -- -D warnings 2>&1 | tail -1 | grep -q 'Finished' && cargo fmt --check && echo GATES-OK"
+    status: todo
