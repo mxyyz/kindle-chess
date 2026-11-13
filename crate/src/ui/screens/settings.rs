@@ -273,6 +273,17 @@ impl SettingsScreen {
         &self,
         renderer: &mut crate::ui::renderer::Renderer,
     ) -> Result<(), Box<dyn std::error::Error>> {
+        // If no icons loaded, draw a text fallback so the button isn't blank.
+        if self.chrome_icons.iter().all(|i| i.is_none()) {
+            let label = "wifi / settings / brightness";
+            let (tw, th) = renderer.measure_text(label, 28.0);
+            let tx =
+                self.chrome_button.rect.x + (self.chrome_button.rect.width as i16 - tw as i16) / 2;
+            let ty =
+                self.chrome_button.rect.y + (self.chrome_button.rect.height as i16 - th as i16) / 2;
+            renderer.draw_text(tx, ty, label, 28.0, DrawColor::Black)?;
+            return Ok(());
+        }
         let icon_size: i16 = 56;
         let gap: i16 = 12;
         let sep = "/";
@@ -443,6 +454,25 @@ impl Screen for SettingsScreen {
         match self.active_tab {
             SettingsTab::General => {
                 self.orientation_button.draw(&mut display.renderer)?;
+                // e08 follow-up: board orientation is deferred — draw a 45°
+                // "Coming soon.." label on the button's top-right corner.
+                {
+                    let label = tr(&loc, "coming-soon");
+                    let (tw, _) = display.renderer.measure_text(&label, 16.0);
+                    let bx = self.orientation_button.rect.x
+                        + self.orientation_button.rect.width as i16
+                        - tw as i16 / 2
+                        - 8;
+                    let by = self.orientation_button.rect.y - 2;
+                    display.renderer.draw_text_rotated45(
+                        bx,
+                        by,
+                        &label,
+                        16.0,
+                        DrawColor::Black,
+                        DrawColor::White,
+                    )?;
+                }
                 self.board_labels_button.draw(&mut display.renderer)?;
                 // Chrome toggle button with 3 icons (wifi / device_settings / brightness)
                 self.chrome_button.draw(&mut display.renderer)?;
@@ -509,14 +539,8 @@ impl Screen for SettingsScreen {
 
                 // General tab actions (shared across all contexts)
                 if self.active_tab == SettingsTab::General {
-                    if self.orientation_button.rect.contains(touch.x, touch.y) {
-                        if let Ok(mut c) = self.config.write() {
-                            c.general.board_orientation = c.general.board_orientation.next();
-                            info!("Board orientation: {:?}", c.general.board_orientation);
-                            c.save();
-                        }
-                        return Ok(Transition::Redraw);
-                    }
+                    // Board orientation is deferred (coming soon) — button is
+                    // visually labelled but has no touch reaction.
                     if self.board_labels_button.rect.contains(touch.x, touch.y) {
                         if let Ok(mut c) = self.config.write() {
                             c.board_labels = !c.board_labels;
@@ -779,8 +803,12 @@ mod settings_tests {
     #[test]
     fn chrome_icons_loaded() {
         let s = make_screen();
-        // Icons may be None if assets are missing in the test env, but the
-        // array must exist and have 3 slots.
         assert_eq!(s.chrome_icons.len(), 3);
+        // Icons must actually load from ASSETS_DIR — if any is None the
+        // button would render blank (regression: icons were missing from
+        // the dev ASSETS_DIR path).
+        for (i, icon) in s.chrome_icons.iter().enumerate() {
+            assert!(icon.is_some(), "chrome icon slot {i} failed to load");
+        }
     }
 }

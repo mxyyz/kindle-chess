@@ -55,6 +55,7 @@ orient-white = Weiß
 orient-black = Schwarz
 toggle-on = An
 toggle-off = Aus
+coming-soon = Kommt bald..
 
 common-loading = Lädt…
 common-error = Fehler: {$error}
