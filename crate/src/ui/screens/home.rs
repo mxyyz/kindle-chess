@@ -167,11 +167,11 @@ impl Screen for HomeScreen {
             // Position the rotated text so it sits on the top-right corner of
             // the button, running diagonally down-right.
             // Clockwise 45°: text runs top-left → bottom-right (\ direction).
-            // Anchor the blit origin so the text sits on the top-right corner.
-            let bx =
-                self.puzzle_button.rect.x + self.puzzle_button.rect.width as i16 - tw as i16 + 4;
-            let by = self.puzzle_button.rect.y - 8;
-            let _ = th;
+            // Anchor offset: half the text width right, 25% of height up.
+            let bx = self.puzzle_button.rect.x + self.puzzle_button.rect.width as i16 - tw as i16
+                + 4
+                + tw as i16 / 2;
+            let by = self.puzzle_button.rect.y - 8 - th as i16 / 4;
             display.renderer.draw_text_rotated45(
                 bx,
                 by,
