@@ -316,10 +316,8 @@ impl Screen for ChessGameScreen {
                 Ok(Transition::Redraw)
             }
 
-            // Sidebar top.png button: toggle the Kindle status bar (PC:T)
-            // over the app window. Handled here (not in the app loop) because
-            // the sidebar re-emits widget events via this screen-local
-            // recursion — an app-loop handler would never see them.
+            // Chrome-mode toggle (formerly the top.png sidebar button; now
+            // handled directly in SettingsScreen). Kept as a fallback handler.
             AppEvent::ToggleTopBar => {
                 let new_mode = !display.chrome_mode();
                 info!("ToggleTopBar — chrome mode -> {}", new_mode);

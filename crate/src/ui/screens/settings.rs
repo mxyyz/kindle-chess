@@ -16,7 +16,10 @@ use crate::{
     ui::{
         events::{AppEvent, RectangleExt, TouchKind},
         renderer::DrawColor,
-        widgets::Button,
+        widgets::{
+            Button,
+            icon_button::{Icon, load_icon},
+        },
     },
     utils::config::{AppConfig, BoardOrientation},
     version,
@@ -56,11 +59,14 @@ pub struct SettingsScreen {
     // Tab toggle buttons (side by side at top)
     tab_primary_button: Button,
     tab_general_button: Button,
-    // General tab buttons
-    language_button: Button,
+    // General tab buttons (shared across all contexts)
     orientation_button: Button,
-    auto_update_button: Button,
     board_labels_button: Button,
+    chrome_button: Button,
+    chrome_icons: [Option<Icon>; 3],
+    // Home-specific primary-tab buttons (context == General)
+    language_button: Button,
+    auto_update_button: Button,
     check_update_button: Button,
     // Puzzle primary-tab buttons (context == Puzzle)
     puzzle_params: PuzzleParams,
@@ -132,6 +138,40 @@ impl SettingsScreen {
                 34.0,
                 true,
             ),
+            // General tab (shared): orientation, board labels, chrome toggle
+            orientation_button: Button::new(
+                x,
+                content_y,
+                BTN_W,
+                BTN_H,
+                String::from("Board orientation"),
+                38.0,
+                true,
+            ),
+            board_labels_button: Button::new(
+                x,
+                content_y + stride,
+                BTN_W,
+                BTN_H,
+                String::from("Board labels"),
+                38.0,
+                true,
+            ),
+            chrome_button: Button::new(
+                x,
+                content_y + 2 * stride,
+                BTN_W,
+                BTN_H,
+                String::from(""),
+                38.0,
+                true,
+            ),
+            chrome_icons: [
+                load_icon("wifi.png"),
+                load_icon("device_settings.png"),
+                load_icon("brightness.png"),
+            ],
+            // Home-specific primary tab: language, auto-update, check update
             language_button: Button::new(
                 x,
                 content_y,
@@ -141,36 +181,18 @@ impl SettingsScreen {
                 38.0,
                 true,
             ),
-            orientation_button: Button::new(
-                x,
-                content_y + stride,
-                BTN_W,
-                BTN_H,
-                String::from("Board orientation"),
-                38.0,
-                true,
-            ),
             auto_update_button: Button::new(
                 x,
-                content_y + 2 * stride,
+                content_y + stride,
                 BTN_W,
                 BTN_H,
                 String::from("Auto-check updates"),
                 38.0,
                 true,
             ),
-            board_labels_button: Button::new(
-                x,
-                content_y + 3 * stride,
-                BTN_W,
-                BTN_H,
-                String::from("Board labels"),
-                38.0,
-                true,
-            ),
             check_update_button: Button::new(
                 x,
-                content_y + 4 * stride,
+                content_y + 2 * stride,
                 BTN_W,
                 BTN_H,
                 String::from("Check for updates"),
@@ -243,6 +265,42 @@ impl SettingsScreen {
                 true,
             ),
         }
+    }
+
+    /// Draw the 3 icons (wifi / device_settings / brightness) centred inside
+    /// the chrome button, separated by "/" text.
+    fn draw_chrome_icons(
+        &self,
+        renderer: &mut crate::ui::renderer::Renderer,
+    ) -> Result<(), Box<dyn std::error::Error>> {
+        let icon_size: i16 = 56;
+        let gap: i16 = 12;
+        let sep = "/";
+        let (sep_w, _) = renderer.measure_text(sep, 32.0);
+        let sep_w = sep_w as i16;
+        let total_w = 3 * icon_size + 2 * (sep_w + 2 * gap);
+        let mut cx =
+            self.chrome_button.rect.x + (self.chrome_button.rect.width as i16 - total_w) / 2;
+        let cy =
+            self.chrome_button.rect.y + (self.chrome_button.rect.height as i16 - icon_size) / 2;
+        for (i, icon) in self.chrome_icons.iter().enumerate() {
+            if i > 0 {
+                renderer.draw_text(cx, cy + icon_size / 2, sep, 32.0, DrawColor::Black)?;
+                cx += sep_w + 2 * gap;
+            }
+            if let Some(icon) = icon {
+                renderer.draw_image_alpha(
+                    cx,
+                    cy,
+                    icon_size as u16,
+                    icon_size as u16,
+                    icon,
+                    DrawColor::White,
+                )?;
+            }
+            cx += icon_size;
+        }
+        Ok(())
     }
 
     /// Draw a tab button — active tab is filled black with white text.
@@ -384,21 +442,25 @@ impl Screen for SettingsScreen {
 
         match self.active_tab {
             SettingsTab::General => {
-                self.language_button.draw(&mut display.renderer)?;
                 self.orientation_button.draw(&mut display.renderer)?;
-                self.auto_update_button.draw(&mut display.renderer)?;
                 self.board_labels_button.draw(&mut display.renderer)?;
-                self.check_update_button.draw(&mut display.renderer)?;
+                // Chrome toggle button with 3 icons (wifi / device_settings / brightness)
+                self.chrome_button.draw(&mut display.renderer)?;
+                self.draw_chrome_icons(&mut display.renderer)?;
             }
             SettingsTab::Primary => match self.context {
                 SettingsContext::General => {
+                    // Home-specific: language, auto-update, check for updates
+                    self.language_button.draw(&mut display.renderer)?;
+                    self.auto_update_button.draw(&mut display.renderer)?;
+                    self.check_update_button.draw(&mut display.renderer)?;
                     let info_size = 28.0;
                     let lines = [
                         format!("Version:  {}", version::VERSION),
                         format!("Commit:   {}", version::GIT_SHA),
                         format!("Built:    {}", version::BUILD_TIMESTAMP),
                     ];
-                    let mut y: i16 = 360;
+                    let mut y: i16 = 360 + 3 * (100 + 28);
                     for line in &lines {
                         display
                             .renderer
@@ -427,7 +489,7 @@ impl Screen for SettingsScreen {
     fn handle_event(
         &mut self,
         event: AppEvent,
-        _display: &mut Display,
+        display: &mut Display,
     ) -> Result<Transition, Box<dyn std::error::Error>> {
         match event {
             AppEvent::Touch(touch) => {
@@ -445,8 +507,39 @@ impl Screen for SettingsScreen {
                     return Ok(Transition::Redraw);
                 }
 
-                // General tab actions (only when general tab is active)
+                // General tab actions (shared across all contexts)
                 if self.active_tab == SettingsTab::General {
+                    if self.orientation_button.rect.contains(touch.x, touch.y) {
+                        if let Ok(mut c) = self.config.write() {
+                            c.general.board_orientation = c.general.board_orientation.next();
+                            info!("Board orientation: {:?}", c.general.board_orientation);
+                            c.save();
+                        }
+                        return Ok(Transition::Redraw);
+                    }
+                    if self.board_labels_button.rect.contains(touch.x, touch.y) {
+                        if let Ok(mut c) = self.config.write() {
+                            c.board_labels = !c.board_labels;
+                            c.save();
+                        }
+                        return Ok(Transition::Redraw);
+                    }
+                    if self.chrome_button.rect.contains(touch.x, touch.y) {
+                        // Same as the old top.png sidebar button: toggle Kindle
+                        // status bar (PC:T chrome) over the app window.
+                        let new_mode = !display.chrome_mode();
+                        info!("Chrome toggle from settings — chrome mode -> {}", new_mode);
+                        if let Err(e) = display.set_chrome_mode(new_mode) {
+                            log::error!("set_chrome_mode failed: {}", e);
+                        }
+                        return Ok(Transition::Redraw);
+                    }
+                }
+
+                // Primary tab: Home-specific settings (context == General)
+                if self.active_tab == SettingsTab::Primary
+                    && self.context == SettingsContext::General
+                {
                     if self.language_button.rect.contains(touch.x, touch.y) {
                         let next = {
                             let cur = i18n::locale_of(&self.config);
@@ -460,24 +553,9 @@ impl Screen for SettingsScreen {
                         }
                         return Ok(Transition::Redraw);
                     }
-                    if self.orientation_button.rect.contains(touch.x, touch.y) {
-                        if let Ok(mut c) = self.config.write() {
-                            c.general.board_orientation = c.general.board_orientation.next();
-                            info!("Board orientation: {:?}", c.general.board_orientation);
-                            c.save();
-                        }
-                        return Ok(Transition::Redraw);
-                    }
                     if self.auto_update_button.rect.contains(touch.x, touch.y) {
                         if let Ok(mut c) = self.config.write() {
                             c.general.auto_update_check = !c.general.auto_update_check;
-                            c.save();
-                        }
-                        return Ok(Transition::Redraw);
-                    }
-                    if self.board_labels_button.rect.contains(touch.x, touch.y) {
-                        if let Ok(mut c) = self.config.write() {
-                            c.board_labels = !c.board_labels;
                             c.save();
                         }
                         return Ok(Transition::Redraw);
@@ -517,7 +595,7 @@ impl Screen for SettingsScreen {
                                     c.puzzle = self.puzzle_params;
                                     c.save();
                                 }
-                                let _ = _display
+                                let _ = display
                                     .event_tx
                                     .send(AppEvent::ApplyPuzzleParams(self.puzzle_params));
                                 return Ok(Transition::Pop);
@@ -614,7 +692,7 @@ mod settings_tests {
     }
 
     #[test]
-    fn all_general_buttons_on_canvas() {
+    fn all_buttons_on_canvas() {
         let s = make_screen();
         for b in [
             &s.language_button,
@@ -622,9 +700,16 @@ mod settings_tests {
             &s.auto_update_button,
             &s.board_labels_button,
             &s.check_update_button,
+            &s.chrome_button,
             &s.back_button,
             &s.tab_primary_button,
             &s.tab_general_button,
+            &s.puzzle_difficulty_button,
+            &s.puzzle_phase_button,
+            &s.puzzle_color_button,
+            &s.puzzle_fetch_button,
+            &s.resign_button,
+            &s.abort_button,
         ] {
             assert!(b.rect.x >= 0, "button {} off left edge", b.label);
             assert!(b.rect.y >= 0, "button {} off top edge", b.label);
@@ -642,28 +727,35 @@ mod settings_tests {
     }
 
     #[test]
-    fn general_buttons_do_not_overlap_each_other() {
+    fn tab_content_buttons_do_not_overlap_within_tab() {
         let s = make_screen();
-        let buttons = [
-            &s.language_button,
+        // General tab buttons
+        let general = [
             &s.orientation_button,
-            &s.auto_update_button,
             &s.board_labels_button,
+            &s.chrome_button,
+        ];
+        // Home primary tab buttons
+        let home = [
+            &s.language_button,
+            &s.auto_update_button,
             &s.check_update_button,
         ];
-        for i in 0..buttons.len() {
-            for j in (i + 1)..buttons.len() {
-                let a = buttons[i].rect;
-                let b = buttons[j].rect;
-                let overlap = a.x < b.x + b.width as i16
-                    && b.x < a.x + a.width as i16
-                    && a.y < b.y + b.height as i16
-                    && b.y < a.y + a.height as i16;
-                assert!(
-                    !overlap,
-                    "buttons {} and {} overlap",
-                    buttons[i].label, buttons[j].label
-                );
+        for group in [&general[..], &home[..]] {
+            for i in 0..group.len() {
+                for j in (i + 1)..group.len() {
+                    let a = group[i].rect;
+                    let b = group[j].rect;
+                    let overlap = a.x < b.x + b.width as i16
+                        && b.x < a.x + a.width as i16
+                        && a.y < b.y + b.height as i16
+                        && b.y < a.y + a.height as i16;
+                    assert!(
+                        !overlap,
+                        "buttons {} and {} overlap",
+                        group[i].label, group[j].label
+                    );
+                }
             }
         }
     }
@@ -671,9 +763,24 @@ mod settings_tests {
     #[test]
     fn back_button_below_all_content() {
         let s = make_screen();
-        assert!(
-            s.back_button.rect.y
-                >= s.check_update_button.rect.y + s.check_update_button.rect.height as i16
-        );
+        let lowest = [
+            &s.check_update_button,
+            &s.chrome_button,
+            &s.puzzle_fetch_button,
+            &s.abort_button,
+        ]
+        .iter()
+        .map(|b| b.rect.y + b.rect.height as i16)
+        .max()
+        .unwrap();
+        assert!(s.back_button.rect.y >= lowest);
+    }
+
+    #[test]
+    fn chrome_icons_loaded() {
+        let s = make_screen();
+        // Icons may be None if assets are missing in the test env, but the
+        // array must exist and have 3 slots.
+        assert_eq!(s.chrome_icons.len(), 3);
     }
 }
